@@ -45,7 +45,7 @@ export type { RuntimeMessageListenerDependencies } from './runtimeMessageDepende
 
 const INVALID_CLIP_PAYLOAD_ERROR = 'Invalid clip payload received.';
 
-function toReadingClipPayload(data: Record<string, unknown>): unknown {
+function toReadingClipPayload(data: Record<string, unknown>) {
   return {
     markdown: data.content,
     title: data.title,
@@ -58,7 +58,7 @@ function toReadingClipPayload(data: Record<string, unknown>): unknown {
   };
 }
 
-function toVideoClipPayload(data: Record<string, unknown>): unknown {
+function toVideoClipPayload(data: Record<string, unknown>) {
   return {
     markdown: data.content,
     title: data.title,

@@ -38,7 +38,7 @@ export interface SupportPromptMessage {
 }
 
 export interface ClipPipelineDependencies {
-  sendSupportPrompt(tabId: number, message: SupportPromptMessage): Promise<unknown>;
+  sendSupportPrompt(tabId: number, message: SupportPromptMessage): Promise<void>;
   requestLocalVaultPermission?(
     tabId: number,
     message: LocalVaultPermissionPromptMessage

@@ -57,7 +57,7 @@ describe('clip business acknowledgement independent of secondary effects', () =>
     vi.useRealTimers();
   });
 
-  it.each(['notification', 'usage', 'learning'] as const)(
+  it.each<'notification' | 'usage' | 'learning'>(['notification', 'usage', 'learning'])(
     'acknowledges completed write when %s never settles',
     async (effect) => {
       const { handleClipResult } = await import('../../../src/background/pipelines/clipPipeline');

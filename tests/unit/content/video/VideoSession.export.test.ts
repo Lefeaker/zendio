@@ -36,7 +36,7 @@ import {
 const { exportMock, sendPreparedMock } = getVideoSessionHarnessMocks();
 
 describe('VideoSession export', () => {
-  it.each(['unknown', 'saved'] as const)(
+  it.each<'unknown' | 'saved'>(['unknown', 'saved'])(
     'hydrates a %s Video marker with corrupt progress and ordinary Finish never dispatches',
     async (outcome) => {
       vi.useFakeTimers();
@@ -95,7 +95,7 @@ describe('VideoSession export', () => {
       vi.useRealTimers();
     }
   );
-  it.each(['continue', 'edit', 'missing-snapshot'] as const)(
+  it.each<'continue' | 'edit' | 'missing-snapshot'>(['continue', 'edit', 'missing-snapshot'])(
     'preserves the prepared payload and checks %s for attachment recovery',
     async (scenario) => {
       vi.useFakeTimers();
@@ -138,7 +138,11 @@ describe('VideoSession export', () => {
       expect(exportMock).toHaveBeenCalledTimes(1);
       const [draft] = await listVideoDraftCandidates(deps);
       expect(draft?.payload.exportAttempt?.attachmentProgress?.confirmed).toHaveLength(1);
-      if (scenario === 'edit') api.state.captures[0]!.comment = 'Newer note';
+      if (scenario === 'edit') {
+        const capture = api.state.captures[0];
+        if (!capture) throw new Error('Expected the captured video note');
+        capture.comment = 'Newer note';
+      }
       if (scenario === 'missing-snapshot') api.state.frozenExportPayload = undefined;
       api.state.exportRecoveryAction = 'continue';
       await api.finish();
@@ -194,7 +198,9 @@ describe('VideoSession export', () => {
     const [draft] = await listVideoDraftCandidates(deps);
     expect(draft?.payload.exportAttempt).toMatchObject({ outcome: 'unknown' });
     expect(isVideoSessionActive(document)).toBe(true);
-    api.state.captures[0]!.comment = 'New edit after uncertain save';
+    const capture = api.state.captures[0];
+    if (!capture) throw new Error('Expected the captured video note');
+    capture.comment = 'New edit after uncertain save';
     api.state.exportRecoveryAction = 'confirm-saved';
     await api.finish();
     expect(exportMock).toHaveBeenCalledTimes(1);
@@ -224,7 +230,9 @@ describe('VideoSession export', () => {
     await api.finish();
     const [draft] = await listVideoDraftCandidates(deps);
     expect(JSON.stringify(draft?.payload)).not.toContain('"id":"retention-0"');
-    api.state.captures[0]!.comment = 'New edit on oldest capture';
+    const oldest = api.state.captures[0];
+    if (!oldest) throw new Error('Expected the oldest retained live capture');
+    oldest.comment = 'New edit on oldest capture';
     api.state.exportRecoveryAction = 'confirm-saved';
     await api.finish();
     expect(isVideoSessionActive(document)).toBe(true);

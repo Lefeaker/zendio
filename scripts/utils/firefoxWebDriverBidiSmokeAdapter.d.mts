@@ -10,7 +10,7 @@ export function createDeadline(): {
   readonly fenced: boolean;
   fence(): void;
   remaining(): number;
-  run<T>(operation: () => Promise<T>, timeoutMs: number, code: string): Promise<T>;
+  run<T>(this: void, operation: () => Promise<T>, timeoutMs: number, code: string): Promise<T>;
 };
 export const FIREFOX_XPI_SMOKE_TIMEOUTS: Readonly<{
   driverStartMs: 30000;

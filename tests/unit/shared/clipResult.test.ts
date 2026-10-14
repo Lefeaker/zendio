@@ -37,8 +37,8 @@ describe('clip result boundary', () => {
       operationId: 'op_progress1',
       planId: 'a'.repeat(64),
       total: 2,
-      phase: 'attachments' as const,
-      storageTarget: 'downloads' as const,
+      phase: 'attachments',
+      storageTarget: 'downloads',
       confirmed: [
         {
           id: 'one',
@@ -73,28 +73,37 @@ describe('clip result boundary', () => {
   });
   afterEach(() => vi.useRealTimers());
 
-  it.each(['permission', 'connection', 'validation', 'write'] as const)(
-    'preserves %s without transporting raw exception content',
-    (category) => {
-      const result = readClipSaveResult({
-        ...createClipSaveFailure('failed', category, 'prepare'),
-        error: '/private/path secret content',
-        message: { key: 'untrusted', values: { secret: 'private payload' } },
-        stack: 'secret'
-      });
-      expect(result).toMatchObject({
-        success: false,
-        outcome: 'failed',
-        failureCategory: category
-      });
-      expect(JSON.stringify(result)).not.toMatch(/private|secret|untrusted/);
-    }
-  );
+  it.each<'permission' | 'connection' | 'validation' | 'write'>([
+    'permission',
+    'connection',
+    'validation',
+    'write'
+  ])('preserves %s without transporting raw exception content', (category) => {
+    const result = readClipSaveResult({
+      ...createClipSaveFailure('failed', category, 'prepare'),
+      error: '/private/path secret content',
+      message: { key: 'untrusted', values: { secret: 'private payload' } },
+      stack: 'secret'
+    });
+    expect(result).toMatchObject({
+      success: false,
+      outcome: 'failed',
+      failureCategory: category
+    });
+    expect(JSON.stringify(result)).not.toMatch(/private|secret|untrusted/);
+  });
 
   it.each([undefined, null, {}, { success: false }, { error: 'network failed' }])(
     'keeps an unconfirmed legacy or missing result unknown: %j',
     (value) => expect(readClipSaveResult(value)).toMatchObject({ outcome: 'unknown' })
   );
+
+  it.each([null, 42, {}, [], true])('validates a non-string failure category: %j', (category) => {
+    expect(readClipSaveResult({ success: false, failureCategory: category })).toMatchObject({
+      outcome: 'unknown',
+      failureCategory: 'unknown'
+    });
+  });
 
   it('accepts a legacy positive write acknowledgement', () => {
     expect(readClipSaveResult({ success: true, filePath: 'note.md' })).toEqual({
@@ -125,10 +134,11 @@ describe('clip result boundary', () => {
 
   it('bounds a missing reply without issuing a second write or consuming a late success', async () => {
     vi.useFakeTimers();
-    let resolve!: (value: unknown) => void;
+    type DelayedSavedReply = { success: true; filePath: string };
+    let resolve!: (value: DelayedSavedReply) => void;
     const send = vi.fn(
       () =>
-        new Promise((done) => {
+        new Promise<DelayedSavedReply>((done) => {
           resolve = done;
         })
     );

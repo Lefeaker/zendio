@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import path from 'node:path';
+import type { SessionDraftIndex } from '../../src/shared/sessionDrafts/types';
 import { configureSink } from './utils/exportTitleSinks';
 import {
   bilibiliFixtureHtml,
@@ -216,9 +217,11 @@ test('long article, one hundred real highlight gestures and full export', async 
         drafts: await readerDraftRecords(session.extensionPage, page.url()),
         draftIndex: await session.extensionPage.evaluate(
           async () =>
-            (await chrome.storage.local.get<Record<string, unknown>>('aiob.sessionDraft.index.v1'))[
-              'aiob.sessionDraft.index.v1'
-            ]
+            (
+              await chrome.storage.local.get<Record<string, SessionDraftIndex | undefined>>(
+                'aiob.sessionDraft.index.v1'
+              )
+            )['aiob.sessionDraft.index.v1']
         ),
         ui: await page.locator('[data-role="highlight-item"]').evaluateAll((items) =>
           items.map((item) => ({

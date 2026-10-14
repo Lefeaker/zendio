@@ -25,7 +25,7 @@ describe('attachment continuation through the clip processor', () => {
   });
   afterEach(restoreClipProcessorHarnessMocks);
 
-  it.each(['attachment', 'note'] as const)(
+  it.each<'attachment' | 'note'>(['attachment', 'note'])(
     'continues after %s uncertainty without repeating confirmed attachments',
     async (failedPhase) => {
       const files = new Map<string, string>();
@@ -102,7 +102,7 @@ describe('attachment continuation through the clip processor', () => {
     }
   );
 
-  it.each([
+  it.each<'bytes' | 'order' | 'target' | 'path' | 'template' | 'operation' | 'missing-download'>([
     'bytes',
     'order',
     'target',
@@ -110,77 +110,74 @@ describe('attachment continuation through the clip processor', () => {
     'template',
     'operation',
     'missing-download'
-  ] as const)(
-    'refuses old confirmations after %s changes before any further write',
-    async (change) => {
-      const payload = attachmentPayload();
-      downloadMock
-        .mockResolvedValueOnce(1)
-        .mockResolvedValueOnce(2)
-        .mockRejectedValueOnce(new Error('note reply lost'));
-      inspectDownloadMock.mockImplementation((id) =>
-        Promise.resolve({
-          state: 'complete',
-          filename: `/downloads/note/${id === 1 ? 'a' : 'b'}.jpg`,
-          exists: true
-        })
-      );
-      const { processClipPayload, clipProcessingFailureResult } =
-        await import('../../../src/background/application/clipProcessor');
-      const failure = await processClipPayload(payload).then(() => {
-        throw new Error('Expected note uncertainty');
-      }, clipProcessingFailureResult);
-      expect(failure.attachmentProgress?.confirmed).toHaveLength(2);
-      const meta = payload.meta;
-      if (!meta || !meta.attachments || !failure.attachmentProgress)
-        throw new Error('Missing recovery fixture');
-      meta.attachmentProgress = failure.attachmentProgress;
-      if (change === 'bytes')
-        meta.attachments[0] = {
-          id: 'a',
-          fileName: 'a.jpg',
-          mimeType: 'image/jpeg',
-          content: { encoding: 'base64', data: 'Y2Nj', byteLength: 3 }
-        };
-      if (change === 'order') meta.attachments.reverse();
-      if (change === 'operation') meta.operationId = 'op_changed1';
-      if (change === 'path') resolvePathMock.mockReturnValue('Other/changed.md');
-      if (change === 'target') {
-        meta.exportDestination = { kind: 'vault' };
-        selectVaultMock.mockReturnValue({
-          vault: null,
-          restConfig: { baseUrl: 'https://target', vault: 'Changed', apiKey: 'key' }
-        });
-      }
-      if (change === 'template')
-        getOptionsMock.mockResolvedValue({
-          templates: templateOptions,
-          domainMappings: {},
-          rest: {},
-          video: {
-            screenshotAttachment: {
-              locationTemplate: 'changed',
-              fileNameTemplate: '${originalAttachmentFileName}',
-              markdownUrlFormat: ''
-            }
-          }
-        });
-      if (change === 'missing-download')
-        inspectDownloadMock.mockResolvedValue({
-          state: 'complete',
-          filename: '/downloads/note/a.jpg',
-          exists: false
-        });
-      const rejected = await processClipPayload(payload).then(() => {
-        throw new Error('Unexpected continuation');
-      }, clipProcessingFailureResult);
-      expect(rejected).toMatchObject({ outcome: 'unknown', attachmentProgress: { blocked: true } });
-      expect(rejected.attachmentProgress?.confirmed).toHaveLength(2);
-      expect(downloadMock).toHaveBeenCalledTimes(3);
-      expect(writeAttachmentMock).not.toHaveBeenCalled();
-      expect(writeMarkdownMock).not.toHaveBeenCalled();
+  ])('refuses old confirmations after %s changes before any further write', async (change) => {
+    const payload = attachmentPayload();
+    downloadMock
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(2)
+      .mockRejectedValueOnce(new Error('note reply lost'));
+    inspectDownloadMock.mockImplementation((id) =>
+      Promise.resolve({
+        state: 'complete',
+        filename: `/downloads/note/${id === 1 ? 'a' : 'b'}.jpg`,
+        exists: true
+      })
+    );
+    const { processClipPayload, clipProcessingFailureResult } =
+      await import('../../../src/background/application/clipProcessor');
+    const failure = await processClipPayload(payload).then(() => {
+      throw new Error('Expected note uncertainty');
+    }, clipProcessingFailureResult);
+    expect(failure.attachmentProgress?.confirmed).toHaveLength(2);
+    const meta = payload.meta;
+    if (!meta || !meta.attachments || !failure.attachmentProgress)
+      throw new Error('Missing recovery fixture');
+    meta.attachmentProgress = failure.attachmentProgress;
+    if (change === 'bytes')
+      meta.attachments[0] = {
+        id: 'a',
+        fileName: 'a.jpg',
+        mimeType: 'image/jpeg',
+        content: { encoding: 'base64', data: 'Y2Nj', byteLength: 3 }
+      };
+    if (change === 'order') meta.attachments.reverse();
+    if (change === 'operation') meta.operationId = 'op_changed1';
+    if (change === 'path') resolvePathMock.mockReturnValue('Other/changed.md');
+    if (change === 'target') {
+      meta.exportDestination = { kind: 'vault' };
+      selectVaultMock.mockReturnValue({
+        vault: null,
+        restConfig: { baseUrl: 'https://target', vault: 'Changed', apiKey: 'key' }
+      });
     }
-  );
+    if (change === 'template')
+      getOptionsMock.mockResolvedValue({
+        templates: templateOptions,
+        domainMappings: {},
+        rest: {},
+        video: {
+          screenshotAttachment: {
+            locationTemplate: 'changed',
+            fileNameTemplate: '${originalAttachmentFileName}',
+            markdownUrlFormat: ''
+          }
+        }
+      });
+    if (change === 'missing-download')
+      inspectDownloadMock.mockResolvedValue({
+        state: 'complete',
+        filename: '/downloads/note/a.jpg',
+        exists: false
+      });
+    const rejected = await processClipPayload(payload).then(() => {
+      throw new Error('Unexpected continuation');
+    }, clipProcessingFailureResult);
+    expect(rejected).toMatchObject({ outcome: 'unknown', attachmentProgress: { blocked: true } });
+    expect(rejected.attachmentProgress?.confirmed).toHaveLength(2);
+    expect(downloadMock).toHaveBeenCalledTimes(3);
+    expect(writeAttachmentMock).not.toHaveBeenCalled();
+    expect(writeMarkdownMock).not.toHaveBeenCalled();
+  });
 
   it('reuses historical REST attachment confirmations without claiming readback', async () => {
     const payload = attachmentPayload();

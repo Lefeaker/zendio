@@ -94,19 +94,13 @@ export class ErrorHandler {
   private log(error: AppError): void {
     const method = SEVERITY_CONSOLE_METHOD[error.severity] ?? 'error';
     const prefix = `[${error.domain}] ${error.code}`;
-    const payload: Record<string, unknown> = {
+    const payload = {
       message: error.message,
-      recoverable: error.recoverable
+      recoverable: error.recoverable,
+      ...(error.context ? { context: error.context } : {}),
+      ...(error.cause ? { cause: error.cause } : {}),
+      ...(error.timestamp ? { timestamp: error.timestamp } : {})
     };
-    if (error.context) {
-      payload.context = error.context;
-    }
-    if (error.cause) {
-      payload.cause = error.cause;
-    }
-    if (error.timestamp) {
-      payload.timestamp = error.timestamp;
-    }
     // eslint-disable-next-line no-console
     console[method]('[ErrorHandler]', prefix, payload);
   }

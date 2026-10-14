@@ -88,7 +88,7 @@ describe('background clipPipeline', () => {
     expect(notifySuccessMock).not.toHaveBeenCalled();
   });
 
-  it.each(['failure', 'warning'] as const)(
+  it.each<'failure' | 'warning'>(['failure', 'warning'])(
     'keeps diagnostic data out of every %s content message',
     async (status) => {
       const diagnostic: AppError = {
@@ -446,7 +446,8 @@ describe('background clipPipeline', () => {
       if (
         typeof message === 'object' &&
         message !== null &&
-        (message as { type?: unknown }).type === SHOW_LOCAL_VAULT_PERMISSION_PROMPT
+        'type' in message &&
+        message.type === SHOW_LOCAL_VAULT_PERMISSION_PROMPT
       ) {
         return { action: 'granted', permissionState: 'granted' };
       }
@@ -518,7 +519,8 @@ describe('background clipPipeline', () => {
       if (
         typeof message === 'object' &&
         message !== null &&
-        (message as { type?: unknown }).type === SHOW_LOCAL_VAULT_PERMISSION_PROMPT
+        'type' in message &&
+        message.type === SHOW_LOCAL_VAULT_PERMISSION_PROMPT
       ) {
         return { action: 'use-rest', persistRest: true, permissionState: 'denied' };
       }

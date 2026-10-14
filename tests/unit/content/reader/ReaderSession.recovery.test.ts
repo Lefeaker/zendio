@@ -49,64 +49,66 @@ async function createPersistedSession() {
 }
 
 describe('ReaderSession terminal recovery through the background store', () => {
-  it.each(['continue', 'edit', 'missing-snapshot', 'persist-failure'] as const)(
-    'retains confirmed progress and respects %s before another dispatch',
-    async (scenario) => {
-      const { context, key, callbacks } = await createPersistedSession();
-      context.dispatchClipResult.mockImplementationOnce((payload) => {
-        const operationId = payload.meta?.operationId;
-        if (!operationId) throw new Error('Missing attempt ID');
-        return Promise.reject(
-          new ClipSaveError(
-            createClipSaveFailure('unknown', 'write', 'attachments', {
-              operationId,
-              planId: 'a'.repeat(64),
-              total: 2,
-              phase: 'attachments',
-              storageTarget: 'downloads',
-              confirmed: [
-                {
-                  id: 'shot-1',
-                  outputPath: 'note/one.jpg',
-                  download: { id: 1, filename: '/downloads/note/one.jpg' }
-                }
-              ]
-            })
-          )
-        );
-      });
-      await callbacks.onFinish();
-      await callbacks.onFinish();
-      expect(context.dispatchClipResult).toHaveBeenCalledTimes(1);
-      await expect(readStoredReaderDraft(context, key)).resolves.toMatchObject({
-        payload: { exportAttempt: { attachmentProgress: { total: 2 } } }
-      });
-      const api = getSessionHarness(context.session);
-      if (scenario === 'edit') {
-        const edit = callbacks.onSubmitHighlightEdit('recovery-highlight', 'Newer content');
-        await flushDraftPersistence();
-        await edit;
-      }
-      if (scenario === 'missing-snapshot') api.state.frozenExportPayload = undefined;
-      if (scenario === 'persist-failure')
-        context.draftMessages.rejectNext('save', new Error('Cannot persist attempt'));
-      api.state.exportRecoveryAction = 'continue';
-      await callbacks.onFinish();
-      if (scenario === 'continue') {
-        expect(context.dispatchClipResult).toHaveBeenCalledTimes(2);
-        const first = context.dispatchClipResult.mock.calls[0]?.[0];
-        const second = context.dispatchClipResult.mock.calls[1]?.[0];
-        expect(second?.markdown).toBe(first?.markdown);
-        expect(second?.meta?.operationId).toBe(first?.meta?.operationId);
-        expect(second?.meta?.attachmentProgress?.confirmed).toHaveLength(1);
-        await expect(readStoredReaderDraft(context, key)).resolves.toBeUndefined();
-      } else {
-        expect(context.dispatchClipResult).toHaveBeenCalledTimes(1);
-        expect(api.state.exportAttempt?.attachmentProgress?.confirmed).toHaveLength(1);
-        expect(isReaderSessionActive(document)).toBe(true);
-      }
+  it.each<'continue' | 'edit' | 'missing-snapshot' | 'persist-failure'>([
+    'continue',
+    'edit',
+    'missing-snapshot',
+    'persist-failure'
+  ])('retains confirmed progress and respects %s before another dispatch', async (scenario) => {
+    const { context, key, callbacks } = await createPersistedSession();
+    context.dispatchClipResult.mockImplementationOnce((payload) => {
+      const operationId = payload.meta?.operationId;
+      if (!operationId) throw new Error('Missing attempt ID');
+      return Promise.reject(
+        new ClipSaveError(
+          createClipSaveFailure('unknown', 'write', 'attachments', {
+            operationId,
+            planId: 'a'.repeat(64),
+            total: 2,
+            phase: 'attachments',
+            storageTarget: 'downloads',
+            confirmed: [
+              {
+                id: 'shot-1',
+                outputPath: 'note/one.jpg',
+                download: { id: 1, filename: '/downloads/note/one.jpg' }
+              }
+            ]
+          })
+        )
+      );
+    });
+    await callbacks.onFinish();
+    await callbacks.onFinish();
+    expect(context.dispatchClipResult).toHaveBeenCalledTimes(1);
+    await expect(readStoredReaderDraft(context, key)).resolves.toMatchObject({
+      payload: { exportAttempt: { attachmentProgress: { total: 2 } } }
+    });
+    const api = getSessionHarness(context.session);
+    if (scenario === 'edit') {
+      const edit = callbacks.onSubmitHighlightEdit('recovery-highlight', 'Newer content');
+      await flushDraftPersistence();
+      await edit;
     }
-  );
+    if (scenario === 'missing-snapshot') api.state.frozenExportPayload = undefined;
+    if (scenario === 'persist-failure')
+      context.draftMessages.rejectNext('save', new Error('Cannot persist attempt'));
+    api.state.exportRecoveryAction = 'continue';
+    await callbacks.onFinish();
+    if (scenario === 'continue') {
+      expect(context.dispatchClipResult).toHaveBeenCalledTimes(2);
+      const first = context.dispatchClipResult.mock.calls[0]?.[0];
+      const second = context.dispatchClipResult.mock.calls[1]?.[0];
+      expect(second?.markdown).toBe(first?.markdown);
+      expect(second?.meta?.operationId).toBe(first?.meta?.operationId);
+      expect(second?.meta?.attachmentProgress?.confirmed).toHaveLength(1);
+      await expect(readStoredReaderDraft(context, key)).resolves.toBeUndefined();
+    } else {
+      expect(context.dispatchClipResult).toHaveBeenCalledTimes(1);
+      expect(api.state.exportAttempt?.attachmentProgress?.confirmed).toHaveLength(1);
+      expect(isReaderSessionActive(document)).toBe(true);
+    }
+  });
   beforeEach(() => {
     document.body.innerHTML = '';
     __resetContentSessionRegistryForTests(document);
@@ -144,7 +146,9 @@ describe('ReaderSession terminal recovery through the background store', () => {
     );
     await callbacks.onFinish();
     const state = getSessionHarness(context.session);
-    state.__testHighlights[0]!.comment = 'Newer comment';
+    const highlight = state.__testHighlights[0];
+    if (!highlight) throw new Error('Expected the persisted Reader highlight');
+    highlight.comment = 'Newer comment';
     state.state.exportRecoveryAction = 'confirm-saved';
     await callbacks.onFinish();
     expect(context.dispatchClipResult).toHaveBeenCalledTimes(1);
@@ -158,8 +162,9 @@ describe('ReaderSession terminal recovery through the background store', () => {
   it('does not clear newer live content when a successful write reply arrives', async () => {
     const { context, key, callbacks } = await createPersistedSession();
     context.dispatchClipResult.mockImplementationOnce(() => {
-      getSessionHarness(context.session).__testHighlights[0]!.comment =
-        'New content during the reply';
+      const highlight = getSessionHarness(context.session).__testHighlights[0];
+      if (!highlight) throw new Error('Expected the persisted Reader highlight');
+      highlight.comment = 'New content during the reply';
       return Promise.resolve();
     });
     await callbacks.onFinish();
@@ -190,7 +195,8 @@ describe('ReaderSession terminal recovery through the background store', () => {
   it('includes items outside the draft retention cap in the export identity', async () => {
     const { context, key, callbacks } = await createPersistedSession();
     const harness = getSessionHarness(context.session);
-    const initial = harness.__testHighlights[0]!;
+    const initial = harness.__testHighlights[0];
+    if (!initial) throw new Error('Expected the persisted Reader highlight');
     harness.__setTestHighlights(
       Array.from({ length: 21 }, (_, index) => ({
         ...initial,
@@ -206,7 +212,9 @@ describe('ReaderSession terminal recovery through the background store', () => {
     const retained = (await readStoredReaderDraft(context, key))?.payload.highlights;
     expect(retained).toHaveLength(20);
     expect(retained?.some((item) => item.id === 'retention-0')).toBe(false);
-    harness.__testHighlights[0]!.comment = 'Changed oldest exported item';
+    const oldest = harness.__testHighlights[0];
+    if (!oldest) throw new Error('Expected the oldest retained live highlight');
+    oldest.comment = 'Changed oldest exported item';
     harness.state.exportRecoveryAction = 'confirm-saved';
     await callbacks.onFinish();
     expect(context.view.destroy).not.toHaveBeenCalled();

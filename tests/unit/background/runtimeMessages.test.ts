@@ -96,7 +96,10 @@ vi.mock('../../../src/background/application/clipProcessor', () => ({
   readClipProcessingFailureCategory: readClipProcessingFailureCategoryMock,
   clipProcessingFailureResult: (error: UntrustedValue) => {
     const category = readMockFailureCategory(error);
-    return createClipSaveFailure('unknown', isClipFailureCategory(category) ? category : 'unknown');
+    return createClipSaveFailure(
+      'unknown',
+      typeof category === 'string' && isClipFailureCategory(category) ? category : 'unknown'
+    );
   }
 }));
 vi.mock('../../../src/shared/errors', () => ({

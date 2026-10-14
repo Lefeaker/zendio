@@ -2,6 +2,11 @@ import { expect, type Page } from '@playwright/test';
 
 export type EncodingSample = { durationMs: number; width: number; height: number; bytes: number };
 
+declare global {
+  // eslint-disable-next-line no-var -- Isolated-world probe state is an optional global property.
+  var __performanceEncodings: EncodingSample[] | undefined;
+}
+
 // Native canvas -> MediaStream -> video; only media input is controlled. The
 // production drawImage, resizing, toBlob, IDB, export and Downloads stay intact.
 export async function installVideoFrames(page: Page) {
@@ -46,12 +51,16 @@ export async function installEncodingProbe(extensionPage: Page, tabId: number) {
     await chrome.scripting.executeScript({
       target: { tabId: id },
       func: () => {
-        const state = globalThis as typeof globalThis & {
-          __performanceEncodings?: EncodingSample[];
-        };
+        const state = globalThis;
         state.__performanceEncodings = [];
+        // eslint-disable-next-line @typescript-eslint/unbound-method -- Preserve the native method; .call(this, ...) below supplies the current canvas.
         const nativeToBlob = HTMLCanvasElement.prototype.toBlob;
-        HTMLCanvasElement.prototype.toBlob = function (callback, type, quality) {
+        HTMLCanvasElement.prototype.toBlob = function (
+          this: HTMLCanvasElement,
+          callback,
+          type,
+          quality
+        ) {
           const started = performance.now();
           const width = this.width;
           const height = this.height;
@@ -80,9 +89,7 @@ export async function readEncodingProbe(extensionPage: Page, tabId: number) {
     async (id) =>
       chrome.scripting.executeScript({
         target: { tabId: id },
-        func: () =>
-          (globalThis as typeof globalThis & { __performanceEncodings?: EncodingSample[] })
-            .__performanceEncodings ?? []
+        func: () => globalThis.__performanceEncodings ?? []
       }),
     tabId
   );

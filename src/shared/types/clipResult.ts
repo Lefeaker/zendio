@@ -66,8 +66,8 @@ const FAILURE_MESSAGES = {
   unknown: 'saveFailureGeneric'
 } as const satisfies Record<FailureCategory, string>;
 
-export function isClipFailureCategory(value: unknown): value is FailureCategory {
-  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(FAILURE_MESSAGES, value);
+export function isClipFailureCategory(value: string): value is FailureCategory {
+  return Object.prototype.hasOwnProperty.call(FAILURE_MESSAGES, value);
 }
 
 /** Deliberately excludes raw exceptions, arbitrary descriptors, paths and response bodies. */
@@ -112,7 +112,9 @@ export function readClipSaveResult(value: unknown): ClipSaveResult {
   const progress = ClipAttachmentProgressSchema.safeParse(value.attachmentProgress);
   return createClipSaveFailure(
     value.outcome === 'failed' ? 'failed' : 'unknown',
-    isClipFailureCategory(value.failureCategory) ? value.failureCategory : 'unknown',
+    typeof value.failureCategory === 'string' && isClipFailureCategory(value.failureCategory)
+      ? value.failureCategory
+      : 'unknown',
     value.stage === 'prepare' || value.stage === 'attachments' || value.stage === 'note'
       ? value.stage
       : undefined,

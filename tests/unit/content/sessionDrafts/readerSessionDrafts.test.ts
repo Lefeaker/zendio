@@ -88,7 +88,7 @@ function createHighlightRecord(
 }
 
 describe('readerSessionDrafts', () => {
-  it.each(['unknown', 'saved'] as const)(
+  it.each<'unknown' | 'saved'>(['unknown', 'saved'])(
     'loads the Reader content and %s marker despite corrupt optional progress',
     async (outcome) => {
       const storage = createDraftFixture();

@@ -64,9 +64,10 @@ export function normalizeClipPayload(
   return payload;
 }
 
-export function buildFailureContext(
-  payload?: ClipResultMessage['payload']
-): Record<string, unknown> {
+export function buildFailureContext(payload?: ClipResultMessage['payload']): {
+  url?: string;
+  type?: string;
+} {
   return {
     ...(payload?.meta?.url !== undefined && { url: payload.meta.url }),
     ...(payload?.type !== undefined && { type: payload.type })

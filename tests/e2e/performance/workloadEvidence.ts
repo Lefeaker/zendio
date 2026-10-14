@@ -8,6 +8,13 @@ import type { ReaderSessionDraftEnvelope } from '../../../src/shared/sessionDraf
 
 export { EXTENSION_PATH };
 
+declare global {
+  // eslint-disable-next-line no-var -- The control page owns this optional observation state.
+  var __workloadDownloads: Record<number, string> | undefined;
+  // eslint-disable-next-line no-var -- The control page owns this optional listener cleanup.
+  var __workloadStopDownloads: (() => void) | undefined;
+}
+
 export function distribution(values: number[]) {
   const sorted = [...values].sort((left, right) => left - right);
   return {
@@ -138,7 +145,7 @@ export async function launchWorkloadBrowser(testInfo: TestInfo, name: string) {
     async close() {
       try {
         const removed = await extensionPage.evaluate(() => {
-          const state = globalThis as typeof globalThis & { __workloadStopDownloads?: () => void };
+          const state = globalThis;
           if (!state.__workloadStopDownloads) return 0;
           state.__workloadStopDownloads();
           delete state.__workloadStopDownloads;
@@ -208,10 +215,7 @@ export async function dragParagraph(page: Page, index: number) {
 
 export async function downloadIds(page: Page): Promise<number[]> {
   return page.evaluate(async () => {
-    const state = globalThis as typeof globalThis & {
-      __workloadDownloads?: Record<number, string>;
-      __workloadStopDownloads?: () => void;
-    };
+    const state = globalThis;
     if (!state.__workloadDownloads) {
       const downloads: Record<number, string> = {};
       state.__workloadDownloads = downloads;
@@ -277,9 +281,7 @@ export async function readCompletedDownloads(page: Page, previousIds: number[], 
     .poll(
       () =>
         page.evaluate((previous) => {
-          const states =
-            (globalThis as typeof globalThis & { __workloadDownloads?: Record<number, string> })
-              .__workloadDownloads ?? {};
+          const states = globalThis.__workloadDownloads ?? {};
           return Object.entries(states).filter(
             ([id, state]) => !previous.includes(Number(id)) && state === 'complete'
           ).length;

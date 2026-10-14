@@ -40,8 +40,8 @@ export function createClipPipelineDependencies(
   tabs: Pick<TabsService, 'sendMessage'>
 ): ClipPipelineDependencies {
   return {
-    sendSupportPrompt(tabId, message) {
-      return tabs.sendMessage(tabId, message);
+    async sendSupportPrompt(tabId, message) {
+      await tabs.sendMessage(tabId, message);
     },
     requestLocalVaultPermission(tabId, message) {
       return tabs.sendMessage(tabId, message);
