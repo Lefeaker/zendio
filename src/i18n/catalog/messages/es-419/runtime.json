@@ -882,5 +882,18 @@
   "learningUpdateSaveError": "No se pudo guardar tu preferencia. Inténtalo de nuevo.",
   "learningUpdateDismissed": "Puedes volver a los tutoriales desde la configuración inicial de la página Opciones.",
   "aiConfigLoadFailed": "No se pudo cargar la configuración de IA. Vuelve a abrir esta sección o actualiza la página.",
-  "practiceVaultDownload": "Se descargó el archivo Markdown. Para completar esta práctica, selecciona tu bóveda en el panel de captura y vuelve a guardar."
+  "practiceVaultDownload": "Se descargó el archivo Markdown. Para completar esta práctica, selecciona tu bóveda en el panel de captura y vuelve a guardar.",
+  "saveFailurePermission": "Acceso denegado. Revisa los permisos de la carpeta e inténtalo de nuevo.",
+  "saveFailureConnection": "No se puede conectar. Revisa la conexión e inténtalo de nuevo.",
+  "saveFailureValidation": "Revisa el contenido y el destino e inténtalo de nuevo.",
+  "saveFailureClassification": "La clasificación falló. Revisa sus ajustes e inténtalo de nuevo.",
+  "saveFailureExtraction": "No se pudo preparar el contenido. Se conservan tus cambios.",
+  "saveFailureWrite": "No se pudo escribir el archivo. Revisa el destino e inténtalo de nuevo.",
+  "saveFailureTimeout": "La solicitud agotó el tiempo. Conserva tus cambios y revisa el destino.",
+  "saveFailureUnsupported": "Este método no está disponible. Elige otro destino.",
+  "saveFailureGeneric": "El guardado falló. El borrador se conserva y puedes seguir editándolo.",
+  "saveResultUnknown": "El resultado es desconocido. Se conserva el borrador. Revisa el destino antes de volver a guardar para evitar duplicados. Puedes seguir editando.",
+  "saveRecoveryChanged": "El borrador cambió después de ese guardado. Se conserva el contenido nuevo. Guárdalo como una nueva versión.",
+  "saveRecoverySaveAgain": "Revisado, volver a guardar",
+  "saveRecoveryConfirmSaved": "Revisado: archivo guardado"
 }

@@ -59,6 +59,10 @@ const ExportDestinationSchema = z
 
 export const ClipMetaSchema = z
   .object({
+    operationId: z
+      .string()
+      .regex(/^op_[a-z0-9]{6,24}$/u)
+      .optional(),
     url: BoundedMetaStringSchema.optional(),
     domain: BoundedMetaStringSchema.optional(),
     platform: BoundedMetaStringSchema.optional(),

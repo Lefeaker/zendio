@@ -1,3 +1,4 @@
+import type { SessionExportAttempt } from '../../shared/sessionDrafts/exportAttempt';
 import {
   SESSION_DRAFT_SCHEMA_VERSION,
   createSessionDraftPageKey,
@@ -66,6 +67,7 @@ export function buildReaderSessionDraftEnvelope(args: {
   pageUrl: string;
   pageTitle: string;
   destination?: ExportDestinationMetadata;
+  exportAttempt?: SessionExportAttempt | undefined;
   highlights: ReaderHighlightRecord[];
   commentDrafts: SessionCommentDraftSnapshot;
   retentionPolicy?: ReaderDraftRetentionPolicy;
@@ -87,6 +89,7 @@ export function buildReaderSessionDraftEnvelope(args: {
     status: args.status,
     payload: {
       mode: 'reader',
+      ...(args.exportAttempt ? { exportAttempt: args.exportAttempt } : {}),
       url: args.pageUrl,
       title: args.pageTitle,
       ...(args.destination ? { destination: args.destination } : {}),
@@ -102,6 +105,7 @@ export function buildReaderSessionDraftState(args: {
   pageUrl: string;
   pageTitle: string;
   destination?: ExportDestinationMetadata;
+  exportAttempt?: SessionExportAttempt | undefined;
   highlights: ReaderHighlightRecord[];
   commentDrafts: SessionCommentDraftSnapshot;
   retentionPolicy?: ReaderDraftRetentionPolicy;

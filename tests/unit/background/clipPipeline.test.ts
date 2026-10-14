@@ -24,7 +24,10 @@ import {
 
 const processClipPayloadMock = vi.fn();
 
-vi.mock('../../../src/background/application/clipProcessor', () => ({
+vi.mock('../../../src/background/application/clipProcessor', async () => ({
+  ...(await vi.importActual<typeof import('../../../src/background/application/clipProcessor')>(
+    '../../../src/background/application/clipProcessor'
+  )),
   processClipPayload: processClipPayloadMock
 }));
 
@@ -62,7 +65,7 @@ describe('background clipPipeline', () => {
 
     const { handleClipResult, dependencies } = await loadPipeline();
     const reply = await handleClipResult(createMessage(), undefined, dependencies);
-    expect(reply).toEqual({ success: true, filePath: 'Articles/foo.md' });
+    expect(reply).toEqual({ success: true, outcome: 'saved', filePath: 'Articles/foo.md' });
 
     expect(notifySuccessMock).toHaveBeenCalledWith('Articles/foo.md', {
       vaultName: 'Secondary Vault',
@@ -84,6 +87,44 @@ describe('background clipPipeline', () => {
     expect(notifyFailureMock).toHaveBeenCalledTimes(1);
     expect(notifySuccessMock).not.toHaveBeenCalled();
   });
+
+  it.each(['failure', 'warning'] as const)(
+    'keeps diagnostic data out of every %s content message',
+    async (status) => {
+      const diagnostic: AppError = {
+        ...createAppError(),
+        code: 'PRIVATE_CODE',
+        message: '/private/note.md',
+        userMessage: 'PRIVATE_BODY',
+        userMessageDescriptor: { key: 'PRIVATE_KEY', values: { secret: 'PRIVATE_VALUE' } },
+        context: { url: 'https://private.example/article', filePath: '/private/note.md' },
+        cause: new Error('PRIVATE_CAUSE')
+      };
+      if (status === 'failure') processClipPayloadMock.mockRejectedValue(diagnostic);
+      else
+        processClipPayloadMock.mockResolvedValue({
+          filePath: 'Articles/foo.md',
+          destination: 'downloads',
+          classificationWarning: diagnostic,
+          classification: {
+            status: 'fallback',
+            fallbackReason: 'error',
+            errorDetail: diagnostic,
+            topics: [],
+            tags: []
+          }
+        });
+      const { handleClipResult, dependencies } = await loadPipeline();
+      const result = await handleClipResult(createMessage(), 11, dependencies);
+      await vi.waitFor(() =>
+        expect(sendMessageMock).toHaveBeenCalledWith(11, expect.objectContaining({ status }))
+      );
+      expect(JSON.stringify([result, sendMessageMock.mock.calls])).not.toMatch(/private|PRIVATE/);
+      expect(status === 'warning' ? notifyWarningMock : notifyFailureMock).toHaveBeenCalledWith(
+        diagnostic
+      );
+    }
+  );
 
   it('emits progress updates while processing clip results', async () => {
     processClipPayloadMock.mockImplementation(
@@ -157,6 +198,7 @@ describe('background clipPipeline', () => {
     const { handleClipResult, dependencies } = await loadPipeline();
     await handleClipResult(createMessage({ markdown: undefined }), undefined, dependencies);
 
+    await vi.waitFor(() => expect(notifyFailureMock).toHaveBeenCalled());
     expect(notifyFailureMock).toHaveBeenCalledWith(
       expect.objectContaining({
         code: 'EXTRACTION_CONTENT_NO_MARKDOWN',
@@ -175,7 +217,7 @@ describe('background clipPipeline', () => {
     const { handleClipResult, dependencies } = await loadPipeline();
     await handleClipResult(createMessage(), 42, dependencies);
 
-    expect(notifyFailureMock).toHaveBeenCalled();
+    await vi.waitFor(() => expect(notifyFailureMock).toHaveBeenCalled());
     expect(processClipPayloadMock).toHaveBeenCalled();
     expect(sendMessageMock).toHaveBeenCalledWith(
       42,
@@ -221,12 +263,19 @@ describe('background clipPipeline', () => {
         type: SHOW_SUPPORT_PROMPT,
         status: 'warning',
         vaultName: 'Secondary Vault',
-        errorMessage: 'Classifier degraded'
+        error: {
+          code: 'CLIP_CLASSIFICATION_WARNING',
+          message: 'CLIP_CLASSIFICATION_WARNING',
+          domain: 'background',
+          severity: ErrorSeverity.WARNING,
+          recoverable: true,
+          userMessageDescriptor: { key: 'supportPromptStatusWarning' }
+        }
       })
     );
   });
 
-  it('passes descriptor-bearing local-vault failures to downstream consumers without rebuilding user copy', async () => {
+  it('keeps local-vault diagnostics in background and sends a safe unknown descriptor to content', async () => {
     const localVaultError: AppError = {
       code: 'LOCAL_VAULT_WRITE_FAILED',
       domain: 'background',
@@ -246,6 +295,7 @@ describe('background clipPipeline', () => {
     const { handleClipResult, dependencies } = await loadPipeline();
     await handleClipResult(createMessage(), 52, dependencies);
 
+    await vi.waitFor(() => expect(notifyFailureMock).toHaveBeenCalled());
     expect(notifyFailureMock).toHaveBeenCalledWith(localVaultError);
     expect(sendMessageMock).toHaveBeenCalledWith(
       52,
@@ -253,10 +303,9 @@ describe('background clipPipeline', () => {
         type: SHOW_SUPPORT_PROMPT,
         status: 'failure',
         error: expect.objectContaining({
-          code: 'LOCAL_VAULT_WRITE_FAILED',
+          code: 'CLIP_RESULT_UNKNOWN',
           userMessageDescriptor: {
-            key: 'localVaultWriteFailed',
-            values: { folderName: 'Main' }
+            key: 'saveResultUnknown'
           }
         })
       })
@@ -618,7 +667,7 @@ describe('background clipPipeline', () => {
       const delivery = Promise.reject(failure);
       dispatchSupportPrompt({ sendSupportPrompt: () => delivery }, 5, { status: 'success' });
       await delivery.catch(() => undefined);
-      expect(handle).toHaveBeenCalledOnce();
+      await vi.waitFor(() => expect(handle).toHaveBeenCalledOnce());
       expect(handle.mock.calls[0]?.[0]).toMatchObject({
         code: 'CHROME_API_RUNTIME_ERROR',
         cause: failure

@@ -882,5 +882,18 @@
   "learningUpdateSaveError": "Não foi possível salvar sua preferência. Tente novamente.",
   "learningUpdateDismissed": "Você pode reabrir os tutoriais pela configuração inicial na página Opções.",
   "aiConfigLoadFailed": "Não foi possível carregar a configuração de IA. Reabra esta seção ou atualize a página.",
-  "practiceVaultDownload": "O arquivo Markdown foi baixado. Para concluir este exercício, selecione seu cofre no painel de captura e salve novamente."
+  "practiceVaultDownload": "O arquivo Markdown foi baixado. Para concluir este exercício, selecione seu cofre no painel de captura e salve novamente.",
+  "saveFailurePermission": "Acesso negado. Verifique as permissões da pasta e tente novamente.",
+  "saveFailureConnection": "Não foi possível conectar. Verifique a conexão e tente novamente.",
+  "saveFailureValidation": "Verifique o conteúdo e o destino e tente novamente.",
+  "saveFailureClassification": "A classificação falhou. Verifique suas configurações e tente novamente.",
+  "saveFailureExtraction": "Não foi possível preparar o conteúdo. Suas alterações foram mantidas.",
+  "saveFailureWrite": "Não foi possível gravar o arquivo. Verifique o destino e tente novamente.",
+  "saveFailureTimeout": "A solicitação expirou. Mantenha suas alterações e verifique o destino.",
+  "saveFailureUnsupported": "Este método não está disponível. Escolha outro destino.",
+  "saveFailureGeneric": "Falha ao salvar. O rascunho foi mantido e pode ser editado.",
+  "saveResultUnknown": "Resultado desconhecido. O rascunho foi mantido. Verifique o destino antes de salvar novamente para evitar duplicatas. Você pode continuar editando.",
+  "saveRecoveryChanged": "O rascunho mudou após esse salvamento. O novo conteúdo foi mantido. Salve uma nova versão.",
+  "saveRecoverySaveAgain": "Verificado, salvar de novo",
+  "saveRecoveryConfirmSaved": "Verificado: arquivo salvo"
 }

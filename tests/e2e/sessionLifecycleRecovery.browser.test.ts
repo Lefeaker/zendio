@@ -1,3 +1,5 @@
+import { readSessionExportAttempt } from '../../src/shared/sessionDrafts/exportAttempt';
+import { LEARNING_PROGRESS_KEY } from '../../src/shared/learningProgress';
 import { expect } from '@playwright/test';
 import { readFile, mkdir } from 'node:fs/promises';
 import {
@@ -324,6 +326,109 @@ test('actual Finish retries a lost committed removal reply without downloading t
   expect(downloads).toHaveLength(1);
 });
 
+test('completed Downloads returns the Reader ACK while native notification never replies', async ({
+  page,
+  context,
+  extensionPage
+}) => {
+  const url = 'https://session-recovery.test/hanging-notification';
+  await openRecoveryReader(page, extensionPage, url);
+  await durableNote(page, extensionPage, 'The notification cannot hold this completed file');
+  const destination = page.locator('#aiob-reader-panel .export-destination-row');
+  await destination.locator('summary').click();
+  await destination.locator('[data-destination-id="downloads"]').click();
+  const worker = context.serviceWorkers()[0];
+  if (!worker) throw new Error('Extension background worker missing');
+  await worker.evaluate(() => {
+    Object.defineProperty(chrome.notifications, 'create', {
+      configurable: true,
+      value: () => {
+        void chrome.storage.local.set({ testNotificationNeverReplied: true });
+      }
+    });
+  });
+  await page.locator('[data-action-id="reader:finish"]').click();
+  await expect
+    .poll(() =>
+      extensionPage.evaluate(
+        async () =>
+          (await chrome.storage.local.get('testNotificationNeverReplied'))
+            .testNotificationNeverReplied
+      )
+    )
+    .toBe(true);
+  await expect(page.locator('#aiob-reader-panel')).toHaveCount(0);
+  const downloads = await extensionPage.evaluate(() => chrome.downloads.search({}));
+  expect(downloads).toHaveLength(1);
+  expect(downloads[0]?.state).toBe('complete');
+  const file = downloads[0]?.filename;
+  if (!file) throw new Error('Completed notification-independent output missing');
+  expect(await readFile(file, 'utf8')).toContain(
+    'The notification cannot hold this completed file'
+  );
+  await expect.poll(async () => (await recoveryDrafts(extensionPage, url)).length).toBe(0);
+});
+
+test('a lost Reader save ACK survives reload and never rewrites on ordinary Finish', async ({
+  page,
+  extensionPage
+}) => {
+  const url = 'https://session-recovery.test/unknown-export';
+  const tabId = await openRecoveryReader(page, extensionPage, url);
+  await durableNote(page, extensionPage, 'Original exported note');
+  const destination = page.locator('#aiob-reader-panel .export-destination-row');
+  await destination.locator('summary').click();
+  await destination.locator('[data-destination-id="downloads"]').click();
+  await interceptRecoveryReply(extensionPage, tabId, 'CLIP_RESULT', 'lose');
+  await page.locator('[data-action-id="reader:finish"]').click();
+  await expect(page.locator('html')).toHaveAttribute('data-recovery-fault', 'CLIP_RESULT');
+  await expect(page.locator('[data-session-export-notice="reader"]')).toContainText('unknown');
+  const downloads = await extensionPage.evaluate(() => chrome.downloads.search({}));
+  expect(downloads).toHaveLength(1);
+  expect(downloads[0]?.state).toBe('complete');
+  const file = downloads[0]?.filename;
+  if (!file) throw new Error('Completed Reader output missing');
+  expect(await readFile(file, 'utf8')).toContain('Original exported note');
+  expect(JSON.stringify(await recoveryDrafts(extensionPage, url))).toContain('"outcome":"unknown"');
+  const readerPayload = (await recoveryDrafts(extensionPage, url))[0]?.record.payload;
+  const readerAttempt =
+    readerPayload && 'exportAttempt' in readerPayload
+      ? readSessionExportAttempt(readerPayload.exportAttempt)
+      : undefined;
+  if (!readerAttempt) throw new Error('Durable Reader attempt missing');
+  await expect
+    .poll(() =>
+      extensionPage.evaluate(
+        async (key) => JSON.stringify((await chrome.storage.local.get(key))[key]),
+        LEARNING_PROGRESS_KEY
+      )
+    )
+    .toContain(readerAttempt.operationId);
+  await page.reload();
+  await injectContentRuntime(extensionPage, tabId);
+  await expect(page.locator('[data-session-export-notice="reader"]')).toContainText('unknown', {
+    timeout: 15_000
+  });
+  await page.locator('[data-action-id="reader:finish"]').click();
+  expect(await extensionPage.evaluate(() => chrome.downloads.search({}))).toHaveLength(1);
+  await durableNote(page, extensionPage, 'A newer edit must survive confirming the old file');
+  await page.locator('[data-export-recovery="confirm-saved"]').click();
+  await expect(page.locator('[data-highlight-input]').first()).toHaveValue(
+    'A newer edit must survive confirming the old file'
+  );
+  await expect(page.locator('[data-session-export-notice="reader"]')).toContainText('changed');
+  expect(await extensionPage.evaluate(() => chrome.downloads.search({}))).toHaveLength(1);
+  await page.locator('[data-action-id="reader:finish"]').click();
+  await expect(page.locator('#aiob-reader-panel')).toHaveCount(0);
+  const finalDownloads = await extensionPage.evaluate(() => chrome.downloads.search({}));
+  expect(finalDownloads).toHaveLength(2);
+  const newer = finalDownloads.find((item) => item.id !== downloads[0]?.id);
+  if (!newer?.filename) throw new Error('New Reader version missing');
+  expect(await readFile(newer.filename, 'utf8')).toContain(
+    'A newer edit must survive confirming the old file'
+  );
+});
+
 test('a delayed real renewal reply cannot roll back a note typed while it is in flight', async ({
   page,
   extensionPage
@@ -388,3 +493,109 @@ test('Video Finish resumes terminal cleanup without a second real export', async
   if (!exportedFile) throw new Error('Video export missing');
   expect(await readFile(exportedFile, 'utf8')).toContain('Video note survives terminal retry');
 });
+
+test('Video recovers a lost save ACK without a second file after explicit confirmation', async ({
+  context,
+  extensionPage
+}) => {
+  const url = `${YOUTUBE_URL}&recovery=unknown-export`;
+  const { page, tabId } = await openFixtureWithRuntime(
+    context,
+    extensionPage,
+    url,
+    youtubeFixtureHtml()
+  );
+  await openVideoPanelFromControlBar(page, 'Video output exists before its reply is lost', {
+    captureScreenshotEnabled: false
+  });
+  await expandVideoPanel(page);
+  const destination = page.locator('#aiob-video-panel .export-destination-row');
+  await destination.locator('summary').click();
+  await destination.locator('[data-destination-id="downloads"]').click();
+  await interceptRecoveryReply(extensionPage, tabId, 'videoClip', 'lose');
+  await page.locator('[data-action-id="video:finish"]').click();
+  await expect(page.locator('html')).toHaveAttribute('data-recovery-fault', 'videoClip');
+  await expect(page.locator('[data-session-export-notice="video"]')).toContainText('unknown');
+  const downloads = await extensionPage.evaluate(() => chrome.downloads.search({}));
+  expect(downloads).toHaveLength(1);
+  const file = downloads[0]?.filename;
+  if (!file) throw new Error('Video output missing');
+  expect(await readFile(file, 'utf8')).toContain('Video output exists before its reply is lost');
+  const videoPayload = (await recoveryDrafts(extensionPage, url))[0]?.record.payload;
+  const videoAttempt =
+    videoPayload && 'exportAttempt' in videoPayload
+      ? readSessionExportAttempt(videoPayload.exportAttempt)
+      : undefined;
+  if (!videoAttempt) throw new Error('Durable Video attempt missing');
+  await expect
+    .poll(() =>
+      extensionPage.evaluate(
+        async (key) => JSON.stringify((await chrome.storage.local.get(key))[key]),
+        LEARNING_PROGRESS_KEY
+      )
+    )
+    .toContain(videoAttempt.operationId);
+  if (await page.locator('#aiob-support-prompt').count()) {
+    await page.locator('#aiob-support-prompt').click({ position: { x: 3, y: 3 } });
+    await expect(page.locator('#aiob-support-prompt')).toHaveCount(0);
+  }
+  await page.reload();
+  await injectContentRuntime(extensionPage, tabId);
+  await expect(page.locator('[data-session-export-notice="video"]')).toContainText('unknown', {
+    timeout: 15_000
+  });
+  await expandVideoPanel(page);
+  await page.locator('[data-action-id="video:finish"]').click();
+  expect(await extensionPage.evaluate(() => chrome.downloads.search({}))).toHaveLength(1);
+  await page.locator('[data-export-recovery="confirm-saved"]').click();
+  await expect(page.locator('#aiob-video-panel')).toHaveCount(0);
+  expect(await extensionPage.evaluate(() => chrome.downloads.search({}))).toHaveLength(1);
+  await expect.poll(async () => (await recoveryDrafts(extensionPage, url)).length).toBe(0);
+});
+
+for (const [language, label] of [
+  ['de', 'Geprüft, erneut speichern'],
+  ['zh-CN', '已核对，重新保存']
+] as const) {
+  test(`unknown export recovery controls remain usable in ${language}`, async ({
+    page,
+    extensionPage
+  }, testInfo) => {
+    await extensionPage.evaluate(
+      (locale) => chrome.storage.sync.set({ language: locale }),
+      language
+    );
+    const url = `https://session-recovery.test/unknown-layout-${language}`;
+    const tabId = await openRecoveryReader(page, extensionPage, url);
+    const destination = page.locator('#aiob-reader-panel .export-destination-row');
+    await destination.locator('summary').click();
+    await destination.locator('[data-destination-id="downloads"]').click();
+    await interceptRecoveryReply(extensionPage, tabId, 'CLIP_RESULT', 'lose');
+    await page.locator('[data-action-id="reader:finish"]').click();
+    const notice = page.locator('[data-session-export-notice="reader"]');
+    await expect(notice.locator('[data-export-recovery="save-again"]')).toHaveText(label);
+    if (await page.locator('#aiob-support-prompt').count()) {
+      await page.locator('#aiob-support-prompt').click({ position: { x: 3, y: 3 } });
+      await expect(page.locator('#aiob-support-prompt')).toHaveCount(0);
+    }
+    expect(
+      await notice.evaluate((element) => {
+        const bounds = element.getBoundingClientRect();
+        return (
+          element.scrollWidth <= element.clientWidth &&
+          [...element.querySelectorAll('button')].every((button) => {
+            const rect = button.getBoundingClientRect();
+            return rect.left >= bounds.left && rect.right <= bounds.right && rect.height >= 28;
+          })
+        );
+      })
+    ).toBe(true);
+    await testInfo.attach('unknown-recovery-layout', {
+      body: await page.screenshot(),
+      contentType: 'image/png'
+    });
+    await notice.locator('[data-export-recovery="confirm-saved"]').click();
+    await expect(page.locator('#aiob-reader-panel')).toHaveCount(0);
+    expect(await extensionPage.evaluate(() => chrome.downloads.search({}))).toHaveLength(1);
+  });
+}

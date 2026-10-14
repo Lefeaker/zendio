@@ -45,6 +45,32 @@ describe('analytics transport', () => {
     vi.clearAllMocks();
   });
 
+  it('aborts a stalled request in the existing transport owner', async () => {
+    vi.useFakeTimers();
+    try {
+      const { sendAnalyticsTransportEvent } = await import('../../../src/shared/analytics');
+      const request = vi.fn<TransportFetch>(
+        (_url, init) =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () =>
+              reject(new DOMException('Aborted', 'AbortError'))
+            );
+          })
+      );
+      const pending = sendAnalyticsTransportEvent(
+        'support_link_clicked',
+        { target: 'ko-fi' },
+        baseConfig,
+        { fetch: request }
+      );
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(request.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
+      await expect(pending).resolves.toMatchObject({ status: 'failed' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('builds sanitized GA4 payloads without secret fields', async () => {
     const { buildAnalyticsTransportPayload } = await import('../../../src/shared/analytics');
 

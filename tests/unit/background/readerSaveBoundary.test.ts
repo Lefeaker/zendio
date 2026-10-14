@@ -58,7 +58,7 @@ describe('Reader save through the production background pipeline', () => {
     vi.useRealTimers();
   });
 
-  it('keeps highlights and the stored draft after writer failure, then closes only after a successful retry', async () => {
+  it('keeps an uncertain write and requires an explicit new save, then retries cleanup without rewriting', async () => {
     const context = createSessionContext();
     const acknowledgementReply = vi.fn<() => Promise<ClipResultResponse>>();
     const messaging: Pick<MessagingService, 'send'> = {
@@ -105,6 +105,9 @@ describe('Reader save through the production background pipeline', () => {
     const draft = await readStoredReaderDraft(context, key);
     expect(draft?.status).toBe('active');
     expect(JSON.stringify(draft)).toContain('Keep my comment');
+    await callbacks.onFinish();
+    expect(writeMarkdownMock).toHaveBeenCalledTimes(1);
+    getSessionHarness(context.session).state.exportRecoveryAction = 'save-again';
     context.draftMessages.loseNextResponse('removeExact', new Error('cleanup ACK lost'));
     await callbacks.onFinish();
     expect(context.view.destroy).not.toHaveBeenCalled();

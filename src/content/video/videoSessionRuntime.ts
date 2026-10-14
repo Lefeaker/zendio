@@ -1,3 +1,4 @@
+import { showVideoExportRecovery } from './sessionOperations';
 import { createSessionEndingCoordinator } from '../sessionMutations/sessionEndingCoordinator';
 import { setSessionPanelRecovery } from '../shared/panels/sessionPanelRecovery';
 import { bucketCount } from '../../shared/analytics';
@@ -120,6 +121,10 @@ export class VideoSession {
         this.mutationCoordinator.runCaptureMutation(transaction),
       ensureCaptureHighlight: (capture: VideoFragmentCapture) =>
         this.ensureCaptureHighlight(capture),
+      resumeExport: (action) => {
+        this.state.exportRecoveryAction = action;
+        void this.finish();
+      },
       drafts: this.draftController
     });
   }
@@ -313,6 +318,7 @@ export class VideoSession {
       throw error;
     }
 
+    if (this.state.exportAttempt) showVideoExportRecovery(this.operationContext);
     beginVideoSessionAnalytics(this.operationContext);
   }
 

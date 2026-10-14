@@ -1,7 +1,9 @@
 import { getOptions } from '../store';
 import { notifyClipFailure, notifyClipSuccess, notifyClipWarning } from '../services/notifications';
 import type { ClipResultMessage, ClipResultResponse } from '../../shared/types';
-import { processClipPayload } from '../application/clipProcessor';
+import { processClipPayload, clipProcessingFailureResult } from '../application/clipProcessor';
+import { createClipSaveFailure, type ClipSaveFailure } from '../../shared/types/clipResult';
+import { runBestEffortEffect } from '../../shared/errors/bestEffortEffect';
 import type { TabsService } from '../../platform/interfaces/tabs';
 import { createAnalyticsOperationId } from '../../shared/analytics';
 import {
@@ -50,12 +52,16 @@ export function createClipPipelineDependencies(
 async function handleClipFailure(
   dependencies: ClipPipelineDependencies,
   appError: AppError,
+  failure: ClipSaveFailure,
   tabId: number | undefined,
   payload?: ClipResultMessage['payload']
 ): Promise<void> {
-  await errorHandler.handle(appError, { suppressNotifications: true });
+  void runBestEffortEffect(
+    () => errorHandler.handle(appError, { suppressNotifications: true }),
+    'clip.failure.report'
+  );
 
-  await safeNotify(() => notifyClipFailure(appError), {
+  void safeNotify(() => notifyClipFailure(appError), {
     channel: 'clipper.failure',
     title: 'notifyClipFailure'
   });
@@ -69,7 +75,8 @@ async function handleClipFailure(
   }
 
   dispatchSupportPrompt(dependencies, tabId, {
-    ...buildSupportOptions('failure', payload, fallbackVault, appError),
+    ...buildSupportOptions('failure', payload, fallbackVault),
+    failure,
     progress: {
       value: 100,
       variant: 'failure'
@@ -142,8 +149,12 @@ export async function handleClipResult(
 
   if (!payload?.markdown) {
     const error = extractionErrors.noMarkdown(buildFailureContext(payload));
-    await handleClipFailure(dependencies, error, tabId, payload);
-    return { success: false };
+    const failure = createClipSaveFailure('failed', 'extraction', 'prepare');
+    void runBestEffortEffect(
+      () => handleClipFailure(dependencies, error, failure, tabId, payload),
+      'clip.failure'
+    );
+    return failure;
   }
 
   try {
@@ -164,9 +175,8 @@ export async function handleClipResult(
     });
     const { classification } = result;
     let supportStatus: 'success' | 'failure' | 'warning' = 'success';
-    let supportError: AppError | undefined;
 
-    await safeNotify(
+    void safeNotify(
       () =>
         notifyClipSuccess(result.filePath, {
           storageTarget: result.storageTarget,
@@ -196,9 +206,11 @@ export async function handleClipResult(
             context: buildPipelineErrorContext(payload)
           });
       supportStatus = 'warning';
-      supportError = warningError;
-      await errorHandler.handle(warningError, { suppressNotifications: true });
-      await safeNotify(() => notifyClipWarning(warningError), {
+      void runBestEffortEffect(
+        () => errorHandler.handle(warningError, { suppressNotifications: true }),
+        'clip.warning.report'
+      );
+      void safeNotify(() => notifyClipWarning(warningError), {
         channel: 'clipper.warning',
         title: 'notifyClipWarning'
       });
@@ -207,13 +219,13 @@ export async function handleClipResult(
     const supportVault =
       result.destination === 'downloads' ? undefined : (result.vaultName ?? result.restVault);
     dispatchSupportPrompt(dependencies, tabId, {
-      ...buildSupportOptions(supportStatus, payload, supportVault, supportError),
+      ...buildSupportOptions(supportStatus, payload, supportVault),
       progress: {
         value: 100,
         variant: supportStatus
       }
     });
-    return { success: true, filePath: result.filePath };
+    return { success: true, outcome: 'saved', filePath: result.filePath };
   } catch (error) {
     const appError = normalizeToAppError(error, {
       code: 'CLIP_PIPELINE_FAILURE',
@@ -221,8 +233,12 @@ export async function handleClipResult(
       userMessageDescriptor: { key: 'clipFailed' },
       context: buildPipelineErrorContext(payload)
     });
-    await handleClipFailure(dependencies, appError, tabId, payload);
-    return { success: false };
+    const failure = clipProcessingFailureResult(error);
+    void runBestEffortEffect(
+      () => handleClipFailure(dependencies, appError, failure, tabId, payload),
+      'clip.failure'
+    );
+    return failure;
   }
 }
 

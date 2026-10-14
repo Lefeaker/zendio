@@ -17,10 +17,9 @@ import {
   notificationErrors
 } from '../../shared/errors';
 import { trackActivationMilestoneIfNeeded, trackUsageEvent } from '../services/analyticsEvents';
-import {
-  processClipPayload,
-  readClipProcessingFailureCategory
-} from '../application/clipProcessor';
+import { processClipPayload, clipProcessingFailureResult } from '../application/clipProcessor';
+import { createClipSaveFailure } from '../../shared/types/clipResult';
+import { runBestEffortEffect } from '../../shared/errors/bestEffortEffect';
 import type { ClipPayload } from '../../shared/types';
 import type { MessagePayload } from '../../platform/interfaces/messaging';
 import { CAPTURE_VISIBLE_TAB_SCREENSHOT_MESSAGE } from '../../shared/types/videoScreenshotMessages';
@@ -70,7 +69,8 @@ function toVideoClipPayload(data: Record<string, unknown>): unknown {
       platform: data.platform,
       ...(data.timestampCount !== undefined ? { timestampCount: data.timestampCount } : {}),
       ...(data.attachments ? { attachments: data.attachments } : {}),
-      ...(data.exportDestination ? { exportDestination: data.exportDestination } : {})
+      ...(data.exportDestination ? { exportDestination: data.exportDestination } : {}),
+      ...(typeof data.operationId === 'string' ? { operationId: data.operationId } : {})
     }
   };
 }
@@ -83,22 +83,14 @@ function parseClipPayloadForBoundary(payload: unknown): ClipPayload | null {
 async function processRepositoryClipPayload(payload: unknown): Promise<MessagePayload> {
   const parsedPayload = parseClipPayloadForBoundary(payload);
   if (!parsedPayload) {
-    return {
-      success: false,
-      error: INVALID_CLIP_PAYLOAD_ERROR
-    };
+    return toMessagePayload(createClipSaveFailure('failed', 'validation', 'prepare'));
   }
 
   try {
     const result = await processClipPayload(parsedPayload);
-    return { success: true, filePath: result.filePath };
+    return { success: true, outcome: 'saved', filePath: result.filePath };
   } catch (error) {
-    const failureCategory = readClipProcessingFailureCategory(error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-      ...(failureCategory ? { failureCategory } : {})
-    };
+    return toMessagePayload(clipProcessingFailureResult(error));
   }
 }
 
@@ -257,8 +249,11 @@ export function registerRuntimeMessageListener(
     if (isClipResultMessage(message)) {
       const parsedPayload = parseClipPayloadForBoundary(message.payload);
       if (!parsedPayload) {
-        await safeNotifyExtraction(INVALID_CLIP_PAYLOAD_ERROR);
-        return { success: false };
+        void runBestEffortEffect(
+          () => safeNotifyExtraction(INVALID_CLIP_PAYLOAD_ERROR),
+          'clip.validation.notification'
+        );
+        return toMessagePayload(createClipSaveFailure('failed', 'validation', 'prepare'));
       }
       return handleClipResult(
         { ...message, payload: parsedPayload },

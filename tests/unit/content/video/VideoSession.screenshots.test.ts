@@ -1,3 +1,4 @@
+import { createClipSaveFailure } from '@shared/types/clipResult';
 /* @vitest-environment jsdom */
 
 import {
@@ -2105,13 +2106,7 @@ describe('VideoSession screenshots', () => {
     {
       name: 'validation failures from invalid payload responses',
       configureFailure: () =>
-        exportMock.mockResolvedValueOnce({
-          success: false,
-          error: 'Invalid clip payload received.'
-        } as {
-          success: boolean;
-          error: string;
-        }),
+        exportMock.mockResolvedValueOnce(createClipSaveFailure('failed', 'validation', 'prepare')),
       expectedCategory: 'validation'
     },
     {

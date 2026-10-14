@@ -616,7 +616,7 @@ describe('ReaderSession export', () => {
     await expect(loadLatestReaderDraft(context)).resolves.toMatchObject({ status: 'active' });
   });
 
-  it('keeps the session active when pending draft flush fails after export dispatch succeeds', async () => {
+  it('does not dispatch an export if its durable attempt cannot be saved', async () => {
     vi.useFakeTimers();
     const context = createSessionContext();
     await context.session.initialize();
@@ -658,7 +658,7 @@ describe('ReaderSession export', () => {
 
     await callbacks.onFinish();
 
-    expect(context.dispatchClipResult).toHaveBeenCalledTimes(1);
+    expect(context.dispatchClipResult).not.toHaveBeenCalled();
     expect(context.view.destroy).not.toHaveBeenCalled();
     expect(isReaderSessionActive(document)).toBe(true);
     expect(context.view.currentDrafts).toEqual({

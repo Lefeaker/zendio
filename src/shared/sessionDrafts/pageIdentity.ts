@@ -123,7 +123,7 @@ function rotateRight(value: number, count: number): number {
   return (value >>> count) | (value << (32 - count));
 }
 
-function sha256Hex(input: string): string {
+export function sha256Hex(input: string): string {
   const bytes = new TextEncoder().encode(input);
   const paddedLength = Math.ceil((bytes.length + 9) / 64) * 64;
   const padded = new Uint8Array(paddedLength);

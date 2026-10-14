@@ -8,6 +8,7 @@ import type { ExportDestinationMetadata } from '../exportDestination';
  */
 export interface VideoClipData {
   content: string;
+  operationId?: string;
   title: string;
   url: string;
   videoUrl: string;

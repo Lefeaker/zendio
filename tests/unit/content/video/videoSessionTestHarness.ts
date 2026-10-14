@@ -80,7 +80,11 @@ const detectVideoIdentityMock = vi.hoisted(() =>
     storageKey: 'video:test'
   }))
 );
-const exportMock = vi.hoisted(() => vi.fn(() => Promise.resolve({ success: true })));
+const exportMock = vi.hoisted(() =>
+  vi.fn<() => Promise<import('@shared/repositories/IClipRepository').ClipResult>>(() =>
+    Promise.resolve({ success: true })
+  )
+);
 const { createVideoPlatformAdapterMock, disposePlatformHubSubscriptions } = vi.hoisted(() => {
   const activeDisposers = new Set<() => void>();
   return {
@@ -291,6 +295,8 @@ export type SessionTestApi = {
   finish: () => Promise<void>;
   cancel: () => void;
   state: {
+    exportAttempt?: import('@shared/sessionDrafts/exportAttempt').SessionExportAttempt;
+    exportRecoveryAction?: import('@shared/sessionDrafts/exportAttempt').SessionExportRecoveryAction;
     captures: Array<{
       kind: 'timestamp' | 'fragment';
       id: string;

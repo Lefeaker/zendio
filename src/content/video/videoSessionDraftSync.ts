@@ -132,6 +132,7 @@ export function buildVideoDraftEnvelopeFromRuntime(
     status: options.status ?? identity.pendingStatus,
     payload: buildVideoSessionDraftPayload({
       captures: runtime.state.captures,
+      ...(runtime.state.exportAttempt ? { exportAttempt: runtime.state.exportAttempt } : {}),
       commentDrafts: runtime.state.commentDrafts,
       ...(runtime.destinationState.metadata
         ? { destination: runtime.destinationState.metadata }

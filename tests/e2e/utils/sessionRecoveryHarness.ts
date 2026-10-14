@@ -124,12 +124,16 @@ export async function interceptRecoveryReply(
           const nativeSend = (message: object, callback: (reply: MessageListenerResult) => void) =>
             original(message, callback);
           const wrapped = (
-            message: { request?: { operation?: string } },
+            message: { type?: string; request?: { operation?: string } },
             callback: (reply: MessageListenerResult) => void
           ) => {
             nativeSend(message, (reply) => {
               const error = chrome.runtime.lastError;
-              if (error || !state.armed || message.request?.operation !== targetOperation) {
+              if (
+                error ||
+                !state.armed ||
+                (message.request?.operation ?? message.type) !== targetOperation
+              ) {
                 callback(reply);
                 return;
               }

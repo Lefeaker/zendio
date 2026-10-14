@@ -192,6 +192,7 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
       );
       telemetryCaptures = hydrated.captures;
       this.options.state.captures = hydrated.captures;
+      this.options.state.exportAttempt = hydrated.exportAttempt;
       applyVideoSessionCommentDrafts(this.options.state, hydrated.commentDrafts, {
         hydrateDom: true,
         dom: this.options.dom

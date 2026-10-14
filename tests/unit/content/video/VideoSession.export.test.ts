@@ -50,6 +50,66 @@ describe('VideoSession export', () => {
     restoreVideoSessionHarnessGlobals();
   });
 
+  it('keeps an unknown save durable and does not re-export until explicitly requested', async () => {
+    vi.useFakeTimers();
+    const deps = createDependencies();
+    const session = new VideoSession(document, deps);
+    const api = toSessionTestApi(session);
+    await session.start();
+    Object.defineProperty(requireVideoElement(), 'currentTime', { value: 42, configurable: true });
+    await api.handleAddCapture();
+    exportMock.mockResolvedValueOnce({
+      success: false,
+      outcome: 'unknown',
+      failureCategory: 'connection'
+    });
+    await api.finish();
+    await api.finish();
+    expect(exportMock).toHaveBeenCalledTimes(1);
+    const [draft] = await listVideoDraftCandidates(deps);
+    expect(draft?.payload.exportAttempt).toMatchObject({ outcome: 'unknown' });
+    expect(isVideoSessionActive(document)).toBe(true);
+    api.state.captures[0]!.comment = 'New edit after uncertain save';
+    api.state.exportRecoveryAction = 'confirm-saved';
+    await api.finish();
+    expect(exportMock).toHaveBeenCalledTimes(1);
+    expect(isVideoSessionActive(document)).toBe(true);
+    expect(JSON.stringify(await listVideoDraftCandidates(deps))).toContain(
+      'New edit after uncertain save'
+    );
+    api.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('does not clear edits to captures excluded by the draft retention cap', async () => {
+    vi.useFakeTimers();
+    const deps = createDependencies();
+    const session = new VideoSession(document, deps);
+    const api = toSessionTestApi(session);
+    await session.start();
+    api.state.captures = Array.from({ length: 21 }, (_, index) => ({
+      kind: 'timestamp',
+      id: `retention-${index}`,
+      timeSec: index,
+      url: `https://example.com/video?t=${index}`,
+      comment: `Comment ${index}`,
+      createdAt: index + 1
+    }));
+    exportMock.mockResolvedValueOnce({ success: false, outcome: 'unknown' });
+    await api.finish();
+    const [draft] = await listVideoDraftCandidates(deps);
+    expect(JSON.stringify(draft?.payload)).not.toContain('"id":"retention-0"');
+    api.state.captures[0]!.comment = 'New edit on oldest capture';
+    api.state.exportRecoveryAction = 'confirm-saved';
+    await api.finish();
+    expect(isVideoSessionActive(document)).toBe(true);
+    expect(api.state.captures[0]?.comment).toBe('New edit on oldest capture');
+    expect(exportMock).toHaveBeenCalledTimes(1);
+    expect(await listVideoDraftCandidates(deps)).toHaveLength(1);
+    api.cleanup();
+    vi.useRealTimers();
+  });
+
   it('removes the current video draft after successful export but keeps it after export failure', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
@@ -397,8 +457,11 @@ describe('VideoSession export', () => {
     });
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       '[VideoSession] Export failed:',
-      expect.objectContaining({ message: 'Invalid video export response' })
+      expect.objectContaining({
+        message: 'CLIP_RESULT_UNKNOWN'
+      })
     );
+    expect(consoleErrorSpy.mock.calls[0]?.[1]).toMatchObject({ result: { outcome: 'unknown' } });
     expect(isVideoSessionActive(document)).toBe(true);
 
     consoleErrorSpy.mockRestore();

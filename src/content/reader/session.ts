@@ -28,6 +28,7 @@ import {
   applyReaderHighlightFromRange,
   cancelReaderSession,
   finishReaderSession,
+  showReaderExportRecovery,
   focusReaderHighlight,
   handleReaderSessionMouseUp,
   handleReaderSessionSelection,
@@ -73,7 +74,18 @@ export class ReaderSession {
       lifecycle: this.lifecycle,
       dependencies: this.dependencies,
       getExportDestinationMetadata: () => this.destinationState.metadata,
+      getExportTargetPreview: () => this.destinationState.currentPreview,
       persistDraftMutation: () => this.persistDraftMutation(),
+      persistExportAttempt: async () => {
+        if (!this.draftController) throw new Error('SESSION_DRAFT_UNAVAILABLE');
+        await this.draftController.persistExportAttempt();
+      },
+      resumeExport: (
+        action: import('../../shared/sessionDrafts/exportAttempt').SessionExportRecoveryAction
+      ) => {
+        this.state.exportRecoveryAction = action;
+        void this.finish();
+      },
       disposeDraftPersistence: () => this.disposeDraftPersistence(),
       clearPersistedDraft: () => this.clearPersistedDraft(),
       finalizeTerminalDraft: (status: SessionDraftTerminalStatus) =>
@@ -172,6 +184,7 @@ export class ReaderSession {
           sendMessage: sessionDraftSender,
           getPageTitle: () => this.getDraftPageTitle(),
           getHighlights: () => this.state.highlights,
+          getExportAttempt: () => this.state.exportAttempt,
           getCommentDrafts: () => this.panelCoordinator.snapshotCommentDrafts(),
           getDestinationMetadata: () => this.destinationState.metadata,
           onPersistenceFailure: () =>
@@ -282,6 +295,7 @@ export class ReaderSession {
     } finally {
       if (!this.state.ending && !this.state.disconnected)
         setSessionPanelRecovery(this.doc, 'reader', 'ready');
+      if (this.state.exportAttempt) showReaderExportRecovery(this.operationContext);
     }
   }
 
@@ -352,6 +366,7 @@ export class ReaderSession {
           highlights: loadedDraft.payload.highlights
         });
 
+        this.state.exportAttempt = loadedDraft.payload.exportAttempt;
         this.destinationState.applyMetadata(loadedDraft.payload.destination);
         this.panelCoordinator.hydrateCommentDrafts(loadedDraft.payload.commentDrafts);
         this.state.highlights = [...restored.highlights, ...this.state.highlights];
