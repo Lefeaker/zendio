@@ -4,7 +4,7 @@ import { createContentButtonElement } from '@ui/primitives/button';
 import type {
   SessionExportAttempt,
   SessionExportRecoveryAction
-} from '../../../shared/sessionDrafts/exportAttempt';
+} from '@shared/sessionDrafts/exportAttempt';
 
 export type SessionPanelRecoveryMode = 'ready' | 'loading' | 'busy' | 'retry' | 'reload';
 type Surface = 'reader' | 'video';
