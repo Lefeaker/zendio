@@ -184,6 +184,12 @@ export async function runFirefoxSaveRetryScenario({
       await until(() => hasHighlight(ARTICLES[suffix].paragraph), 'READER_HIGHLIGHT');
     };
     await startReader('first');
+    await request('POST', 'window', { handle: optionsHandle });
+    await until(
+      async () => JSON.stringify(await readStored(null)).includes(ARTICLES.first.paragraph),
+      'INITIAL_DURABLE_DRAFT'
+    );
+    await request('POST', 'window', { handle: article.handle });
     await click('[data-role="export-btn"]');
     await until(
       async () =>
