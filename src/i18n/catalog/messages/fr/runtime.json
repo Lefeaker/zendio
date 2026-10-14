@@ -895,5 +895,10 @@
   "saveResultUnknown": "Résultat inconnu. Le brouillon est conservé. Vérifiez la destination avant de réenregistrer pour éviter les doublons. Vous pouvez continuer à modifier le contenu.",
   "saveRecoveryChanged": "Le brouillon a changé depuis cet enregistrement. Le nouveau contenu est conservé. Enregistrez une nouvelle version.",
   "saveRecoverySaveAgain": "Vérifié, réenregistrer",
-  "saveRecoveryConfirmSaved": "Vérifié : fichier enregistré"
+  "saveRecoveryConfirmSaved": "Vérifié : fichier enregistré",
+  "savePartialProgress": "Pièces jointes confirmées : {confirmed}/{total}. Étape incertaine : {stage}. Vérifiez la destination avant de continuer ; le fichier peut déjà exister.",
+  "savePhaseNote": "note",
+  "savePhaseAttachments": "pièce jointe",
+  "saveContinue": "Vérifié, poursuivre la sauvegarde",
+  "saveContinuationUnavailable": "Le contenu initial de l’export ou la destination est indisponible ou a changé. Votre contenu est conservé. Vérifiez les fichiers existants avant un nouvel export."
 }

@@ -1,7 +1,7 @@
 import type { FragmentClipperOptions, TemplateOptions } from '../types/options';
 import type { ClipPayload } from '../types/clip';
 import type { FailureCategory } from '../types/analytics';
-import type { ClipSaveResult } from '../types/clipResult';
+import type { ClipSaveResult, ClipAttachmentProgress } from '../types/clipResult';
 import type { UserVisibleMessageDescriptor } from '../i18n/userVisibleMessageDescriptor';
 
 /**
@@ -25,6 +25,7 @@ export interface ClipResult {
   outcome?: ClipSaveResult['outcome'];
   code?: string;
   message?: UserVisibleMessageDescriptor;
+  attachmentProgress?: ClipAttachmentProgress;
 }
 
 /**

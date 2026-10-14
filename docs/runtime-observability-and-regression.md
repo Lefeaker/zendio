@@ -79,6 +79,12 @@ Reader 初始化与编辑共用现有 mutation runner：本次划选先更新列
 - Support Prompt / Reader / Video 核心弹层
 - YAML 配置交互
 
+附件部分成功沿用上述结果契约：后台只在原 writer 确认完成后追加小型确认记录，失败结果通过同一消息返回，Reader / Video 再由现有 draft controller 持久化 `exportAttempt.attachmentProgress`。记录上限与既有输入附件上限相同（50）；不保存截图 bytes，不增加逐附件草稿写入或后台任务队列。每次显式导出或继续仅对冻结输入和解析后的目标计划计算一次摘要，包含附件内容、顺序、输出路径、Markdown 引用、storageTarget 和目标身份；进度事件不重复序列化或 hash 全量内容。
+
+用户核对目标后可明确继续同一导出，复用本次最终 payload 与 operationId，跳过已确认的附件。Downloads 在续写任何文件前逐一复核已确认 ID 仍为 complete、exists=true 且实际文件名未变；Markdown 复用该实际文件名，保留浏览器自动重命名。REST / 本地目录的确认仅证明此前写入完成，不能证明外部文件此刻仍有相同 bytes；Downloads 的存在检查同样不验证用户后来修改的内容。未确认的当前附件或正文可能已存在，因此继续仍要求用户检查，不提供多文件 exactly-once。
+
+原内容、目标或解析计划改变、确认的下载已不存在时拒绝续存并保留进度与内容。冻结最终 payload 仅在当前会话内持有，保存已确认、用户选择新导出或计划被拒绝后释放；重载不持久复制完整 payload，缺少该快照时仅恢复历史进度并要求明确新导出。普通“完成”、恢复草稿和迟到 ACK 都不会自动续写，旧确认不能清除新的编辑。
+
 ## 3. 既有浏览器验证记录
 
 验证方式：Chrome DevTools MCP + 本地静态服务器

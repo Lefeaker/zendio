@@ -895,5 +895,10 @@
   "saveResultUnknown": "儲存結果未知，草稿已保留。請先檢查儲存位置，再決定是否重新儲存，以免重複。你可以繼續編輯。",
   "saveRecoveryChanged": "此草稿在上次儲存後有修改。新內容已保留，請另存新版本。",
   "saveRecoverySaveAgain": "已核對，重新儲存",
-  "saveRecoveryConfirmSaved": "已核對，檔案已儲存"
+  "saveRecoveryConfirmSaved": "已核對，檔案已儲存",
+  "savePartialProgress": "已確認 {confirmed}/{total} 個附件。結果不確定的階段：{stage}。請先核對儲存位置；不確定的檔案可能已存在。",
+  "savePhaseNote": "正文",
+  "savePhaseAttachments": "附件",
+  "saveContinue": "已核對，繼續剩餘儲存",
+  "saveContinuationUnavailable": "原匯出快照或儲存位置無法使用或已變更。內容已保留。請先檢查已有檔案，再開始新匯出。"
 }

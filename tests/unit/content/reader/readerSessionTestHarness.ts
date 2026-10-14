@@ -112,6 +112,7 @@ export type ReaderSessionTestHarness = {
   draftStorageKey: string | null;
   state: {
     exportAttempt?: import('@shared/sessionDrafts/exportAttempt').SessionExportAttempt;
+    frozenExportPayload?: import('@shared/types/clip').ClipPayload;
     exportRecoveryAction?: import('@shared/sessionDrafts/exportAttempt').SessionExportRecoveryAction;
     saving?: boolean;
   };

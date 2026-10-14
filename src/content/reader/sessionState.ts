@@ -5,6 +5,7 @@ import type { ReaderHighlightTheme, ReadingSessionOptions } from '../../shared/t
 import { DEFAULT_READING_CONFIG } from './sessionTypes';
 import type { FeatureTimer } from '../../shared/analytics/featureTimer';
 import type { AnalyticsSource } from '../../shared/analytics/eventCatalog';
+import type { ClipPayload } from '../../shared/types/clip';
 import type {
   SessionExportAttempt,
   SessionExportRecoveryAction
@@ -25,6 +26,7 @@ export class ReaderSessionState {
   disconnected = false;
   exportDispatched = false;
   exportAttempt: SessionExportAttempt | undefined;
+  frozenExportPayload: ClipPayload | undefined;
   exportRecoveryAction: SessionExportRecoveryAction | undefined;
   saving = false;
   handlingSelection = false;

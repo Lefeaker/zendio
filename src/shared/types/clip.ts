@@ -2,7 +2,7 @@ import type { VaultConfig } from './vault';
 import type { RestOptions } from './options';
 import type { AppError } from '../errors/types';
 import type { SerializedClipAttachmentBinaryContent } from '../attachments/clipAttachmentBinary';
-import type { ClipSaveFailure } from './clipResult';
+import type { ClipSaveFailure, ClipAttachmentProgress } from './clipResult';
 import { isNonEmptyString, isObjectRecord, isOptionalString } from '../guards';
 import {
   isUserVisibleMessageDescriptor,
@@ -28,6 +28,7 @@ export interface BinaryClipAttachment {
 export type ClipAttachment = LegacyDataUrlClipAttachment | BinaryClipAttachment;
 
 export interface ClipMeta {
+  attachmentProgress?: ClipAttachmentProgress;
   operationId?: string;
   url?: string;
   domain?: string;

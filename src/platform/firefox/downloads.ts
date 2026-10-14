@@ -73,7 +73,13 @@ export const firefoxDownloadsService: DownloadsService = {
   async inspect(id) {
     const items = await browser.downloads?.search({ id: Number(id) });
     const item = items?.[0];
-    return item ? { state: item.state, filename: item.filename } : undefined;
+    return item
+      ? {
+          state: item.state,
+          filename: item.filename,
+          ...(typeof item.exists === 'boolean' ? { exists: item.exists } : {})
+        }
+      : undefined;
   },
   onChanged(listener) {
     browser.downloads?.onChanged.addListener(listener);

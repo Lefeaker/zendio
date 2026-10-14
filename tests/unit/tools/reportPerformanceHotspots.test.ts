@@ -88,6 +88,17 @@ describe('report-performance-hotspots', () => {
 
   it('keeps the exact normalized budget transitions and every other budget unchanged', () => {
     const registeredBudgets = readRegisteredBudgets();
+    const attachmentRecoveryChanges: Array<[string, number, number]> = [
+      ['src/background/application/clipProcessor.ts', 550, 626],
+      ['src/content/reader/sessionOperations.ts', 759, 815],
+      ['src/content/video/sessionOperations.ts', 547, 602],
+      ['src/content/video/videoSessionExporter.ts', 259, 272],
+      ['src/i18n/generated/messages.generated.ts', 1357, 1362]
+    ];
+    for (const [file, before, after] of attachmentRecoveryChanges) {
+      expect(registeredBudgets.get(file)).toBe(after);
+      registeredBudgets.set(file, before);
+    }
     const saveRecoveryChanges: Array<[string, number | null, number]> = [
       ['src/background/application/clipProcessor.ts', 500, 550],
       ['src/background/pipelines/clipPipeline.ts', 254, 270],

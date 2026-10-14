@@ -133,13 +133,16 @@ export function showSessionExportNotice(
   surface: Surface,
   messageKey: string,
   recover?: (action: SessionExportRecoveryAction) => void,
-  attempt?: SessionExportAttempt
+  attempt?: SessionExportAttempt,
+  hasFrozenPayload = false
 ): void {
   const host = doc.getElementById(`aiob-${surface}-panel`);
   const root = host?.shadowRoot ?? host;
   if (!root) return;
   clearSessionExportNotice(doc, surface);
   const messages = getContentI18nResource()?.messages ?? RUNTIME_FALLBACK_MESSAGES;
+  const text = (key: keyof typeof RUNTIME_FALLBACK_MESSAGES): string =>
+    messages[key] ?? RUNTIME_FALLBACK_MESSAGES[key];
   const key = Object.prototype.hasOwnProperty.call(RUNTIME_FALLBACK_MESSAGES, messageKey)
     ? (messageKey as keyof typeof RUNTIME_FALLBACK_MESSAGES)
     : 'saveFailureGeneric';
@@ -148,8 +151,27 @@ export function showSessionExportNotice(
   notice.className = 'surface-window-footer';
   const description = doc.createElement('p');
   description.setAttribute('role', 'status');
-  description.textContent = messages[key];
+  description.textContent = text(key);
   notice.append(description);
+  const progress = attempt?.attachmentProgress;
+  const canContinue = Boolean(progress && !progress.blocked && hasFrozenPayload);
+  if (progress) {
+    const summary = doc.createElement('p');
+    summary.dataset.attachmentProgress = progress.phase;
+    summary.textContent = text('savePartialProgress')
+      .replace('{confirmed}', String(progress.confirmed.length))
+      .replace('{total}', String(progress.total))
+      .replace(
+        '{stage}',
+        progress.phase === 'note' ? text('savePhaseNote') : text('savePhaseAttachments')
+      );
+    notice.append(summary);
+    if (!canContinue) {
+      const unavailable = doc.createElement('p');
+      unavailable.textContent = text('saveContinuationUnavailable');
+      notice.append(unavailable);
+    }
+  }
   if (attempt?.targetLabel || attempt?.filePath || attempt?.requestedPath) {
     const target = doc.createElement('p');
     target.textContent = [attempt.targetLabel, attempt.filePath ?? attempt.requestedPath]
@@ -160,9 +182,20 @@ export function showSessionExportNotice(
   if (recover) {
     const actions = doc.createElement('div');
     actions.className = 'surface-action-row';
+    if (canContinue)
+      actions.append(
+        createContentButtonElement({
+          label: text('saveContinue'),
+          variant: 'secondary',
+          size: 'sm',
+          classSlots: ['btn', 'secondary'],
+          dataAttributes: { exportRecovery: 'continue' },
+          onClick: () => recover('continue')
+        })
+      );
     for (const [action, label] of [
-      ['save-again', messages.saveRecoverySaveAgain],
-      ['confirm-saved', messages.saveRecoveryConfirmSaved]
+      ['save-again', text('saveRecoverySaveAgain')],
+      ['confirm-saved', text('saveRecoveryConfirmSaved')]
     ] as const) {
       actions.append(
         createContentButtonElement({

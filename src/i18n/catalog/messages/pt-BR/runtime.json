@@ -895,5 +895,10 @@
   "saveResultUnknown": "Resultado desconhecido. O rascunho foi mantido. Verifique o destino antes de salvar novamente para evitar duplicatas. Você pode continuar editando.",
   "saveRecoveryChanged": "O rascunho mudou após esse salvamento. O novo conteúdo foi mantido. Salve uma nova versão.",
   "saveRecoverySaveAgain": "Verificado, salvar de novo",
-  "saveRecoveryConfirmSaved": "Verificado: arquivo salvo"
+  "saveRecoveryConfirmSaved": "Verificado: arquivo salvo",
+  "savePartialProgress": "Anexos confirmados: {confirmed}/{total}. Etapa incerta: {stage}. Verifique o destino antes de continuar; o arquivo pode já existir.",
+  "savePhaseNote": "nota",
+  "savePhaseAttachments": "anexo",
+  "saveContinue": "Verificado, continuar salvamento",
+  "saveContinuationUnavailable": "O conteúdo original ou o destino está indisponível ou mudou. Seu conteúdo foi mantido. Verifique os arquivos existentes antes de uma nova exportação."
 }

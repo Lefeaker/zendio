@@ -2,6 +2,7 @@ import type { ClipResult } from './IClipRepository';
 import type { VideoOptions } from '../types/options';
 import type { ClipAttachment } from '../types';
 import type { ExportDestinationMetadata } from '../exportDestination';
+import type { ClipAttachmentProgress } from '../types/clipResult';
 
 /**
  * 视频剪藏数据
@@ -9,6 +10,7 @@ import type { ExportDestinationMetadata } from '../exportDestination';
 export interface VideoClipData {
   content: string;
   operationId?: string;
+  attachmentProgress?: ClipAttachmentProgress;
   title: string;
   url: string;
   videoUrl: string;

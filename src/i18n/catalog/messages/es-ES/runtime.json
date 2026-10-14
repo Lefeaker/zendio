@@ -895,5 +895,10 @@
   "saveResultUnknown": "El resultado es desconocido. Se conserva el borrador. Revisa el destino antes de volver a guardar para evitar duplicados. Puedes seguir editando.",
   "saveRecoveryChanged": "El borrador cambió después de ese guardado. Se conserva el contenido nuevo. Guárdalo como una nueva versión.",
   "saveRecoverySaveAgain": "Revisado, volver a guardar",
-  "saveRecoveryConfirmSaved": "Revisado: archivo guardado"
+  "saveRecoveryConfirmSaved": "Revisado: archivo guardado",
+  "savePartialProgress": "Adjuntos confirmados: {confirmed}/{total}. Etapa incierta: {stage}. Revisa el destino antes de continuar; el archivo podría existir ya.",
+  "savePhaseNote": "nota",
+  "savePhaseAttachments": "adjunto",
+  "saveContinue": "Revisado, continuar el guardado",
+  "saveContinuationUnavailable": "El contenido original o el destino no está disponible o ha cambiado. Tu contenido se conserva. Revisa los archivos existentes antes de una nueva exportación."
 }
