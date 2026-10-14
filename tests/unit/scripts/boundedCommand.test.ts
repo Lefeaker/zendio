@@ -185,12 +185,10 @@ function verifiedNpmLifecycleEnvironment({
   const home = join(root, 'home');
   mkdirSync(home, { mode: 0o700 });
   chmodSync(home, 0o700);
-  const npmProfile = resolveCommandProfile('npm-script-quick-v1', ['verify:runtime'], {
-    environment: cleanEnvironment()
-  });
-  const nodePath = npmProfile.executable;
-  const cliPath = npmProfile.argv[0];
-  if (!nodePath || !cliPath) throw new Error('TEST_NPM_PROFILE_INVALID');
+  // Build inputs from the installed runtime. Each case still exercises the real
+  // profile resolver, including its runtime identity and lifecycle validation.
+  const nodePath = realpathSync(process.execPath);
+  const cliPath = realpathSync(join(dirname(nodePath), 'npm'));
   const runtimePrefix = resolve(dirname(nodePath), '..');
   const npmRoot = resolve(dirname(cliPath), '..');
   const userconfig = join(root, 'install/npm-userconfig');
