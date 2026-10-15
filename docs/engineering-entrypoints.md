@@ -29,6 +29,8 @@ node scripts/run-bounded-command.mjs --profile node-script-standard-v1 -- tools/
 
 ## 本轮统一门禁真值
 
+`quality` 与 `verify:preflight` 失败时输出首个根因任务、固定 profile/参数、终止原因、退出码/信号及该任务 stdout/stderr 的有限摘要（每路最多 8 KiB）。被中止的并行任务和未启动任务单独列为 cancelled，不计为新的根因；保留原有 drain、超时和退出状态。输出裁剪不改变 runner 的捕获上限。
+
 - `npm run quality`
   - 由 `scripts/quality-check.mjs` 的 dependency-aware task graph 执行；`quality-v1` 并发固定为 `3`，拒绝 `QUALITY_CONCURRENCY` 等环境覆盖
   - 显式包含 `verify:runtime`，运行 `scripts/verify-runtime.mjs` 校验当前 Node.js 满足 `package.json` 的 `engines.node`
@@ -95,7 +97,7 @@ node scripts/run-bounded-command.mjs --profile node-script-standard-v1 -- tools/
   - 每个 job 先运行 checkout 前 builtin-only bootstrap，随后使用 literal `ubuntu-24.04`；timeout taxonomy 为 Static preflight `60`、Package extension `35`、其他 generic `30`、browser/visual `60` 分钟
   - `.github/actions/setup-node-deps` 禁用 setup-node package-manager cache，并只调用 `github-ci-install-v1` 输出 attempt root 与两个 private npm config；`.github/actions/setup-playwright` 不使用 default cache，而是按顺序调用 fixed Chromium host-deps/platform 与 bounded browser-install profile
   - 官方 JavaScript actions 使用 `scripts/config/githubActionPins.mjs` 中 2026-08-28 reviewed 的 Node 24-compatible full commits；workflow 同行 `# v6` / `# v7` / `# v8` 只保留 human review alias，不是 executable ref。`audit:github-actions-supply-chain:{report,check}` 是唯一 inventory 入口
-  - `static-preflight` 保留 CI topology、test-suite ownership、i18n catalog 与 direct `verify-preflight` 前缀，随后按顺序执行 unmasked UI production ownership check、一次 production build、content CSS packs check、design-token check、动态 active-document check 与 final GitHub Actions supply-chain check；performance 继续只由 `verify-preflight` 的既有 owner 执行，不重复接线，也不从 Static preflight 调用 `quality`
+  - `static-preflight` 保留 CI topology、test-suite ownership、i18n catalog 与 direct `verify-preflight` 前缀，随后按顺序执行 unmasked UI production ownership check、一次 production build、built chunk contract（`audit:build:report`）、content CSS packs check、design-token check、动态 active-document check 与 final GitHub Actions supply-chain check；performance 继续只由 `verify-preflight` 的既有 owner 执行，不重复接线，也不从 Static preflight 调用 `quality`
   - `static-release-surface` 显式运行 `build:fast` 与 `audit:release-surface:report`
   - `static-style-and-locale` 保留 locale source alignment、hardcoded config guard 与 lint warning guard，并以 direct Stylelint profile 覆盖 Options、onboarding 与 neutral UI 三个 canonical globs；`static-reporting-audits` 仅保留 report-only audit 的 per-step `continue-on-error`
   - `visual` 按 `chromium-desktop` / `chromium-tablet` / `chromium-mobile` matrix 拆分；Vitest E2E 与三组 browser E2E 拆成独立 job，失败报告 artifact 按 suite 命名

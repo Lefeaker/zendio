@@ -51,6 +51,19 @@ function createFixtureRoot({
   writeFixtureFile(root, 'build/dist/chunks/chunk-b.js', 1024);
   writeFixtureFile(root, 'build/dist/chunks/chunk-c.js', 1024);
 
+  writeFileSync(
+    join(root, 'build/dist/chunks/aiChatExtractor-ONE.js'),
+    'export const extract = 1;'
+  );
+  writeFileSync(
+    join(root, 'build/dist/chunks/runtimeRegistry-ONE.js'),
+    'const load = () => import("./runtimePlatformParsers-ONE.js");'
+  );
+  writeFileSync(
+    join(root, 'build/dist/chunks/runtimePlatformParsers-ONE.js'),
+    'const chatgptParser = {};'
+  );
+
   for (const chunkFile of chunkFiles) {
     writeFixtureFile(root, chunkFile.path, chunkFile.size);
   }
@@ -66,6 +79,18 @@ function runReport(root: string) {
 }
 
 describe('report-build-splitting', () => {
+  it('fails the build report when the required lazy parser output is missing', () => {
+    const root = createFixtureRoot({ chunkFiles: [] });
+    try {
+      rmSync(join(root, 'build/dist/chunks/runtimeRegistry-ONE.js'));
+      const result = runReport(root);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('Expected exactly one runtimeRegistry chunk; found 0.');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('fails when a generated release locale chunk exceeds the locale budget', () => {
     const root = createFixtureRoot({
       chunkFiles: [
@@ -160,7 +185,7 @@ describe('report-build-splitting', () => {
 
   it('warns without failing when tight budgets exceed warning targets but stay within hard stops', () => {
     const root = createFixtureRoot({
-      chunkFiles: createChunkSeries(CHUNK_COUNT_WARNING + 1 - 3, 'warning-chunk'),
+      chunkFiles: createChunkSeries(CHUNK_COUNT_WARNING + 1 - 6, 'warning-chunk'),
       entrySizes: {
         contentRuntime: CONTENT_RUNTIME_WARNING + 16,
         onboardingIndex: ONBOARDING_WARNING + 16
@@ -189,7 +214,7 @@ describe('report-build-splitting', () => {
 
   it('fails when chunk count exceeds the hard stop', () => {
     const root = createFixtureRoot({
-      chunkFiles: createChunkSeries(CHUNK_COUNT_HARD_STOP + 1 - 3, 'overflow-chunk')
+      chunkFiles: createChunkSeries(CHUNK_COUNT_HARD_STOP + 1 - 6, 'overflow-chunk')
     });
 
     try {

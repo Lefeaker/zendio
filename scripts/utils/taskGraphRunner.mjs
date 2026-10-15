@@ -91,7 +91,10 @@ export async function runTaskGraph(tasks, options = {}) {
     rootFailure = failure;
     for (const id of pending) cancelled.add(id);
     pending.clear();
-    for (const { handle } of running.values()) handle.cancel(failure.terminalReason);
+    for (const [id, { handle }] of running) {
+      cancelled.add(id);
+      handle.cancel(failure.terminalReason);
+    }
   }
 
   function clearResources() {
@@ -110,6 +113,7 @@ export async function runTaskGraph(tasks, options = {}) {
       policyId: options.policyId,
       completed: [...completed],
       failed: [...failed],
+      rootFailure,
       cancelled: [...cancelled],
       results: Object.fromEntries(results),
       startedAt,
@@ -121,14 +125,16 @@ export async function runTaskGraph(tasks, options = {}) {
     running.delete(task.id);
     results.set(task.id, result);
     if (result.ok) {
+      cancelled.delete(task.id);
       completed.add(task.id);
-    } else {
+    } else if (!cancelled.has(task.id)) {
       const failure = {
         id: task.id,
         name: task.name,
         terminalReason: result.terminalReason,
         code: result.exitCode,
-        signal: result.signal
+        signal: result.signal,
+        error: result.error ?? result.spawnError
       };
       failed.push(failure);
       closeAdmission(failure);
@@ -221,4 +227,35 @@ export async function runTaskGraph(tasks, options = {}) {
   }
   schedule();
   return completion;
+}
+
+// Reuse bounded captures; never stream cancelled siblings or increase child limits.
+export function formatTaskGraphFailure(result, tasks) {
+  const failure = result.rootFailure;
+  if (!failure) return '';
+  const task = tasks.find((candidate) => candidate.id === failure.id);
+  const lines = [
+    `Root failure: ${failure.name} [${failure.id}]`,
+    `reason=${failure.terminalReason} exit=${failure.code ?? 'none'} signal=${failure.signal ?? 'none'}`
+  ];
+  if (task) lines.push(`command: profile=${task.profile} args=${JSON.stringify(task.args)}`);
+  if (failure.error) lines.push(`error: ${failure.error}`);
+  const captured = result.results[failure.id]?.output;
+  for (const stream of ['stdout', 'stderr']) {
+    const output = captured?.[stream];
+    if (!output?.text) continue;
+    const bytes = Buffer.from(output.text);
+    const limit = 8192;
+    const truncated = bytes.length > limit || output.overflow;
+    lines.push(
+      `${stream}${truncated ? ' (truncated capture; last 8192 bytes)' : ''}:`,
+      bytes.subarray(Math.max(0, bytes.length - limit)).toString('utf8')
+    );
+  }
+  if (result.cancelled.length > 0) {
+    lines.push(
+      `Cancelled after root failure (${result.cancelled.length}): ${result.cancelled.join(', ')}`
+    );
+  }
+  return lines.join('\n');
 }

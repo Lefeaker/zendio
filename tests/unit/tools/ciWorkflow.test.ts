@@ -310,7 +310,7 @@ describe('bounded CI workflow contract', () => {
     );
   });
 
-  it('appends the five G01 gates and the final unmasked supply-chain gate', async () => {
+  it('runs the static gates and built chunk contract before the final supply-chain gate', async () => {
     const contract = await loadContract();
     const workflow = read('.github/workflows/ci.yml');
     const parsed = contract.parseCiWorkflowJobs(workflow);
@@ -324,6 +324,10 @@ describe('bounded CI workflow contract', () => {
       [
         'Build production bundle for CSS ownership',
         'node scripts/run-bounded-command.mjs --profile npm-script-build-v1 -- build:fast'
+      ],
+      [
+        'Verify built chunk contracts',
+        'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:build:report'
       ],
       [
         'Verify content CSS packs',
