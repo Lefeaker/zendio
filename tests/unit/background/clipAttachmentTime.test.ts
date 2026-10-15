@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { configProvider } from '../../../src/shared/config/provider';
 import type { ClipPayload } from '../../../src/shared/types/clip';
 import {
   classifyClipMock,
@@ -50,7 +51,11 @@ it.each([
   classifyClipMock.mockResolvedValue({ type: 'video', topics: [], tags: [], status: 'success' });
   selectVaultMock.mockReturnValue({
     vault: null,
-    restConfig: { baseUrl: 'https://127.0.0.1:27124', vault: 'Time fixture', apiKey: 'fixture' }
+    restConfig: {
+      baseUrl: configProvider.getRestDefaults().baseUrl,
+      vault: 'Time fixture',
+      apiKey: 'fixture'
+    }
   });
   const isVault = scenario === 'default-midnight-vault';
   const files = new Map<string, string>();
