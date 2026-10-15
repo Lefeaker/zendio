@@ -30,6 +30,7 @@ export type ClipAttachment = LegacyDataUrlClipAttachment | BinaryClipAttachment;
 export interface ClipMeta {
   attachmentProgress?: ClipAttachmentProgress;
   operationId?: string;
+  exportStartedAt?: number;
   url?: string;
   domain?: string;
   platform?: string;

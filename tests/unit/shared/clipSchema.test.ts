@@ -2,6 +2,29 @@ import { describe, expect, it } from 'vitest';
 import { ClipPayloadSchema } from '@shared/schemas/clip.schema';
 
 describe('ClipPayloadSchema', () => {
+  it('preserves an optional export timestamp and accepts legacy messages without it', () => {
+    const exportStartedAt = new Date('2026-10-15T23:59:59Z').getTime();
+    expect(ClipPayloadSchema.parse({ markdown: 'body', meta: { exportStartedAt } })).toEqual({
+      markdown: 'body',
+      meta: { exportStartedAt }
+    });
+    expect(
+      ClipPayloadSchema.parse({ markdown: 'legacy', meta: { createdAt: 'source timestamp' } })
+    ).toEqual({
+      markdown: 'legacy',
+      meta: { createdAt: 'source timestamp' }
+    });
+  });
+
+  it.each(['2026-10-15', null, NaN, Infinity, -1, 1.5, 8_640_000_000_000_001])(
+    'rejects malformed export timestamp %s',
+    (exportStartedAt) => {
+      expect(
+        ClipPayloadSchema.safeParse({ markdown: 'body', meta: { exportStartedAt } }).success
+      ).toBe(false);
+    }
+  );
+
   it('returns a stable code for legacy attachment mime mismatches', () => {
     const result = ClipPayloadSchema.safeParse({
       markdown: 'body',

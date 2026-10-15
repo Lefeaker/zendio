@@ -453,7 +453,11 @@ export async function finishReaderSession(
         });
         attempt = createSessionExportAttempt(snapshotId, exportTarget);
         context.state.exportAttempt = attempt;
-        payload.meta = { ...payload.meta, operationId: attempt.operationId };
+        payload.meta = {
+          ...payload.meta,
+          operationId: attempt.operationId,
+          exportStartedAt: attempt.startedAt
+        };
         context.state.frozenExportPayload = payload;
       }
       if (!attempt || !payload) throw new Error('CLIP_EXPORT_SNAPSHOT_UNAVAILABLE');

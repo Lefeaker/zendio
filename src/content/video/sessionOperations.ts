@@ -374,6 +374,7 @@ export async function finishVideoSession(
           context.state.frozenExportPayload = payload;
         },
         operationId: attempt.operationId,
+        exportStartedAt: attempt.startedAt,
         captures: snapshotVideoExportCaptures(context.state.captures),
         videoTitle: context.state.videoTitle,
         canonicalUrl: context.state.canonicalUrl || '',
