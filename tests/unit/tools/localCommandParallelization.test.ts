@@ -374,6 +374,7 @@ describe('local command parallelization contract', () => {
     expect(ids).toEqual([
       'audit-active-documents-check',
       'audit-build-graph-report',
+      'audit-build-report',
       'audit-chrome-webstore-release-check',
       'audit-ci-workflow-check',
       'audit-compatibility-duplicates-check',
@@ -433,6 +434,11 @@ describe('local command parallelization contract', () => {
     expect(taskById.get('audit-non-production-source-check')?.dependsOn).toEqual([
       'audit-build-graph-report'
     ]);
+    expect(taskById.get('audit-build-report')).toMatchObject({
+      profile: 'npm-script-standard-v1',
+      args: ['audit:build:report'],
+      dependsOn: ['build-fast']
+    });
     expect(taskById.get('audit-release-surface-report')?.dependsOn).toEqual(['build-fast']);
     expect(taskById.get('audit-ga-client-secret')?.dependsOn).toEqual(['build-fast']);
     expect(taskById.get('audit-ga-release-surface')?.dependsOn).toEqual(['build-fast']);

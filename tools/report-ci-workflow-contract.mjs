@@ -90,6 +90,10 @@ const G01_STATIC_PREFLIGHT_SUFFIX = Object.freeze([
     run: 'node scripts/run-bounded-command.mjs --profile npm-script-build-v1 -- build:fast'
   },
   {
+    name: 'Verify built chunk contracts',
+    run: 'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:build:report'
+  },
+  {
     name: 'Verify content CSS packs',
     run: 'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:content-css-packs:check'
   },
