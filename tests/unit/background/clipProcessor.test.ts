@@ -57,7 +57,7 @@ describe('clipProcessor', () => {
         vault: 'Secondary',
         apiKey: 'key'
       },
-      {}
+      { deadlineAt: expect.any(Number) }
     );
     expect(writeMarkdownMock).toHaveBeenCalledWith('Articles/foo.md', '# note');
     expect(recordUsageMock).toHaveBeenCalled();

@@ -11,6 +11,9 @@ import {
 } from '../background/utils/restCandidates';
 import { errorHandler, restErrors } from '../shared/errors';
 import { encodeVaultWritePath, normalizeRestWritePath } from '../shared/paths/vaultWritePath';
+import { REST_WRITE_TIMEOUT_MS } from '../shared/interfaces/restClient';
+import { withRequestDeadline, type ActiveRequest } from '../shared/utils/requestDeadline';
+import { runBestEffortEffect } from '../shared/errors/bestEffortEffect';
 
 type FailureCategory = 'HTTP error' | 'network error' | 'config error';
 
@@ -138,82 +141,97 @@ export class FetchRestClient implements RestClient {
     content: BodyInit,
     options: RestWriteFileOptions = {}
   ): Promise<void> {
-    const encodedPath = this.buildRestWritePath(filePath, config.vault);
+    return withRequestDeadline(REST_WRITE_TIMEOUT_MS, options, async (request) => {
+      const encodedPath = this.buildRestWritePath(filePath, config.vault);
 
-    console.log('Writing to Obsidian:', {
-      filePath,
-      baseUrl: config.baseUrl,
-      httpsUrl: config.httpsUrl,
-      httpUrl: config.httpUrl,
-      vault: config.vault,
-      hasApiKey: Boolean(config.apiKey)
-    });
-
-    const candidates = createRestCandidates(config, encodedPath);
-    if (candidates.length === 0) {
-      candidates.push({
-        url: buildVaultUrl(config.baseUrl, config.vault, encodedPath),
-        protocol: config.baseUrl.startsWith('https://') ? 'HTTPS' : 'HTTP'
+      console.log('Writing to Obsidian:', {
+        filePath,
+        baseUrl: config.baseUrl,
+        httpsUrl: config.httpsUrl,
+        httpUrl: config.httpUrl,
+        vault: config.vault,
+        hasApiKey: Boolean(config.apiKey)
       });
-    }
 
-    const errors: AppError[] = [];
-
-    for (const candidate of candidates) {
-      try {
-        await this.doPut(candidate.url, candidate.protocol, config.apiKey, content, options);
-        console.log(
-          `✅ Write successful (${candidate.protocol}):`,
-          maskApiKey(candidate.url, config.apiKey)
-        );
-        return;
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        const { category, detail } = deriveRestFailure(err);
-        const sanitizedMessage = formatCategoryMessage(category, detail);
-        console.warn(`❌ ${candidate.protocol} failed:`, sanitizedMessage);
-
-        const context: Record<string, unknown> = {
-          endpoint: candidate.url,
-          method: 'PUT',
-          vault: config.vault,
-          protocol: candidate.protocol,
-          failureCategory: category
-        };
-
-        if (err instanceof RestResponseError && err.status !== undefined) {
-          context.statusCode = err.status;
-        }
-
-        const appError = restErrors.requestFailed(sanitizedMessage, context, {
-          cause: createSanitizedRestCause(sanitizedMessage)
+      const candidates = createRestCandidates(config, encodedPath);
+      if (candidates.length === 0) {
+        candidates.push({
+          url: buildVaultUrl(config.baseUrl, config.vault, encodedPath),
+          protocol: config.baseUrl.startsWith('https://') ? 'HTTPS' : 'HTTP'
         });
-        errors.push(appError);
-        await errorHandler.handle(appError, { suppressNotifications: true });
+      }
 
-        if (err instanceof RestResponseError) {
-          continue;
-        }
+      const errors: AppError[] = [];
 
-        if (category !== 'network error') {
-          throw appError;
+      for (const candidate of candidates) {
+        request.check();
+        try {
+          await this.doPut(
+            candidate.url,
+            candidate.protocol,
+            config.apiKey,
+            content,
+            options,
+            request
+          );
+          request.check();
+          console.log(
+            `✅ Write successful (${candidate.protocol}):`,
+            maskApiKey(candidate.url, config.apiKey)
+          );
+          return;
+        } catch (error) {
+          request.check();
+          const err = error instanceof Error ? error : new Error(String(error));
+          const { category, detail } = deriveRestFailure(err);
+          const sanitizedMessage = formatCategoryMessage(category, detail);
+          console.warn(`❌ ${candidate.protocol} failed:`, sanitizedMessage);
+
+          const context: Record<string, unknown> = {
+            endpoint: candidate.url,
+            method: 'PUT',
+            vault: config.vault,
+            protocol: candidate.protocol,
+            failureCategory: category
+          };
+
+          if (err instanceof RestResponseError && err.status !== undefined) {
+            context.statusCode = err.status;
+          }
+
+          const appError = restErrors.requestFailed(sanitizedMessage, context, {
+            cause: createSanitizedRestCause(sanitizedMessage)
+          });
+          errors.push(appError);
+          void runBestEffortEffect(
+            () => errorHandler.handle(appError, { suppressNotifications: true }),
+            'rest.failure'
+          );
+
+          if (err instanceof RestResponseError) {
+            continue;
+          }
+
+          if (category !== 'network error') {
+            throw appError;
+          }
         }
       }
-    }
 
-    const aggregatedError = restErrors.vaultUnavailable({
-      endpoint: config.baseUrl,
-      vault: config.vault,
-      retryCount: errors.length,
-      attempts: errors.map((attempt) => ({
-        protocol: attempt.context?.protocol,
-        endpoint: attempt.context?.endpoint,
-        message: attempt.message,
-        statusCode: attempt.context?.statusCode
-      }))
+      const aggregatedError = restErrors.vaultUnavailable({
+        endpoint: config.baseUrl,
+        vault: config.vault,
+        retryCount: errors.length,
+        attempts: errors.map((attempt) => ({
+          protocol: attempt.context?.protocol,
+          endpoint: attempt.context?.endpoint,
+          message: attempt.message,
+          statusCode: attempt.context?.statusCode
+        }))
+      });
+
+      throw aggregatedError;
     });
-
-    throw aggregatedError;
   }
 
   private async doPut(
@@ -221,7 +239,8 @@ export class FetchRestClient implements RestClient {
     protocol: string,
     apiKey: string,
     content: BodyInit,
-    options: RestWriteFileOptions
+    options: RestWriteFileOptions,
+    request: ActiveRequest
   ): Promise<Response> {
     const maskedUrl = maskApiKey(url, apiKey);
     console.log(`Trying ${protocol}:`, maskedUrl);
@@ -232,8 +251,11 @@ export class FetchRestClient implements RestClient {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': options.contentType ?? 'text/markdown; charset=utf-8'
       },
-      body: content
+      body: content,
+      signal: request.signal
     });
+    if (request.signal.aborted) void res?.body?.cancel().catch(() => undefined);
+    request.check();
 
     if (!res) {
       throw new Error('Missing response from REST endpoint');
@@ -241,9 +263,12 @@ export class FetchRestClient implements RestClient {
 
     if (!res.ok) {
       const errorText = await res.text().catch(() => res.statusText || HTTP_FAILURE_DETAIL);
+      request.check();
       throw new RestResponseError(res.status, protocol, errorText);
     }
 
+    // Successful headers are the PUT acknowledgement. Its unused body is not another commit.
+    void res.body?.cancel().catch(() => undefined);
     return res;
   }
 

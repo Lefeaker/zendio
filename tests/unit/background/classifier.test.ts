@@ -132,8 +132,7 @@ describe('classifier', () => {
       'preview'
     );
 
-    vi.advanceTimersByTime(15_000);
-    await vi.runAllTimersAsync();
+    await vi.advanceTimersByTimeAsync(2_000);
 
     const result = await classifyPromise;
     expect(result.ok).toBe(false);
