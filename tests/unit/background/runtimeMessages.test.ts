@@ -1008,6 +1008,7 @@ describe('runtime message listener', () => {
         data: {
           content: '# video',
           operationId: 'op_saved12345',
+          exportStartedAt: 1_792_089_599_000,
           title: 'Video title',
           url: 'https://youtube.com/watch?v=1',
           videoUrl: 'https://youtube.com/watch?v=1',
@@ -1035,6 +1036,7 @@ describe('runtime message listener', () => {
       type: 'video',
       meta: {
         operationId: 'op_saved12345',
+        exportStartedAt: 1_792_089_599_000,
         url: 'https://youtube.com/watch?v=1',
         sourceUrl: 'https://youtube.com/watch?v=1',
         platform: 'youtube',
@@ -1051,6 +1053,28 @@ describe('runtime message listener', () => {
       }
     });
   });
+
+  it.each(['bad-time', null, -1, 8_640_000_000_000_001])(
+    'rejects a malformed repository export timestamp %s before writing',
+    async (exportStartedAt) => {
+      const { registerRuntimeMessageListener } =
+        await import('../../../src/background/listeners/runtimeMessages');
+      registerRuntimeMessageListener(createDependencies());
+      const result = await listener?.(
+        {
+          type: 'videoClip',
+          data: { content: '# video', exportStartedAt }
+        },
+        { tabId: 12 }
+      );
+      expect(result).toMatchObject({
+        success: false,
+        outcome: 'failed',
+        failureCategory: 'validation'
+      });
+      expect(processClipPayloadMock).not.toHaveBeenCalled();
+    }
+  );
 
   it('returns clip results for repository video export messages with structured binary attachments', async () => {
     const { registerRuntimeMessageListener } =

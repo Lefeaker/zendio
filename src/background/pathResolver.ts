@@ -28,7 +28,15 @@ export function resolvePath(
   classification: ClassificationResult,
   domainMappings?: DomainMappings
 ): string {
-  const createdAt = new Date();
+  const exportStartedAt = payload.meta?.exportStartedAt;
+  const createdAt = new Date(
+    typeof exportStartedAt === 'number' &&
+      Number.isInteger(exportStartedAt) &&
+      exportStartedAt >= 0 &&
+      exportStartedAt <= 8_640_000_000_000_000
+      ? exportStartedAt
+      : Date.now()
+  );
   const yyyy = createdAt.getFullYear();
   const monthTwoDigit = String(createdAt.getMonth() + 1).padStart(2, '0');
   const dd = String(createdAt.getDate()).padStart(2, '0');

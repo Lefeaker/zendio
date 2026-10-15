@@ -61,6 +61,7 @@ const ExportDestinationSchema = z
 export const ClipMetaSchema = z
   .object({
     attachmentProgress: ClipAttachmentProgressSchema.optional(),
+    exportStartedAt: NonNegativeIntegerSchema.max(8_640_000_000_000_000).optional(),
     operationId: z
       .string()
       .regex(/^op_[a-z0-9]{6,24}$/u)

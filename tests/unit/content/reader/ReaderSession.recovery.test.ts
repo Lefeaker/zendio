@@ -55,7 +55,9 @@ describe('ReaderSession terminal recovery through the background store', () => {
     'missing-snapshot',
     'persist-failure'
   ])('retains confirmed progress and respects %s before another dispatch', async (scenario) => {
+    const startedAt = new Date(2026, 9, 15, 23, 59, 59).getTime();
     const { context, key, callbacks } = await createPersistedSession();
+    vi.setSystemTime(startedAt);
     context.dispatchClipResult.mockImplementationOnce((payload) => {
       const operationId = payload.meta?.operationId;
       if (!operationId) throw new Error('Missing attempt ID');
@@ -94,6 +96,7 @@ describe('ReaderSession terminal recovery through the background store', () => {
     if (scenario === 'persist-failure')
       context.draftMessages.rejectNext('save', new Error('Cannot persist attempt'));
     api.state.exportRecoveryAction = 'continue';
+    vi.setSystemTime(startedAt + 2000);
     await callbacks.onFinish();
     if (scenario === 'continue') {
       expect(context.dispatchClipResult).toHaveBeenCalledTimes(2);
@@ -101,6 +104,8 @@ describe('ReaderSession terminal recovery through the background store', () => {
       const second = context.dispatchClipResult.mock.calls[1]?.[0];
       expect(second?.markdown).toBe(first?.markdown);
       expect(second?.meta?.operationId).toBe(first?.meta?.operationId);
+      expect(first?.meta?.exportStartedAt).toBe(startedAt);
+      expect(second?.meta?.exportStartedAt).toBe(startedAt);
       expect(second?.meta?.attachmentProgress?.confirmed).toHaveLength(1);
       await expect(readStoredReaderDraft(context, key)).resolves.toBeUndefined();
     } else {
@@ -224,17 +229,24 @@ describe('ReaderSession terminal recovery through the background store', () => {
   });
 
   it('uses a fresh operation identity only after an explicit save-again choice', async () => {
+    const startedAt = new Date(2026, 9, 15, 23, 59, 59).getTime();
     const { context, callbacks } = await createPersistedSession();
+    vi.setSystemTime(startedAt);
     context.dispatchClipResult.mockRejectedValueOnce(
       new ClipSaveError(createClipSaveFailure('unknown'))
     );
     await callbacks.onFinish();
     const originalOperation = context.dispatchClipResult.mock.calls[0]?.[0]?.meta?.operationId;
+    expect(context.dispatchClipResult.mock.calls[0]?.[0]?.meta?.exportStartedAt).toBe(startedAt);
     getSessionHarness(context.session).state.exportRecoveryAction = 'save-again';
+    vi.setSystemTime(startedAt + 2000);
     await callbacks.onFinish();
     expect(context.dispatchClipResult).toHaveBeenCalledTimes(2);
     expect(context.dispatchClipResult.mock.calls[1]?.[0]?.meta?.operationId).not.toBe(
       originalOperation
+    );
+    expect(context.dispatchClipResult.mock.calls[1]?.[0]?.meta?.exportStartedAt).toBe(
+      startedAt + 2000
     );
     expect(context.view.destroy).toHaveBeenCalledTimes(1);
   });
