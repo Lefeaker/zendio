@@ -135,32 +135,28 @@ describe('classificationService', () => {
     expect(result.errorDetail?.context).toMatchObject({ status: 401 });
   });
 
-  it('returns fallback timeout classification when classifier transport exceeds the budget', async () => {
-    vi.useFakeTimers();
-    classifyMock.mockReturnValue(new Promise(() => undefined) as never);
-    const { classifyClip } = await import('../../../src/background/services/classificationService');
-    const classifyPromise = classifyClip(
-      createOptions({
-        enabled: true,
-        timeoutMs: 50
-      }),
-      {
-        type: 'article',
-        title: 'Slow Clip',
-        markdown: 'Long article markdown',
-        meta: { url: 'https://example.com/slow' }
+  it('maps the transport deadline result to fallback timeout classification', async () => {
+    classifyMock.mockResolvedValue({
+      ok: false,
+      error: {
+        code: 'CLASSIFIER_TIMEOUT',
+        domain: 'classifier',
+        message: 'CLASSIFIER_TIMEOUT',
+        severity: ErrorSeverity.WARNING,
+        recoverable: true
       }
+    });
+    const { classifyClip } = await import('../../../src/background/services/classificationService');
+    const options = createOptions({ enabled: true, timeoutMs: 50 });
+    const payload = createPayload();
+    const result = await classifyClip(options, payload);
+    expect(result).toMatchObject({ status: 'fallback', fallbackReason: 'timeout' });
+    expect(classifyMock).toHaveBeenCalledWith(
+      options.classifier,
+      expect.any(Object),
+      payload.markdown,
+      {}
     );
-
-    await vi.advanceTimersByTimeAsync(60);
-    const result = await Promise.race([
-      classifyPromise,
-      Promise.resolve({ status: 'pending', fallbackReason: undefined })
-    ]);
-
-    expect(result.status).toBe('fallback');
-    expect(result.fallbackReason).toBe('timeout');
-    vi.useRealTimers();
   });
 
   it('limits preview length to 4000 characters', async () => {

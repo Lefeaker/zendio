@@ -1,3 +1,8 @@
+import {
+  RequestInterruptedError,
+  withRequestDeadline,
+  type RequestDeadlineOptions
+} from '../../shared/utils/requestDeadline';
 import type { Options } from '../store';
 import type { OllamaChatResponse, OpenAIChatCompletionResponse } from '../../shared/types';
 import { AppError, classifierErrors } from '../../shared/errors';
@@ -15,7 +20,7 @@ interface ClassificationMeta {
   title: string;
 }
 
-const DEFAULT_TIMEOUT_MS = 15_000;
+const DEFAULT_TIMEOUT_MS = 2_000;
 
 export type ClassifierError = AppError;
 export type ClassifierErrorCode = ClassifierError['code'];
@@ -47,8 +52,14 @@ type PostJsonResult<T> = PostJsonSuccess<T> | PostJsonFailure;
 export async function classify(
   cfg: ClassifierConfig,
   meta: ClassificationMeta,
-  preview: string
+  preview: string,
+  options: RequestDeadlineOptions = {}
 ): Promise<ClassifierResponse> {
+  const configuredTimeout = Number(cfg.timeoutMs);
+  const timeoutMs =
+    Number.isFinite(configuredTimeout) && configuredTimeout > 0
+      ? configuredTimeout
+      : DEFAULT_TIMEOUT_MS;
   const request = ClassificationRequestSchema.parse({
     ...meta,
     preview
@@ -75,7 +86,9 @@ export async function classify(
         ]
       },
       {},
-      'ollama'
+      'ollama',
+      timeoutMs,
+      options
     );
 
     if (response.ok) {
@@ -105,7 +118,9 @@ export async function classify(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${cfg.apiKey || ''}`
     },
-    cfg.provider
+    cfg.provider,
+    timeoutMs,
+    options
   );
 
   if (response.ok) {
@@ -124,56 +139,62 @@ async function postJson<T>(
   endpoint: string,
   body: unknown,
   headers: Record<string, string> = {},
-  provider: ClassifierProvider
+  provider: ClassifierProvider,
+  timeoutMs: number,
+  options: RequestDeadlineOptions
 ): Promise<PostJsonResult<T>> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
-
   try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal
-    });
+    return await withRequestDeadline<PostJsonResult<T>>(timeoutMs, options, async (request) => {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers
+        },
+        body: JSON.stringify(body),
+        signal: request.signal
+      });
+      if (request.signal.aborted) void response?.body?.cancel().catch(() => undefined);
+      request.check();
 
-    if (!response.ok) {
-      const text = await safeReadText(response);
-      return {
-        ok: false,
-        error: classifierErrors.transportFailure(text || `HTTP ${response.status}`, {
-          provider,
-          endpoint,
-          status: response.status,
-          method: 'POST'
-        })
-      };
-    }
-
-    try {
-      const json = (await response.json()) as T;
-      return {
-        ok: true,
-        data: json
-      };
-    } catch (error) {
-      return {
-        ok: false,
-        error: classifierErrors.invalidPayload(
-          'CLASSIFIER_RESPONSE_INVALID_JSON',
-          {
+      if (!response.ok) {
+        const text = await safeReadText(response);
+        request.check();
+        return {
+          ok: false,
+          error: classifierErrors.transportFailure(text || `HTTP ${response.status}`, {
             provider,
-            endpoint
-          },
-          { cause: error }
-        )
-      };
-    }
+            endpoint,
+            status: response.status,
+            method: 'POST'
+          })
+        };
+      }
+
+      try {
+        const json = (await response.json()) as T;
+        request.check();
+        return {
+          ok: true,
+          data: json
+        };
+      } catch (error) {
+        request.check();
+        return {
+          ok: false,
+          error: classifierErrors.invalidPayload(
+            'CLASSIFIER_RESPONSE_INVALID_JSON',
+            {
+              provider,
+              endpoint
+            },
+            { cause: error }
+          )
+        };
+      }
+    });
   } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
+    if (error instanceof RequestInterruptedError && error.timedOut) {
       return {
         ok: false,
         error: classifierErrors.timeout(
@@ -196,8 +217,6 @@ async function postJson<T>(
         { cause: error }
       )
     };
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
