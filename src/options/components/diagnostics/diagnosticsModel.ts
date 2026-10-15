@@ -36,8 +36,9 @@ export function buildDiagnosticsModel(
   const currentConfigSection: DiagnosticSection = {
     icon: '📋',
     title: createDiagnosticMessage('diagnosticsSectionCurrentConfigTitle'),
-    lines: [],
-    rawBlock: JSON.stringify(options, null, 2)
+    // Reports are shareable summaries, not configuration exports. Keep arbitrary
+    // configuration values out of both raw blocks and message parameters.
+    lines: [createDiagnosticLine('info', 'diagnosticsPrivacyNotice')]
   };
   const configChecksSection: DiagnosticSection = {
     icon: '🔍',
@@ -157,9 +158,7 @@ export function buildDiagnosticsModel(
     if (!userName) {
       aiChatSection.lines.push(createDiagnosticLine('warning', 'diagnosticsAiChatUserNameMissing'));
     } else {
-      aiChatSection.lines.push(
-        createDiagnosticLine('ok', 'diagnosticsAiChatUserNameValue', { userName })
-      );
+      aiChatSection.lines.push(createDiagnosticLine('ok', 'diagnosticsAiChatUserNameValue'));
     }
   }
 
@@ -220,9 +219,7 @@ export function buildDiagnosticsModel(
     const exportMode = options.readingSession.exportMode ?? 'highlights';
     if (!VALID_READING_EXPORT_MODES.has(exportMode as ReadingSessionOptions['exportMode'])) {
       readingSection.lines.push(
-        createDiagnosticLine('error', 'diagnosticsReadingUnknownExportMode', {
-          mode: String(exportMode)
-        })
+        createDiagnosticLine('error', 'diagnosticsReadingUnknownExportMode')
       );
     } else {
       readingSection.lines.push(
@@ -234,11 +231,7 @@ export function buildDiagnosticsModel(
 
     const theme = options.readingSession.highlightTheme ?? 'gradient';
     if (!VALID_READING_THEMES.has(theme as ReadingSessionOptions['highlightTheme'])) {
-      readingSection.lines.push(
-        createDiagnosticLine('warning', 'diagnosticsReadingUnknownTheme', {
-          theme: String(theme)
-        })
-      );
+      readingSection.lines.push(createDiagnosticLine('warning', 'diagnosticsReadingUnknownTheme'));
     } else {
       readingSection.lines.push(
         createDiagnosticLine('ok', 'diagnosticsReadingThemeValue', { theme: String(theme) })

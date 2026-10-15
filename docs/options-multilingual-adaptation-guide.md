@@ -3,6 +3,8 @@
 更新时间：2026-06-16
 适用范围：`src/options/**`。跨 Options、content、background、export、onboarding、trial 与 parser 的 production copy 总规则见 [`i18n-production-copy-governance.md`](./i18n-production-copy-governance.md)。
 
+维护页的诊断报告由 `maintenance:diagnose` 收集当前表单和 widget 草稿，再经 `buildDiagnosticsReport` 生成。报告默认只包含配置是否存在、数量、受限枚举、数值与端口冲突等检查结果，不序列化原始配置，不显示凭据、用户名、Vault 名称/标识、路径、端点、自定义文本或无效枚举原文。隐私提示、已配置用户名状态及未知值提示均由 runtime catalog 翻译。诊断不会修改草稿或存储；“复制配置”仍是包含密钥的完整备份，两者不可混用。扩展报告时应只增加明确可公开的检查结果，不能把用户配置放进 `rawBlock` 或消息参数；只清除 `apiKey` 无法覆盖自定义 YAML、模板或端点中的私人内容。
+
 ## 当前真值
 
 - `Options` production 路径的可见文案必须走 `Messages` -> `src/i18n/catalog/messages/<lang>/runtime.json` / `schema.json` -> `src/i18n/generated/locales/*.generated.ts` 链路。

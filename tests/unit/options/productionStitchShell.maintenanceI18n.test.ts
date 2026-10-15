@@ -5,10 +5,17 @@ import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as taskOwnerModule from '@options/app/productionStitchActionTaskOwner';
 import * as sectionInvalidationModule from '@ui/stitch-runtime/render/sectionInvalidation';
+import * as diagnosticsMessagesModule from '@options/components/diagnostics/diagnosticsMessages';
+import {
+  createDiagnosticsPrivacyOptions,
+  DIAGNOSTICS_PRIVATE_VALUES
+} from '../../utils/diagnosticsPrivacyFixture';
 import {
   asOptionsController,
   createController,
+  createEnglishPageMessages,
   findButton,
+  queryRequired,
   setupProductionStitchShellTest
 } from './productionStitchShell.helpers';
 
@@ -54,6 +61,38 @@ function observeRunningDiagnosis(buttonLabel: string, title: string, body: strin
 
 describe('mountProductionStitchShell maintenance i18n', () => {
   beforeEach(setupProductionStitchShellTest);
+
+  it('renders a private diagnosis from the mounted draft and preserves full configuration copy', async () => {
+    const initialOptions = createDiagnosticsPrivacyOptions();
+    const before = structuredClone(initialOptions);
+    const controller = createController();
+    const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions,
+      messages: await createEnglishPageMessages(),
+      language: 'en'
+    });
+    queryRequired<HTMLButtonElement>('[data-action-id="maintenance:diagnose"]').click();
+    await vi.waitFor(() =>
+      expect(document.querySelector('.settings-diagnostics-card')?.textContent).toContain(
+        'Diagnostics complete'
+      )
+    );
+    const report = document.querySelector('.settings-diagnostics-card')?.textContent ?? '';
+    for (const value of DIAGNOSTICS_PRIVATE_VALUES) expect(report).not.toContain(value);
+    expect(report).toContain('Configured vaults: 2');
+    expect(report).toContain('Context length: 120');
+    expect(report).toContain('This report omits credentials');
+    expect(initialOptions).toEqual(before);
+    expect(controller.saveSnapshot).not.toHaveBeenCalled();
+    expect(controller.scheduleAutoSave).not.toHaveBeenCalled();
+    queryRequired<HTMLButtonElement>('[data-action-id="maintenance:copyConfig"]').click();
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    const backup = writeText.mock.calls[0];
+    for (const value of DIAGNOSTICS_PRIVATE_VALUES) expect(JSON.stringify(backup)).toContain(value);
+  });
 
   it('renders maintenance schema copy from catalog-backed messages', async () => {
     const completion = observeMaintenanceCompletion();
@@ -113,21 +152,11 @@ describe('mountProductionStitchShell maintenance i18n', () => {
       expect(document.body.textContent).toContain('Diagnosis Result Sentinel')
     );
 
-    const stringify = JSON.stringify;
-    const stringifySpy = vi
-      .spyOn(JSON, 'stringify')
-      .mockImplementation((value, replacer, space) => {
-        if (
-          space === 2 &&
-          typeof value === 'object' &&
-          value !== null &&
-          'rest' in value &&
-          'templates' in value
-        ) {
-          stringifySpy.mockRestore();
-          throw new Error('controlled localized diagnosis failure');
-        }
-        return Reflect.apply(stringify, JSON, [value, replacer, space]);
+    const reportSpy = vi
+      .spyOn(diagnosticsMessagesModule, 'renderDiagnosticReport')
+      .mockImplementationOnce(() => {
+        reportSpy.mockRestore();
+        throw new Error('controlled localized diagnosis failure');
       });
     const failing = observeRunningDiagnosis(
       'Diagnose Configuration Sentinel',

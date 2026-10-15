@@ -607,7 +607,7 @@
   "localVaultWriteReauthorizationRequired": "Der lokale Ordner muss erneut autorisiert werden. Autorisieren Sie „{folderName}“ in den Einstellungen neu.",
   "localVaultWriteFailed": "Schreiben in den lokalen Ordner fehlgeschlagen: {folderName}",
   "diagnosticsRunning": "Diagnose wird ausgeführt...",
-  "diagnosticsRunFailed": "Diagnose fehlgeschlagen: {reason}",
+  "diagnosticsRunFailed": "Diagnose fehlgeschlagen",
   "diagnosticsSectionCurrentConfigTitle": "Aktuelle Konfiguration",
   "diagnosticsSectionConfigChecksTitle": "Konfigurationsprüfungen",
   "diagnosticsConfigNotFound": "Keine Konfiguration gefunden",
@@ -631,7 +631,7 @@
   "diagnosticsSectionAiChatTitle": "KI-Chat-Speicher-Konfiguration",
   "diagnosticsAiChatConfigMissing": "KI-Chat-Speicher-Konfiguration ist nicht konfiguriert",
   "diagnosticsAiChatUserNameMissing": "Der Benutzername ist leer. Legen Sie einen klaren Anzeigenamen fest.",
-  "diagnosticsAiChatUserNameValue": "Benutzername: {userName}",
+  "diagnosticsAiChatUserNameValue": "Benutzername ist konfiguriert",
   "diagnosticsSectionFragmentClipperTitle": "Fragment-Speicher-Konfiguration",
   "diagnosticsFragmentClipperConfigMissing": "Fragment-Speicher-Konfiguration ist nicht konfiguriert",
   "diagnosticsFragmentFootnoteEnabled": "Fußnotenformat ist aktiviert und mit Sidebar Highlights kompatibel",
@@ -647,10 +647,10 @@
   "diagnosticsFragmentSelectionTriggerDirect": "Textauswahl löst die Erfassung ohne Modifikatortaste aus",
   "diagnosticsSectionReadingModeTitle": "Lesemodus",
   "diagnosticsReadingConfigMissing": "Lesemodus ist nicht konfiguriert",
-  "diagnosticsReadingUnknownExportMode": "Unbekannter Exportmodus: {mode}",
+  "diagnosticsReadingUnknownExportMode": "Unbekannter Exportmodus",
   "diagnosticsReadingExportFull": "Vollständiger Artikel mit Hervorhebungen",
   "diagnosticsReadingExportHighlights": "Nur hervorgehobene Ausschnitte",
-  "diagnosticsReadingUnknownTheme": "Unbekanntes Hervorhebungsthema: {theme}. Das Standardthema wird verwendet",
+  "diagnosticsReadingUnknownTheme": "Unbekanntes Hervorhebungsthema. Das Standardthema wird verwendet",
   "diagnosticsReadingThemeValue": "Hervorhebungsfarbe: {theme}",
   "diagnosticsSectionVideoModeTitle": "Video-Modus",
   "diagnosticsVideoConfigMissing": "Video-Modus ist nicht konfiguriert",
@@ -900,5 +900,6 @@
   "savePhaseNote": "Notiz",
   "savePhaseAttachments": "Anhang",
   "saveContinue": "Geprüft, restliches Speichern fortsetzen",
-  "saveContinuationUnavailable": "Der ursprüngliche Export oder das Ziel ist nicht verfügbar oder wurde geändert. Dein Inhalt bleibt erhalten. Prüfe vorhandene Dateien vor einem neuen Export."
+  "saveContinuationUnavailable": "Der ursprüngliche Export oder das Ziel ist nicht verfügbar oder wurde geändert. Dein Inhalt bleibt erhalten. Prüfe vorhandene Dateien vor einem neuen Export.",
+  "diagnosticsPrivacyNotice": "Dieser Bericht enthält keine Zugangsdaten, privaten Kennungen, Pfade oder eigenen Texte. Konfiguration kopieren erstellt eine vollständige Sicherung mit geheimen Daten."
 }

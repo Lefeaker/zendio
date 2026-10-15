@@ -5,6 +5,10 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { MessagePayload } from '../../src/platform/interfaces/messaging';
 import { SECTION_INVALIDATION_SCOPES } from '../../src/ui/stitch-runtime/render/sectionInvalidation';
+import {
+  createDiagnosticsPrivacyOptions,
+  DIAGNOSTICS_PRIVATE_VALUES
+} from '../utils/diagnosticsPrivacyFixture';
 
 const ROUTING_TEMPLATE_ROWS = [
   ['routing:add', 'storage'],
@@ -71,6 +75,7 @@ type B07GlobalThis = typeof global &
     __zendioOptionsMutationTrace?: OptionsMutationTrace[];
     __zendioRetryNativeProbe?: RetryNativeProbe;
     __zendioSawConnectedRunningDiagnosis?: boolean;
+    __zendioCopiedBackup?: string;
     __zendioUsageResetTrace?: UsageResetTrace[];
   };
 declare const globalThis: B07GlobalThis;
@@ -1149,7 +1154,7 @@ test('Options hands pending edits off across immediate reload and close', async 
   }
 });
 
-test('F05 exposes installed maintenance idle, running, success, failure, and rerun states', async () => {
+test('F05 exposes private installed maintenance reports, full backup, and diagnosis lifecycle states', async () => {
   const userDataDir = await mkdtemp(join(tmpdir(), 'zendio-f05-maintenance-'));
   const context = await chromium.launchPersistentContext(userDataDir, {
     headless: false,
@@ -1166,38 +1171,61 @@ test('F05 exposes installed maintenance idle, running, success, failure, and rer
       (await context.waitForEvent('serviceworker', { timeout: 15_000 }));
     const extensionId = background.url().split('/')[2];
     if (!extensionId) throw new Error('Unable to resolve extension id.');
+    await background.evaluate(
+      (options) => chrome.storage.sync.set({ options }),
+      createDiagnosticsPrivacyOptions()
+    );
     const optionsPage = await context.newPage();
     await optionsPage.goto(`chrome-extension://${extensionId}/options/index.html`, {
       waitUntil: 'domcontentloaded'
     });
     const maintenance = optionsPage.locator('[data-panel-id="maintenance"]');
     const diagnose = maintenance.locator('[data-action-id="maintenance:diagnose"]');
+    const readStored = () => background.evaluate(() => chrome.storage.sync.get('options'));
 
     await expect(maintenance).toContainText('Diagnostics have not run yet.');
     await expect(maintenance).not.toContainText('is healthy');
+    const beforeDiagnosis = await readStored();
     await armMaintenanceRunningProbe(optionsPage);
     await diagnose.click();
     await expect.poll(() => sawConnectedRunningDiagnosis(optionsPage)).toBe(true);
     await expect(maintenance).toContainText('Diagnosis Results');
     await expect(diagnose).toBeEnabled();
+    const report = await maintenance.locator('.settings-diagnostics-card').textContent();
+    for (const value of DIAGNOSTICS_PRIVATE_VALUES) expect(report).not.toContain(value);
+    expect(report).toContain('Configured vaults: 2');
+    expect(report).toContain('Context length: 120');
+    expect(report).toContain('This report omits credentials');
+    expect(await readStored()).toEqual(beforeDiagnosis);
 
     await optionsPage.evaluate(() => {
-      const stringify = JSON.stringify;
-      JSON.stringify = function (value, replacer, space) {
-        if (
-          space === 2 &&
-          typeof value === 'object' &&
-          value !== null &&
-          'rest' in value &&
-          'templates' in value
-        ) {
-          JSON.stringify = stringify;
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: {
+          writeText: (text: string) => {
+            globalThis.__zendioCopiedBackup = text;
+            return Promise.resolve();
+          }
+        }
+      });
+    });
+    await maintenance.locator('[data-action-id="maintenance:copyConfig"]').click();
+    await expect
+      .poll(() => optionsPage.evaluate(() => globalThis.__zendioCopiedBackup))
+      .toBeTruthy();
+    const backup = await optionsPage.evaluate(() => globalThis.__zendioCopiedBackup);
+    for (const value of DIAGNOSTICS_PRIVATE_VALUES) expect(backup).toContain(value);
+
+    await optionsPage.evaluate(() => {
+      // Fail exactly at the report renderer's severity-prefix check. Diagnosis
+      // no longer serializes the raw options object.
+      const test = RegExp.prototype.test;
+      RegExp.prototype.test = function (text) {
+        if (this.source === /^(✅|⚠️|❌|ℹ️)\s/u.source) {
+          RegExp.prototype.test = test;
           throw new Error('controlled installed diagnostics failure');
         }
-        if (Array.isArray(replacer) || replacer === null || replacer === undefined) {
-          return stringify(value, replacer, space);
-        }
-        return stringify(value, replacer, space);
+        return test.call(this, text);
       };
     });
     await armMaintenanceRunningProbe(optionsPage);

@@ -607,7 +607,7 @@
   "localVaultWriteReauthorizationRequired": "La cartella locale deve essere nuovamente autorizzata. Ri-autorizza \"{folderName}\" nelle Impostazioni.",
   "localVaultWriteFailed": "Scrittura nella cartella locale non riuscita: {folderName}",
   "diagnosticsRunning": "Diagnostica in corso...",
-  "diagnosticsRunFailed": "Diagnostica non riuscita: {reason}",
+  "diagnosticsRunFailed": "Diagnostica non riuscita",
   "diagnosticsSectionCurrentConfigTitle": "Configurazione attuale",
   "diagnosticsSectionConfigChecksTitle": "Controlli di configurazione",
   "diagnosticsConfigNotFound": "Nessuna configurazione trovata",
@@ -631,7 +631,7 @@
   "diagnosticsSectionAiChatTitle": "Configurazione salvataggio chat AI",
   "diagnosticsAiChatConfigMissing": "Configurazione salvataggio chat AI non è configurato",
   "diagnosticsAiChatUserNameMissing": "Il nome utente è vuoto. Imposta un nome visualizzato chiaro.",
-  "diagnosticsAiChatUserNameValue": "Nome utente: {userName}",
+  "diagnosticsAiChatUserNameValue": "Il nome utente è configurato",
   "diagnosticsSectionFragmentClipperTitle": "Configurazione salvataggio frammenti",
   "diagnosticsFragmentClipperConfigMissing": "Configurazione salvataggio frammenti non è configurato",
   "diagnosticsFragmentFootnoteEnabled": "Il formato nota a piè di pagina è attivo ed è compatibile con Sidebar Highlights",
@@ -647,10 +647,10 @@
   "diagnosticsFragmentSelectionTriggerDirect": "La selezione del testo attiva la cattura senza un tasto modificatore",
   "diagnosticsSectionReadingModeTitle": "Modalità lettura",
   "diagnosticsReadingConfigMissing": "Modalità lettura non è configurato",
-  "diagnosticsReadingUnknownExportMode": "Modalità di esportazione sconosciuta: {mode}",
+  "diagnosticsReadingUnknownExportMode": "Modalità di esportazione sconosciuta",
   "diagnosticsReadingExportFull": "Articolo completo con evidenziazioni",
   "diagnosticsReadingExportHighlights": "Solo estratti evidenziati",
-  "diagnosticsReadingUnknownTheme": "Tema evidenziatore sconosciuto: {theme}. Verrà usato il tema predefinito",
+  "diagnosticsReadingUnknownTheme": "Tema di evidenziazione sconosciuto. Verrà usato il tema predefinito",
   "diagnosticsReadingThemeValue": "Colore evidenziazione: {theme}",
   "diagnosticsSectionVideoModeTitle": "Modalità video",
   "diagnosticsVideoConfigMissing": "Modalità video non è configurato",
@@ -900,5 +900,6 @@
   "savePhaseNote": "nota",
   "savePhaseAttachments": "allegato",
   "saveContinue": "Verificato, continua il salvataggio",
-  "saveContinuationUnavailable": "Il contenuto originale o la destinazione non è disponibile o è cambiato. Il contenuto è conservato. Controlla i file esistenti prima di una nuova esportazione."
+  "saveContinuationUnavailable": "Il contenuto originale o la destinazione non è disponibile o è cambiato. Il contenuto è conservato. Controlla i file esistenti prima di una nuova esportazione.",
+  "diagnosticsPrivacyNotice": "Questo rapporto omette credenziali, identificativi privati, percorsi e testi personalizzati. Copia configurazione crea un backup completo che include i segreti."
 }
