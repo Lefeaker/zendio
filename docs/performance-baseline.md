@@ -2,6 +2,12 @@
 
 日期：2026-08-28
 
+2026-10-15 导出身份与请求截止修复保留原职责归属：processor / classifier / REST
+client 的物理行数分别登记为 636 / 280 / 289，Reader / Video session operations 与
+Video exporter 为 819 / 603 / 274；诊断隐私说明增加一个生成消息声明，登记为 1363。
+这些是现有 owner 的准确源代码行数，未为预算拆分逻辑；构建字节、chunk 数、覆盖率与
+命令时间限制保持原值，不据此宣称运行性能提升。
+
 ## 用户操作耗时采样
 
 `tests/e2e/realWorkloadPerformance.browser.test.ts` 是手动、单 worker 的生产产物负载测量。
