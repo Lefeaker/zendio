@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { z } from 'zod';
 import { ClipProcessingResultSchema } from '@shared/schemas';
 import {
   classifyClipMock,
@@ -51,13 +52,16 @@ describe('clipProcessor', () => {
       await import('../../../src/background/application/clipProcessor');
     const result = await processClipPayload(createPayload());
 
+    const writeOptions = z
+      .object({ deadlineAt: z.number() })
+      .parse(createWriteSessionMock.mock.calls[0]?.[1]);
     expect(createWriteSessionMock).toHaveBeenCalledWith(
       {
         baseUrl: 'https://vault',
         vault: 'Secondary',
         apiKey: 'key'
       },
-      { deadlineAt: expect.any(Number) }
+      writeOptions
     );
     expect(writeMarkdownMock).toHaveBeenCalledWith('Articles/foo.md', '# note');
     expect(recordUsageMock).toHaveBeenCalled();

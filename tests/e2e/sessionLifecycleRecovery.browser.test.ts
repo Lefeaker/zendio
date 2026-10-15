@@ -619,12 +619,10 @@ async function setAttachmentRecoveryClock(
   await worker.evaluate((now) => {
     globalThis.Date = new Proxy(Date, {
       construct(target, args, newTarget) {
-        return Reflect.construct(target, args.length ? args : [now], newTarget);
-      },
-      get(target, key, receiver) {
-        return key === 'now' ? () => now : Reflect.get(target, key, receiver);
+        return Reflect.construct(target, args.length ? args : [now], newTarget) as Date;
       }
     });
+    Date.now = () => now;
   }, instant);
   await extensionPage.evaluate(
     async ({ id, now }) => {

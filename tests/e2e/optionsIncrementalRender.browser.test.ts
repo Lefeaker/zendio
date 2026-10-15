@@ -1219,7 +1219,10 @@ test('F05 exposes private installed maintenance reports, full backup, and diagno
     await optionsPage.evaluate(() => {
       // Fail exactly at the report renderer's severity-prefix check. Diagnosis
       // no longer serializes the raw options object.
-      const test = RegExp.prototype.test;
+      const test = Reflect.get(RegExp.prototype, 'test') as (
+        this: RegExp,
+        input: string
+      ) => boolean;
       RegExp.prototype.test = function (text) {
         if (this.source === /^(✅|⚠️|❌|ℹ️)\s/u.source) {
           RegExp.prototype.test = test;
