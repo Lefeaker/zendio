@@ -10,7 +10,28 @@ export type SerializedClipAttachmentContent =
   | { kind: 'legacyDataUrl'; dataUrl: string }
   | { kind: 'base64'; binary: SerializedClipAttachmentBinaryContent };
 
-const LEGACY_DATA_URL_PATTERN = /^data:([^;,]+);base64,(.+)$/u;
+const LEGACY_DATA_URL_PATTERN = /^data:([^;,]+);base64,([\s\S]+)$/u;
+
+/** Match atob's padded/unpadded alphabet without allocating decoded bytes or Blobs. */
+function decodedBase64ByteLength(data: string): number | null {
+  const compact = data.replace(/[\t\n\f\r ]/gu, '');
+  if (!/^[A-Za-z0-9+/]*={0,2}$/u.test(compact)) return null;
+  const padding = compact.endsWith('==') ? 2 : compact.endsWith('=') ? 1 : 0;
+  const contentLength = compact.length - padding;
+  if (contentLength % 4 === 1 || (padding > 0 && compact.length % 4 !== 0)) return null;
+  return Math.floor((contentLength * 3) / 4);
+}
+
+export function isValidSerializedClipAttachmentBinaryContent(
+  value: SerializedClipAttachmentBinaryContent
+): boolean {
+  return decodedBase64ByteLength(value.data) === value.byteLength;
+}
+
+export function isValidLegacyAttachmentDataUrl(dataUrl: string, mimeType: string): boolean {
+  const match = LEGACY_DATA_URL_PATTERN.exec(dataUrl);
+  return Boolean(match && match[1] === mimeType && decodedBase64ByteLength(match[2]) !== null);
+}
 
 export function isSerializedClipAttachmentBinaryContent(
   value: unknown

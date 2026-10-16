@@ -30,7 +30,7 @@ describe('resolveVideoScreenshotAttachmentTemplate', () => {
       markdownPath: 'assets/My Clip/file-20260606112233444.jpg',
       outputPath: 'Videos/assets/My Clip/file-20260606112233444.jpg',
       generatedAttachmentFilePath: 'Videos/assets/My Clip/file-20260606112233444.jpg',
-      markdownUrl: 'assets/My Clip/file-20260606112233444.jpg',
+      markdownUrl: 'assets/My%20Clip/file-20260606112233444.jpg',
       usedFallback: false,
       warnings: []
     });
@@ -48,7 +48,7 @@ describe('resolveVideoScreenshotAttachmentTemplate', () => {
 
     expect(result.outputPath).toBe('Media/Video/My Clip/file-20260606112233444.jpg');
     expect(result.markdownPath).toBe('../Media/Video/My Clip/file-20260606112233444.jpg');
-    expect(result.markdownUrl).toBe('../Media/Video/My Clip/file-20260606112233444.jpg');
+    expect(result.markdownUrl).toBe('../Media/Video/My%20Clip/file-20260606112233444.jpg');
   });
 
   it('renders note folder, note name, and note path tokens case-insensitively', () => {
@@ -116,7 +116,7 @@ describe('resolveVideoScreenshotAttachmentTemplate', () => {
     );
 
     expect(result.markdownPath).toBe('assets/My Clip/file-20260606112233444.jpg');
-    expect(result.markdownUrl).toBe(result.markdownPath);
+    expect(result.markdownUrl).toBe('assets/My%20Clip/file-20260606112233444.jpg');
     expect(result.usedFallback).toBe(true);
     expect(result.warnings).toEqual(
       expect.arrayContaining([
@@ -137,7 +137,7 @@ describe('resolveVideoScreenshotAttachmentTemplate', () => {
     );
 
     expect(result.markdownPath).toBe('assets/My Clip/file-20260606112233444.jpg');
-    expect(result.markdownUrl).toBe(result.markdownPath);
+    expect(result.markdownUrl).toBe('assets/My%20Clip/file-20260606112233444.jpg');
     expect(result.usedFallback).toBe(true);
     expect(result.warnings).toEqual(
       expect.arrayContaining([
@@ -259,4 +259,25 @@ describe('disambiguateResolvedVideoScreenshotAttachmentTemplate', () => {
       'obsidian://vault/Videos/assets/My Clip/file-20260606112233444-2.jpg?file=file-20260606112233444-2.jpg'
     );
   });
+});
+
+it('disambiguates default encoded URLs while preserving raw paths', () => {
+  const resolved = resolveVideoScreenshotAttachmentTemplate(
+    {
+      locationTemplate: './assets/${noteFileName}',
+      fileNameTemplate: '${originalAttachmentFileName}',
+      markdownUrlFormat: ''
+    },
+    {
+      ...BASE_CONTEXT,
+      noteFilePath: 'Videos/Note #50% (中文).md',
+      originalAttachmentFileName: 'frame #50% (截图).jpg'
+    }
+  );
+  const duplicate = disambiguateResolvedVideoScreenshotAttachmentTemplate(resolved, 2);
+  expect(duplicate.outputPath).toBe('Videos/assets/Note #50% (中文)/frame #50% (截图)-2.jpg');
+  expect(duplicate.markdownUrl).toBe(
+    'assets/Note%20%2350%25%20%28%E4%B8%AD%E6%96%87%29/frame%20%2350%25%20%28%E6%88%AA%E5%9B%BE%29-2.jpg'
+  );
+  expect(decodeURIComponent(duplicate.markdownUrl)).toBe(duplicate.markdownPath);
 });

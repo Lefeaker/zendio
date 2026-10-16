@@ -6,6 +6,10 @@ import {
   resolveVideoScreenshotAttachmentTemplate
 } from '../../shared/attachments/videoScreenshotAttachmentTemplates';
 import type { SerializedClipAttachmentContent } from '../../shared/attachments/clipAttachmentBinary';
+import {
+  encodeAttachmentMarkdownPath,
+  replaceClipAttachmentReferences
+} from '../../shared/attachments/clipAttachmentReferences';
 import { sanitizeDownloadsPathSegment } from '../../shared/downloadsFilename';
 import type { ClipMeta, ClipResultMessage } from '../../shared/types';
 import type { VideoScreenshotAttachmentOptions } from '../../shared/types/options';
@@ -44,7 +48,7 @@ export function prepareVideoClipAttachments({
   destination,
   screenshotAttachmentOptions
 }: PrepareVideoClipAttachmentsOptions): PreparedClipAttachments {
-  const attachments = parseClipAttachments(payload.meta?.attachments);
+  const attachments = parseVideoClipAttachments(payload.meta?.attachments, payload.markdown);
   if (attachments.length === 0) return { markdown: payload.markdown, attachments: [] };
   const preparedAttachments = shouldUseConfiguredVideoPlanning(
     payload,
@@ -60,7 +64,7 @@ export function prepareVideoClipAttachments({
       )
     : prepareLegacyAttachments(notePath, destination, attachments);
   return {
-    markdown: replaceAttachmentMarkers(payload.markdown, preparedAttachments),
+    markdown: replaceClipAttachmentReferences(payload.markdown, preparedAttachments),
     attachments: preparedAttachments
   };
 }
@@ -136,19 +140,9 @@ function prepareLegacyAttachments(
       content: attachment.content,
       outputPath: destination === 'downloads' ? nextPath : joinPath(noteDirectory, nextPath),
       markdownPath: nextPath,
-      markdownUrl: nextPath
+      markdownUrl: encodeAttachmentMarkdownPath(nextPath)
     };
   });
-}
-function replaceAttachmentMarkers(markdown: string, attachments: PreparedClipAttachment[]): string {
-  return attachments.reduce(
-    (current, attachment) =>
-      current.split(`aiob-attachment:${attachment.id}`).join(attachment.markdownUrl),
-    markdown
-  );
-}
-function parseClipAttachments(value: ClipMeta['attachments']): ClipAttachment[] {
-  return parseVideoClipAttachments(value);
 }
 function isDefaultScreenshotAttachmentOptions(options: VideoScreenshotAttachmentOptions): boolean {
   return (

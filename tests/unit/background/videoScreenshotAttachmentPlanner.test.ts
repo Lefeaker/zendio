@@ -335,27 +335,24 @@ describe('prepareVideoClipAttachments', () => {
     const { prepareVideoClipAttachments } =
       await import('../../../src/background/application/videoScreenshotAttachmentPlanner');
 
-    const result = prepareVideoClipAttachments({
-      payload: createPayload({
-        meta: {
-          url: 'https://youtube.com/watch?v=1',
-          attachments: [
-            {
-              ...baseAttachment,
-              mimeType: 'image/png'
-            }
-          ]
-        }
-      }),
-      notePath: 'Videos/Test.md',
-      destination: 'vault',
-      screenshotAttachmentOptions: screenshotAttachmentDefaults
-    });
-
-    expect(result).toEqual({
-      markdown: '# video\n![Screenshot](aiob-attachment:shot-1)',
-      attachments: []
-    });
+    expect(() =>
+      prepareVideoClipAttachments({
+        payload: createPayload({
+          meta: {
+            url: 'https://youtube.com/watch?v=1',
+            attachments: [
+              {
+                ...baseAttachment,
+                mimeType: 'image/png'
+              }
+            ]
+          }
+        }),
+        notePath: 'Videos/Test.md',
+        destination: 'vault',
+        screenshotAttachmentOptions: screenshotAttachmentDefaults
+      })
+    ).toThrow('CLIP_ATTACHMENT_DATA_URL_MIME_MISMATCH');
   });
 
   it('keeps non-video attachments on the legacy path logic and no-ops when attachments are missing', async () => {
@@ -481,4 +478,39 @@ describe('prepareVideoClipAttachments', () => {
       })
     ]);
   });
+});
+
+describe('attachment reference integrity', () => {
+  it.each<'vault' | 'downloads'>(['vault', 'downloads'])(
+    'encodes default links independently of physical %s paths and matches exact IDs',
+    async (destination) => {
+      const { prepareVideoClipAttachments } =
+        await import('../../../src/background/application/videoScreenshotAttachmentPlanner');
+      const result = prepareVideoClipAttachments({
+        payload: {
+          markdown: '![A](aiob-attachment:a)\n![AB](aiob-attachment:ab)',
+          meta: {
+            attachments: ['a', 'ab'].map((id) => ({
+              id,
+              fileName: `${id} #50% (截图).jpg`,
+              mimeType: 'image/jpeg',
+              dataUrl: 'data:image/jpeg;base64,YQ=='
+            }))
+          }
+        },
+        notePath: 'Videos/Review #50% (中文).md',
+        destination
+      });
+      for (const attachment of result.attachments) {
+        const url = new URL(attachment.markdownUrl, 'https://example.invalid/Videos/');
+        expect(url.hash).toBe('');
+        expect(url.search).toBe('');
+        expect(attachment.markdownUrl).not.toMatch(/[ #()]/u);
+        expect(decodeURIComponent(attachment.markdownUrl)).toBe(attachment.markdownPath);
+        expect(attachment.outputPath).toContain('#50% (');
+        expect(result.markdown).toContain(`](${attachment.markdownUrl})`);
+      }
+      expect(result.markdown).not.toContain('aiob-attachment:');
+    }
+  );
 });

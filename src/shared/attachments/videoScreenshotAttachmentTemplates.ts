@@ -1,5 +1,6 @@
 import { sanitizeDownloadsPathSegment } from '../downloadsFilename';
 import { normalizeVaultRelativePath } from '../paths/vaultRelativePath';
+import { encodeAttachmentMarkdownPath } from './clipAttachmentReferences';
 
 export const DEFAULT_VIDEO_SCREENSHOT_ATTACHMENT_LOCATION_TEMPLATE = './assets/${noteFileName}';
 export const DEFAULT_VIDEO_SCREENSHOT_ATTACHMENT_FILE_NAME_TEMPLATE =
@@ -71,7 +72,7 @@ export function resolveVideoScreenshotAttachmentTemplate(
   };
   const markdownUrlResolution = resolveMarkdownUrlFormat(
     options.markdownUrlFormat,
-    markdownPath,
+    encodeAttachmentMarkdownPath(markdownPath),
     markdownTokenContext
   );
   const warnings = [
@@ -105,15 +106,22 @@ export function disambiguateResolvedVideoScreenshotAttachmentTemplate(
   const nextFileName = appendOccurrenceSuffix(resolved.generatedFileName, occurrence);
   const nextOutputPath = replaceLastSegment(resolved.outputPath, nextFileName);
   const nextMarkdownPath = replaceLastSegment(resolved.markdownPath, nextFileName);
-  const nextMarkdownUrl = replaceExactValue(
-    replaceExactValue(
-      replaceExactValue(resolved.markdownUrl, resolved.generatedAttachmentFilePath, nextOutputPath),
-      resolved.markdownPath,
-      nextMarkdownPath
-    ),
-    resolved.generatedFileName,
-    nextFileName
-  );
+  const nextMarkdownUrl =
+    resolved.markdownUrl === encodeAttachmentMarkdownPath(resolved.markdownPath)
+      ? encodeAttachmentMarkdownPath(nextMarkdownPath)
+      : replaceExactValue(
+          replaceExactValue(
+            replaceExactValue(
+              resolved.markdownUrl,
+              resolved.generatedAttachmentFilePath,
+              nextOutputPath
+            ),
+            resolved.markdownPath,
+            nextMarkdownPath
+          ),
+          resolved.generatedFileName,
+          nextFileName
+        );
 
   return {
     ...resolved,

@@ -28,6 +28,39 @@ describe('ClipPayloadSchema', () => {
     expect(res.success).toBe(true);
   });
 
+  it('reserves inline attachment destinations while preserving ordinary marker text and unreferenced attachments', () => {
+    const markdown = 'The token aiob-attachment:missing and `aiob-attachment:missing` are prose.';
+    expect(ClipPayloadSchema.safeParse({ markdown }).success).toBe(true);
+    expect(
+      ClipPayloadSchema.safeParse({ markdown, meta: { attachments: [legacyAttachment] } }).success
+    ).toBe(true);
+    for (const attachments of [undefined, [], [legacyAttachment]]) {
+      expect(
+        ClipPayloadSchema.safeParse({
+          markdown: '![Missing](aiob-attachment:missing)',
+          meta: { attachments }
+        }).success
+      ).toBe(false);
+    }
+  });
+
+  it('keeps the existing arbitrary ID contract and resolves IDs exactly', () => {
+    const ids = ['a', 'ab', 'a)b', 'a.*$[x] 中文'];
+    const payload = {
+      markdown: ids.map((id) => `![Image](aiob-attachment:${id})`).join('\n'),
+      meta: {
+        attachments: ids.map((id) => ({ ...legacyAttachment, id }))
+      }
+    };
+    expect(ClipPayloadSchema.safeParse(payload).success).toBe(true);
+    expect(
+      ClipPayloadSchema.safeParse({
+        ...payload,
+        meta: { attachments: [{ ...legacyAttachment, id: 'a' }] }
+      }).success
+    ).toBe(false);
+  });
+
   it('accepts full payload with bounded production meta and strips extras', () => {
     const res = ClipPayloadSchema.safeParse({
       markdown: 'content',
