@@ -1,3 +1,5 @@
+import { RequestInterruptedError } from '../../shared/utils/requestDeadline';
+
 export type FailureCategory = 'HTTP error' | 'network error' | 'config error';
 
 const RESPONSE_SNIPPET_LIMIT = 120;
@@ -5,16 +7,7 @@ const NETWORK_FAILURE_DETAIL = 'request failed';
 const HTTP_FAILURE_DETAIL = 'response unavailable';
 const CONFIG_FAILURE_DETAIL = 'configuration invalid';
 
-export async function testConnection(url: string, apiKey: string) {
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${apiKey}`
-    }
-  });
-  const text = await readResponseTextSafely(response);
-  return { response, text };
-}
+export { testConnection } from './restConnectionProbe';
 
 export function sanitizeSnippet(raw: string): string | undefined {
   const normalized = raw.replace(/\s+/g, ' ').trim();
@@ -52,6 +45,7 @@ export function normalizeFailureDetail(
 }
 
 export function deriveExternalCategory(error: unknown): FailureCategory {
+  if (error instanceof RequestInterruptedError) return 'network error';
   if (error instanceof Error) {
     const normalized = error.message.toLowerCase();
     if (normalized.includes('failed to fetch') || normalized.includes('networkerror')) {
@@ -73,14 +67,6 @@ export function formatCategoryMessage(category: FailureCategory, detail?: string
 
 export function normalizeRootEndpoint(url: string): string {
   return url.trim().replace(/\/+$/, '') + '/';
-}
-
-async function readResponseTextSafely(response: Response): Promise<string> {
-  try {
-    return await response.text();
-  } catch {
-    return response.statusText || '';
-  }
 }
 
 function defaultFailureDetail(category: FailureCategory): string {

@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-10-15
+最后更新：2026-10-16
 
 ## 推荐运行环境
 
@@ -16,6 +16,8 @@ Linux 的 `playwright-v1` 与 `npm-script-browser-v1` child 统一固定使用 `
 所有 direct tool 与 CI/project command 必须经 `scripts/run-bounded-command.mjs` 的固定 profile，或经 `quality-check.mjs`、`verify-preflight.mjs`、两个 shard runner 之一的 direct-root grammar。禁止 `npx`、bare tool、shell/data interpolation、ambient concurrency/env/cwd、caller-selected timeout/descriptor/output policy 与第二套 spawn/queue owner。
 
 ## 文档状态治理
+
+`test:e2e:browser:state` 同时覆盖 `attachmentOutputIntegrity.browser.test.ts`、`downloadsOperationDeadline.browser.test.ts` 与 `optionsConnectionRecovery.browser.test.ts`。它们分别检查已安装扩展的真实附件文件及链接、整批下载时限与晚到 ID、设置页连接测试的认证判断和超时恢复。Downloads 用例复用 `exportTitleSinks` 的独立 profile 和原生下载目录配置；不能用 CDP 下载路径设置代替原生 `chrome.downloads` 的目录配置。故障时钟或回调注入在测试及证据中明确标注。
 
 - 当前 Markdown 状态、分类边界与维护流程见 [`document-status-governance.md`](./document-status-governance.md)。
 - 检查清单与当前 Git 跟踪 Markdown 是否一致：

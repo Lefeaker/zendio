@@ -3,7 +3,8 @@ import {
   DEFAULT_VIDEO_SCREENSHOT_ATTACHMENT_LOCATION_TEMPLATE,
   DEFAULT_VIDEO_SCREENSHOT_ATTACHMENT_MARKDOWN_URL_FORMAT,
   disambiguateResolvedVideoScreenshotAttachmentTemplate,
-  resolveVideoScreenshotAttachmentTemplate
+  resolveVideoScreenshotAttachmentTemplate,
+  type AttachmentMarkdownUrlPart
 } from '../../shared/attachments/videoScreenshotAttachmentTemplates';
 import type { SerializedClipAttachmentContent } from '../../shared/attachments/clipAttachmentBinary';
 import {
@@ -28,6 +29,7 @@ export type PreparedClipAttachment = {
   outputPath: string;
   markdownPath: string;
   markdownUrl: string;
+  markdownUrlParts?: readonly AttachmentMarkdownUrlPart[];
 };
 
 export type PreparedClipAttachments = {
@@ -115,7 +117,8 @@ function prepareConfiguredVideoAttachments(
     content: attachment.content,
     outputPath: resolved.outputPath,
     markdownPath: resolved.markdownPath,
-    markdownUrl: resolved.markdownUrl
+    markdownUrl: resolved.markdownUrl,
+    ...(resolved.markdownUrlParts ? { markdownUrlParts: resolved.markdownUrlParts } : {})
   }));
 }
 function prepareLegacyAttachments(

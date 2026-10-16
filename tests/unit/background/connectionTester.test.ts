@@ -22,6 +22,7 @@ describe('options connectionTester service', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     messageHandler = () => Promise.resolve(undefined);
   });
@@ -192,6 +193,7 @@ describe('options connectionTester service', () => {
     });
 
     const second = module.requestVaultConnectionTest(createVault('vault-2'));
+    await Promise.resolve();
     if (!resolveVault2) {
       throw new Error('vault-2 resolver missing');
     }
@@ -204,6 +206,39 @@ describe('options connectionTester service', () => {
     (resolveVault1 as (value: unknown) => void)({ success: true, message: 'vault-1' });
     await expect(first).resolves.toEqual({ success: true, message: 'vault-1' });
   });
+
+  it.each(['default', 'vault'] as const)(
+    'expires a hung %s channel and ignores its late reply while a new test is pending',
+    async (scope) => {
+      vi.useFakeTimers();
+      const module = await import('../../../src/options/services/connectionTester');
+      module.__resetConnectionTesterStateForTests();
+      const first = deferredResponse();
+      const second = deferredResponse();
+      const repo = {
+        send: vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+      };
+      const run = () =>
+        scope === 'default'
+          ? module.requestConnectionTest(undefined, repo)
+          : module.requestVaultConnectionTest(createVault('deadline'), repo);
+      const running = () =>
+        scope === 'default'
+          ? module.isConnectionTestRunning()
+          : module.isVaultConnectionTestRunning('deadline');
+      const expired = run().catch((error: Error) => error);
+      await vi.advanceTimersByTimeAsync(25_001);
+      expect(await expired).toMatchObject({ code: 'OPTIONS_CONNECTION_REQUEST_FAILED' });
+      expect(running()).toBe(false);
+      const retry = run();
+      first.resolve({ success: true, message: 'stale success' });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(running()).toBe(true);
+      second.resolve({ success: false, message: 'current result' });
+      await expect(retry).resolves.toEqual({ success: false, message: 'current result' });
+      expect(running()).toBe(false);
+    }
+  );
 
   it('throws when background response is malformed', async () => {
     messageHandler = () => Promise.resolve({ success: true });
@@ -271,4 +306,12 @@ function createVault(id: string): VaultConfig {
     apiKey: `token-${id}`,
     isDefault: false
   };
+}
+
+function deferredResponse() {
+  let resolve = (_response: { success: boolean; message: string }): void => {};
+  const promise = new Promise<{ success: boolean; message: string }>((complete) => {
+    resolve = complete;
+  });
+  return { promise, resolve };
 }

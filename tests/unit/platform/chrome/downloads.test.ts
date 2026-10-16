@@ -167,4 +167,85 @@ describe('chrome downloads adapter', () => {
       conflictAction: 'uniquify'
     });
   });
+  it('bounds native creation, revokes its URL and cancels only a late returned ID', async () => {
+    let release!: (id: number) => void;
+    const native = vi.fn(
+      () =>
+        new Promise<number>((resolve) => {
+          release = resolve;
+        })
+    );
+    const cancel = vi.fn().mockRejectedValue(new Error('native cancellation unavailable'));
+    const revoke = vi.fn();
+    vi.stubGlobal('chrome', { downloads: { download: native, cancel } });
+    vi.stubGlobal(
+      'URL',
+      createUrlConstructor({ createObjectURL: () => 'blob:late', revokeObjectURL: revoke })
+    );
+    const { chromeDownloadsService } = await import('../../../../src/platform/chrome/downloads');
+    const result = chromeDownloadsService.download({ filename: 'late.md', content: '# late' });
+    const rejected = expect(result).rejects.toMatchObject({ failureCategory: 'timeout' });
+    await vi.advanceTimersByTimeAsync(120_000);
+    await rejected;
+    expect(revoke).toHaveBeenCalledExactlyOnceWith('blob:late');
+    expect(cancel).not.toHaveBeenCalled();
+    release(73);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(cancel).toHaveBeenCalledExactlyOnceWith(73);
+    expect(revoke).toHaveBeenCalledOnce();
+    expect(native).toHaveBeenCalledOnce();
+  });
+
+  it('uses the remaining absolute budget for completion and cancels only its current ID', async () => {
+    const listeners = new Set<() => void>();
+    const cancel = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('chrome', {
+      downloads: {
+        download: vi.fn().mockResolvedValue(27),
+        cancel,
+        search: vi.fn().mockResolvedValue([{ state: 'in_progress', filename: 'slow.md' }]),
+        onChanged: {
+          addListener: (listener: () => void) => listeners.add(listener),
+          removeListener: (listener: () => void) => listeners.delete(listener)
+        }
+      }
+    });
+    const { chromeDownloadsService } = await import('../../../../src/platform/chrome/downloads');
+    const result = chromeDownloadsService.download(
+      { filename: 'slow.md', content: '# slow' },
+      { deadlineAt: Date.now() + 40_000 }
+    );
+    const rejected = expect(result).rejects.toMatchObject({ failureCategory: 'timeout' });
+    await vi.advanceTimersByTimeAsync(40_000);
+    await rejected;
+    expect(cancel).toHaveBeenCalledExactlyOnceWith(27);
+    expect(listeners.size).toBe(0);
+  });
+
+  it('does not create a native download when blob preparation resolves after cancellation', async () => {
+    let release!: (buffer: ArrayBuffer) => void;
+    const blob = new Blob(['a']);
+    vi.spyOn(blob, 'arrayBuffer').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        })
+    );
+    const native = vi.fn();
+    vi.stubGlobal('chrome', { downloads: { download: native } });
+    vi.stubGlobal('URL', createUrlConstructor());
+    const { chromeDownloadsService } = await import('../../../../src/platform/chrome/downloads');
+    const controller = new AbortController();
+    const result = chromeDownloadsService.download(
+      { filename: 'late.jpg', blob },
+      { signal: controller.signal }
+    );
+    const rejected = expect(result).rejects.toMatchObject({ failureCategory: 'connection' });
+    await vi.advanceTimersByTimeAsync(0);
+    controller.abort();
+    await rejected;
+    release(new Uint8Array([97]).buffer);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(native).not.toHaveBeenCalled();
+  });
 });

@@ -1262,6 +1262,42 @@ describe('runtime message listener', () => {
     expect(processClipPayloadMock).not.toHaveBeenCalled();
   });
 
+  it.each(['CLIP_RESULT', 'clip'])(
+    'preserves prior confirmations when %s validation fails',
+    async (type) => {
+      const { registerRuntimeMessageListener } =
+        await import('../../../src/background/listeners/runtimeMessages');
+      registerRuntimeMessageListener(createDependencies());
+      const attachmentProgress = {
+        operationId: 'op_partial123',
+        planId: 'a'.repeat(64),
+        storageTarget: 'downloads',
+        total: 2,
+        phase: 'attachments',
+        confirmed: [
+          { id: 'a', outputPath: 'a.jpg', download: { id: 3, filename: '/Downloads/a.jpg' } }
+        ]
+      };
+      const payload = {
+        markdown: '# continued export',
+        meta: { attachmentProgress, attachments: [{ id: 'invalid-second-attachment' }] }
+      };
+      const result = await listener?.(
+        type === 'CLIP_RESULT' ? { type, payload } : { type, data: payload },
+        { tabId: 12 }
+      );
+      expect(result).toMatchObject({
+        success: false,
+        outcome: 'unknown',
+        failureCategory: 'validation',
+        stage: 'prepare',
+        attachmentProgress
+      });
+      expect(handleClipResultMock).not.toHaveBeenCalled();
+      expect(processClipPayloadMock).not.toHaveBeenCalled();
+    }
+  );
+
   it('opens the options page and reports failures or unknown messages safely', async () => {
     const dependencies = createDependencies();
     const { registerRuntimeMessageListener } =

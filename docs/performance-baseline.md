@@ -2,6 +2,12 @@
 
 日期：2026-08-28
 
+2026-10-16 附件与连接恢复修复将附件模板 owner 的物理行数登记为 560，
+processor 为 637，设置页 action group 为 252。增长分别来自生成 URL 的编码、token 来源与碰撞处理、
+向 Downloads 传递已有请求截止时间，以及复用既有 generation 隔离过期连接结果。
+附件完整性校验只扫描编码文本，不预先创建整批 Blob；原生下载依次处理。
+构建字节、chunk 数、类型债务和警告门禁未调整。
+
 2026-10-15 导出身份与请求截止修复保留原职责归属：processor / classifier / REST
 client 的物理行数分别登记为 636 / 280 / 289，Reader / Video session operations 与
 Video exporter 为 819 / 603 / 274；诊断隐私说明增加一个生成消息声明，登记为 1363。

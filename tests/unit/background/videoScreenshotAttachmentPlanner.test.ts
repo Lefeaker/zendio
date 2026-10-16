@@ -481,6 +481,42 @@ describe('prepareVideoClipAttachments', () => {
 });
 
 describe('attachment reference integrity', () => {
+  it('carries generated token provenance through duplicate planning for native filename rendering', async () => {
+    const { prepareVideoClipAttachments } =
+      await import('../../../src/background/application/videoScreenshotAttachmentPlanner');
+    const { renderAttachmentMarkdownUrl } =
+      await import('../../../src/shared/attachments/videoScreenshotAttachmentTemplates');
+    const result = prepareVideoClipAttachments({
+      payload: createPayload({
+        markdown: '![First](aiob-attachment:shot-1)\n![Second](aiob-attachment:shot-2)',
+        meta: { attachments: [baseAttachment, { ...baseAttachment, id: 'shot-2' }] }
+      }),
+      notePath: 'note.md',
+      destination: 'downloads',
+      screenshotAttachmentOptions: {
+        locationTemplate: 'shot.jpg',
+        fileNameTemplate: 'shot.jpg',
+        markdownUrlFormat:
+          'obsidian://vault/${generatedAttachmentFilePath}?file=pre-${generatedAttachmentFileName}.cache&keep=shot.jpg'
+      }
+    });
+    const second = result.attachments[1];
+    if (!second) throw new Error('Missing planned second attachment');
+    expect(second.outputPath).toBe('shot.jpg/shot-2.jpg');
+    expect(result.markdown).toContain(
+      '![Second](obsidian://vault/shot.jpg/shot-2.jpg?file=pre-shot-2.jpg.cache&keep=shot.jpg)'
+    );
+    expect(
+      renderAttachmentMarkdownUrl(second, {
+        generatedFileName: 'shot-2%20%281%29.jpg',
+        generatedAttachmentFilePath: 'shot.jpg/shot-2%20%281%29.jpg',
+        markdownPath: 'shot.jpg/shot-2 (1).jpg'
+      })
+    ).toBe(
+      'obsidian://vault/shot.jpg/shot-2%20%281%29.jpg?file=pre-shot-2%20%281%29.jpg.cache&keep=shot.jpg'
+    );
+  });
+
   it.each<'vault' | 'downloads'>(['vault', 'downloads'])(
     'encodes default links independently of physical %s paths and matches exact IDs',
     async (destination) => {

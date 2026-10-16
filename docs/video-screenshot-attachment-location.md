@@ -53,6 +53,16 @@ filename suffixes use the same encoding. Explicit custom URL templates still
 receive raw generated filename/path token values and retain their existing URL
 semantics.
 
+For custom URLs the existing template parser keeps transient parts identifying
+only `${generatedAttachmentFileName}` and `${generatedAttachmentFilePath}`.
+Planned duplicate names and confirmed browser renames rerender those parts;
+literal URL text, identically named parent folders, and other resolved tokens stay
+unchanged. This also covers embedded values such as
+`?file=pre-${generatedAttachmentFileName}.cache&keep=shot.jpg`. Planned names retain
+custom raw-token semantics; native renamed values use URL-safe token values. These
+parts belong to the prepared export only and are not a new persisted setting or
+recovery record. Legacy prepared default paths remain supported without parts.
+
 ## Note Title and Filename
 
 The video session refreshes its title together with its URL and identity before

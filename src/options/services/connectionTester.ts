@@ -1,3 +1,4 @@
+import { withRequestDeadline } from '../../shared/utils/requestDeadline';
 import type { ConnectionTestResult } from '../../shared/types/connection';
 import type { VaultConfig } from '../../shared/types';
 import type { RestOptions } from '../../shared/types/options';
@@ -154,7 +155,7 @@ async function requestTest(
 
   try {
     const repo = resolveMessagingRepository(messagingRepo);
-    const response = await repo.send(message);
+    const response = await withRequestDeadline(25_000, {}, () => repo.send(message));
     return validateResponse(response, context);
   } catch (error) {
     const appError = isAppError(error)

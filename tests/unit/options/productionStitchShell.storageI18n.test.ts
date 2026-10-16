@@ -218,7 +218,7 @@ describe('mountProductionStitchShell storage i18n', () => {
     });
   });
 
-  it('renders the localized certificate link copy from messages', async () => {
+  it('renders the localized certificate link after initializing the router from REST-only options', async () => {
     const controller = createController();
     const storageSentinelMessages = await createStorageSentinelMessages();
     const messagingRepository = createMessaging({
@@ -271,6 +271,12 @@ describe('mountProductionStitchShell storage i18n', () => {
       );
       expect(certificateLink?.textContent).toBe('Certificate Link Sentinel');
     });
+    expect(messagingRepository.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'TEST_VAULT_CONNECTION',
+        vaultId: 'default'
+      })
+    );
     expect(vi.mocked(getMessagesForLanguage)).not.toHaveBeenCalled();
   });
 
