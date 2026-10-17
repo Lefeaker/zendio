@@ -18,7 +18,12 @@ import {
 } from '../../shared/errors';
 import { trackActivationMilestoneIfNeeded, trackUsageEvent } from '../services/analyticsEvents';
 import { processClipPayload, clipProcessingFailureResult } from '../application/clipProcessor';
-import { createClipSaveFailure } from '../../shared/types/clipResult';
+import {
+  createClipSaveFailure,
+  ClipAttachmentProgressSchema,
+  preserveClipAttachmentProgress
+} from '../../shared/types/clipResult';
+import { isObjectRecord } from '../../shared/guards';
 import { runBestEffortEffect } from '../../shared/errors/bestEffortEffect';
 import type { ClipPayload } from '../../shared/types';
 import type { MessagePayload } from '../../platform/interfaces/messaging';
@@ -82,10 +87,24 @@ function parseClipPayloadForBoundary(payload: unknown): ClipPayload | null {
   return parsed.success ? (parsed.data as ClipPayload) : null;
 }
 
+function clipPayloadValidationFailure(payload: unknown): MessagePayload {
+  const progress = ClipAttachmentProgressSchema.safeParse(
+    isObjectRecord(payload) && isObjectRecord(payload.meta)
+      ? payload.meta.attachmentProgress
+      : undefined
+  );
+  return toMessagePayload(
+    preserveClipAttachmentProgress(
+      createClipSaveFailure('failed', 'validation', 'prepare'),
+      progress.success ? progress.data : undefined
+    )
+  );
+}
+
 async function processRepositoryClipPayload(payload: unknown): Promise<MessagePayload> {
   const parsedPayload = parseClipPayloadForBoundary(payload);
   if (!parsedPayload) {
-    return toMessagePayload(createClipSaveFailure('failed', 'validation', 'prepare'));
+    return clipPayloadValidationFailure(payload);
   }
 
   try {
@@ -255,7 +274,7 @@ export function registerRuntimeMessageListener(
           () => safeNotifyExtraction(INVALID_CLIP_PAYLOAD_ERROR),
           'clip.validation.notification'
         );
-        return toMessagePayload(createClipSaveFailure('failed', 'validation', 'prepare'));
+        return clipPayloadValidationFailure(message.payload);
       }
       return handleClipResult(
         { ...message, payload: parsedPayload },

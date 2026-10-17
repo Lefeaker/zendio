@@ -35,6 +35,7 @@ describe('download completion boundary', () => {
       )
       .mockResolvedValue({ state: 'complete', filename: '/downloads/note (1).md' });
     const pending = waitForDownloadCompletion(r.downloads, 1);
+    await vi.waitFor(() => expect(r.inspect).toHaveBeenCalledOnce());
     r.notify();
     release({ state: 'in_progress', filename: 'note.md' });
     await expect(pending).resolves.toEqual({
@@ -58,7 +59,7 @@ describe('download completion boundary', () => {
     const r = rig();
     r.cancel.mockRejectedValue(new Error('channel closed'));
     const pending = waitForDownloadCompletion(r.downloads, 7);
-    const rejected = expect(pending).rejects.toThrow('result is unknown');
+    const rejected = expect(pending).rejects.toMatchObject({ failureCategory: 'timeout' });
     await vi.advanceTimersByTimeAsync(120_000);
     await rejected;
     expect(r.cancel).toHaveBeenCalledExactlyOnceWith(7);
@@ -70,7 +71,7 @@ describe('download completion boundary', () => {
     const r = rig();
     r.inspect.mockReturnValue(new Promise(() => {}));
     const pending = waitForDownloadCompletion(r.downloads, 9);
-    const rejected = expect(pending).rejects.toThrow('result is unknown');
+    const rejected = expect(pending).rejects.toMatchObject({ failureCategory: 'timeout' });
     await vi.advanceTimersByTimeAsync(120_000);
     await rejected;
     expect(r.stop).toHaveBeenCalledTimes(1);

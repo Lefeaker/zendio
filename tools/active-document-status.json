@@ -106,6 +106,10 @@
       "status": "active"
     },
     {
+      "path": "docs/connection-testing.md",
+      "status": "active"
+    },
+    {
       "path": "docs/current-delivery-batches-2026-04-13.md",
       "status": "historical"
     },
@@ -119,6 +123,10 @@
     },
     {
       "path": "docs/document-status-governance.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/downloads-operation-deadline.md",
       "status": "active"
     },
     {

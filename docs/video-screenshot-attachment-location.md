@@ -9,11 +9,11 @@ is written into exported Markdown.
 
 ## Settings
 
-| Setting                       | Stored field                                   | Default                                                 | Behavior                                                                                                           |
-| ----------------------------- | ---------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Attachment location template  | `video.screenshotAttachment.locationTemplate`  | `./assets/${noteFileName}`                              | Chooses the attachment folder. `./` stays next to the note. A path without `./` starts from the vault root.        |
-| Attachment file name template | `video.screenshotAttachment.fileNameTemplate`  | `file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg` | Chooses the generated screenshot file name. `.jpg` is added if the rendered value has no `.jpg` suffix.            |
-| Markdown URL format           | `video.screenshotAttachment.markdownUrlFormat` | empty                                                   | When left empty, the exporter writes the computed Markdown path. A custom value can rewrite the Markdown URL only. |
+| Setting                       | Stored field                                   | Default                                                 | Behavior                                                                                                                     |
+| ----------------------------- | ---------------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Attachment location template  | `video.screenshotAttachment.locationTemplate`  | `./assets/${noteFileName}`                              | Chooses the attachment folder. `./` stays next to the note. A path without `./` starts from the vault root.                  |
+| Attachment file name template | `video.screenshotAttachment.fileNameTemplate`  | `file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg` | Chooses the generated screenshot file name. `.jpg` is added if the rendered value has no `.jpg` suffix.                      |
+| Markdown URL format           | `video.screenshotAttachment.markdownUrlFormat` | empty                                                   | When left empty, the exporter writes a URL-encoded relative Markdown path. A custom value can rewrite the Markdown URL only. |
 
 ## Planning Boundary
 
@@ -27,6 +27,56 @@ is written into exported Markdown.
   them into compatibility payloads, and the background writer / downloads layer
   reconstructs a `Blob` before writing. Legacy `dataUrl` exists only as a
   compatibility bridge for older payloads / adapters.
+
+## Attachment Integrity and References
+
+The message boundary and export planner validate every attachment before a new
+writer session or download starts. Invalid base64, a declared byte count that
+differs from decoded bytes, mismatched legacy data URL MIME types, malformed
+entries, and duplicate IDs reject the complete request. Validation checks encoded
+content without constructing attachment Blobs; the writer reconstructs only its
+current attachment. A failed continuation retains its earlier confirmations and
+unknown outcome; it does not delete or rewrite confirmed files.
+
+The producer reserves inline Markdown destinations of the form
+`![Screenshot](aiob-attachment:<id>)` (also ordinary inline links). Every such
+reference must resolve to an attachment with that exact ID. IDs `a` and `ab` are
+independent. Plain marker text outside that destination syntax remains content.
+Unreferenced attachment entries remain accepted for compatibility.
+
+Validation and URL replacement share the same source boundary. Code examples in
+backtick/tilde fences, indented code blocks, matched inline code spans, and raw HTML
+blocks and inline HTML tokens remain byte-for-byte unchanged even when their
+example ID also belongs to an attachment. The scanner follows
+[CommonMark 0.31.2](https://spec.commonmark.org/0.31.2/)'s code and container rules: fences
+end at their enclosing list/quote boundary, inline delimiters must have equal
+length, and indented paragraph/list continuations remain ordinary Markdown. Only
+spaces and tabs form a blank line; empty list markers cannot interrupt a paragraph.
+HTML tags use the complete tag/attribute grammar, so quoted attribute text is
+literal while an invalid tag cannot hide a live attachment reference.
+Escaped brackets do not create attachment links; escaping only an image's `!`
+still leaves an ordinary link. A live missing reference beside a literal example
+still rejects the request before any write. This is a source-offset recognizer
+for the producer's inline destinations, not a Markdown renderer or AST rewrite.
+
+Physical output paths and the planned relative `markdownPath` retain their literal
+filename characters. Default `markdownUrl` values percent-encode each path segment,
+including spaces, `#`, `%`, parentheses, and Unicode; `/` and relative `..` segments
+retain their path meaning. For example, `assets/My Clip/frame #1%.jpg` is written
+as `assets/My%20Clip/frame%20%231%25.jpg` in Markdown. Template fallback and duplicate
+filename suffixes use the same encoding. Explicit custom URL templates still
+receive raw generated filename/path token values and retain their existing URL
+semantics.
+
+For custom URLs the existing template parser keeps transient parts identifying
+only `${generatedAttachmentFileName}` and `${generatedAttachmentFilePath}`.
+Planned duplicate names and confirmed browser renames rerender those parts;
+literal URL text, identically named parent folders, and other resolved tokens stay
+unchanged. This also covers embedded values such as
+`?file=pre-${generatedAttachmentFileName}.cache&keep=shot.jpg`. Planned names retain
+custom raw-token semantics; native renamed values use URL-safe token values. These
+parts belong to the prepared export only and are not a new persisted setting or
+recovery record. Legacy prepared default paths remain supported without parts.
 
 ## Note Title and Filename
 
@@ -97,7 +147,7 @@ is `file-20260606112233444.jpg`.
 - Invalid `fileNameTemplate` falls back to
   `file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg`.
 - Invalid `markdownUrlFormat`, unsupported tokens, or full embed syntax fall back
-  to the computed Markdown path.
+  to the URL-encoded computed Markdown path.
 - Export continues after fallback instead of aborting the clip.
 
 ## Downloads Destination Semantics

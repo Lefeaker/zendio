@@ -561,6 +561,69 @@ describe('mountProductionStitchShell actions', () => {
     factorySpy.mockRestore();
   });
 
+  it('does not label an edited Vault with the old connection result, even after editing back', async () => {
+    const pending = deferred<ConnectionTestResult>();
+    const actualFactory = storageControllerModule.createProductionStitchStorageController;
+    const factorySpy = vi
+      .spyOn(storageControllerModule, 'createProductionStitchStorageController')
+      .mockImplementation((options) => ({
+        ...actualFactory(options),
+        runVaultListConnectionTest: () => pending.promise
+      }));
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+    findButton('Test Connection').click();
+    const input = queryRequired<HTMLInputElement>(
+      '.storage-vault-table-scroll tbody tr input[type="text"]'
+    );
+    const previous = input.value;
+    input.value = 'New intent';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.value = previous;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    pending.resolve({ success: true, message: '', error: 'obsolete connection result' });
+    await flushPromises();
+    expect(findCardByTitle('Vault List').textContent).not.toContain('obsolete connection result');
+    mounted.cleanup();
+    factorySpy.mockRestore();
+  });
+
+  it('does not apply an in-flight connection result after authoritative Vault replacement', async () => {
+    const pending = deferred<ConnectionTestResult>();
+    const actualFactory = storageControllerModule.createProductionStitchStorageController;
+    const factorySpy = vi
+      .spyOn(storageControllerModule, 'createProductionStitchStorageController')
+      .mockImplementation((options) => ({
+        ...actualFactory(options),
+        runVaultListConnectionTest: () => pending.promise
+      }));
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+    findButton('Test Connection').click();
+    const next = mounted.collectDraft();
+    const vault = next.vaultRouter?.vaults[0];
+    if (!vault) throw new Error('Missing tested default Vault');
+    vault.name = 'Remote replacement';
+    vault.vault = 'Remote replacement';
+    mounted.rebaseOptions(next, { changedPaths: [['vaultRouter']], dirtyPathKeys: [] });
+    await flushPromises();
+    expect(findInputByValue('Remote replacement').value).toBe('Remote replacement');
+    pending.resolve({ success: true, message: '', error: 'obsolete pre-rebase result' });
+    await flushPromises();
+    expect(findCardByTitle('Vault List').textContent).not.toContain('obsolete pre-rebase result');
+    expect(findInputByValue('Remote replacement').value).toBe('Remote replacement');
+    mounted.cleanup();
+    factorySpy.mockRestore();
+  });
+
   it('reports maintenance copy and import success or failure in the Stitch log', async () => {
     const controller = {
       ...createController(),

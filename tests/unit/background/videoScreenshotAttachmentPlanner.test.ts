@@ -54,6 +54,35 @@ function createPayload(overrides: Partial<ClipPayload> = {}): ClipPayload {
 }
 
 describe('prepareVideoClipAttachments', () => {
+  it('keeps literal examples unchanged even when their ID also belongs to a real attachment', async () => {
+    const { prepareVideoClipAttachments } =
+      await import('../../../src/background/application/videoScreenshotAttachmentPlanner');
+    const marker = '![Screenshot](aiob-attachment:shot-1)';
+    const literal = `Use \`${marker}\` in a producer.\n\n~~~markdown\n${marker}\n~~~`;
+    const withoutAttachments = prepareVideoClipAttachments({
+      payload: createPayload({ markdown: literal, meta: {} }),
+      notePath: 'Videos/Test.md',
+      destination: 'vault'
+    });
+    expect(withoutAttachments).toEqual({ markdown: literal, attachments: [] });
+    const withAttachment = prepareVideoClipAttachments({
+      payload: createPayload({ markdown: `${literal}\n\n${marker}` }),
+      notePath: 'Videos/Test.md',
+      destination: 'vault'
+    });
+    expect(withAttachment.markdown).toBe(
+      `${literal}\n\n![Screenshot](assets/Test/file-20260606112233444.jpg)`
+    );
+    expect(withAttachment.attachments).toHaveLength(1);
+    expect(() =>
+      prepareVideoClipAttachments({
+        payload: createPayload({ markdown: `${literal}\n\n![Missing](aiob-attachment:missing)` }),
+        notePath: 'Videos/Test.md',
+        destination: 'vault'
+      })
+    ).toThrow('CLIP_ATTACHMENT_REFERENCE_MISSING');
+  });
+
   it('preserves current default vault behavior for video screenshots', async () => {
     const { prepareVideoClipAttachments } =
       await import('../../../src/background/application/videoScreenshotAttachmentPlanner');
@@ -335,27 +364,24 @@ describe('prepareVideoClipAttachments', () => {
     const { prepareVideoClipAttachments } =
       await import('../../../src/background/application/videoScreenshotAttachmentPlanner');
 
-    const result = prepareVideoClipAttachments({
-      payload: createPayload({
-        meta: {
-          url: 'https://youtube.com/watch?v=1',
-          attachments: [
-            {
-              ...baseAttachment,
-              mimeType: 'image/png'
-            }
-          ]
-        }
-      }),
-      notePath: 'Videos/Test.md',
-      destination: 'vault',
-      screenshotAttachmentOptions: screenshotAttachmentDefaults
-    });
-
-    expect(result).toEqual({
-      markdown: '# video\n![Screenshot](aiob-attachment:shot-1)',
-      attachments: []
-    });
+    expect(() =>
+      prepareVideoClipAttachments({
+        payload: createPayload({
+          meta: {
+            url: 'https://youtube.com/watch?v=1',
+            attachments: [
+              {
+                ...baseAttachment,
+                mimeType: 'image/png'
+              }
+            ]
+          }
+        }),
+        notePath: 'Videos/Test.md',
+        destination: 'vault',
+        screenshotAttachmentOptions: screenshotAttachmentDefaults
+      })
+    ).toThrow('CLIP_ATTACHMENT_DATA_URL_MIME_MISMATCH');
   });
 
   it('keeps non-video attachments on the legacy path logic and no-ops when attachments are missing', async () => {
@@ -481,4 +507,75 @@ describe('prepareVideoClipAttachments', () => {
       })
     ]);
   });
+});
+
+describe('attachment reference integrity', () => {
+  it('carries generated token provenance through duplicate planning for native filename rendering', async () => {
+    const { prepareVideoClipAttachments } =
+      await import('../../../src/background/application/videoScreenshotAttachmentPlanner');
+    const { renderAttachmentMarkdownUrl } =
+      await import('../../../src/shared/attachments/videoScreenshotAttachmentTemplates');
+    const result = prepareVideoClipAttachments({
+      payload: createPayload({
+        markdown: '![First](aiob-attachment:shot-1)\n![Second](aiob-attachment:shot-2)',
+        meta: { attachments: [baseAttachment, { ...baseAttachment, id: 'shot-2' }] }
+      }),
+      notePath: 'note.md',
+      destination: 'downloads',
+      screenshotAttachmentOptions: {
+        locationTemplate: 'shot.jpg',
+        fileNameTemplate: 'shot.jpg',
+        markdownUrlFormat:
+          'obsidian://vault/${generatedAttachmentFilePath}?file=pre-${generatedAttachmentFileName}.cache&keep=shot.jpg'
+      }
+    });
+    const second = result.attachments[1];
+    if (!second) throw new Error('Missing planned second attachment');
+    expect(second.outputPath).toBe('shot.jpg/shot-2.jpg');
+    expect(result.markdown).toContain(
+      '![Second](obsidian://vault/shot.jpg/shot-2.jpg?file=pre-shot-2.jpg.cache&keep=shot.jpg)'
+    );
+    expect(
+      renderAttachmentMarkdownUrl(second, {
+        generatedFileName: 'shot-2%20%281%29.jpg',
+        generatedAttachmentFilePath: 'shot.jpg/shot-2%20%281%29.jpg',
+        markdownPath: 'shot.jpg/shot-2 (1).jpg'
+      })
+    ).toBe(
+      'obsidian://vault/shot.jpg/shot-2%20%281%29.jpg?file=pre-shot-2%20%281%29.jpg.cache&keep=shot.jpg'
+    );
+  });
+
+  it.each<'vault' | 'downloads'>(['vault', 'downloads'])(
+    'encodes default links independently of physical %s paths and matches exact IDs',
+    async (destination) => {
+      const { prepareVideoClipAttachments } =
+        await import('../../../src/background/application/videoScreenshotAttachmentPlanner');
+      const result = prepareVideoClipAttachments({
+        payload: {
+          markdown: '![A](aiob-attachment:a)\n![AB](aiob-attachment:ab)',
+          meta: {
+            attachments: ['a', 'ab'].map((id) => ({
+              id,
+              fileName: `${id} #50% (截图).jpg`,
+              mimeType: 'image/jpeg',
+              dataUrl: 'data:image/jpeg;base64,YQ=='
+            }))
+          }
+        },
+        notePath: 'Videos/Review #50% (中文).md',
+        destination
+      });
+      for (const attachment of result.attachments) {
+        const url = new URL(attachment.markdownUrl, 'https://example.invalid/Videos/');
+        expect(url.hash).toBe('');
+        expect(url.search).toBe('');
+        expect(attachment.markdownUrl).not.toMatch(/[ #()]/u);
+        expect(decodeURIComponent(attachment.markdownUrl)).toBe(attachment.markdownPath);
+        expect(attachment.outputPath).toContain('#50% (');
+        expect(result.markdown).toContain(`](${attachment.markdownUrl})`);
+      }
+      expect(result.markdown).not.toContain('aiob-attachment:');
+    }
+  );
 });

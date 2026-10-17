@@ -1,3 +1,9 @@
+import {
+  withRequestDeadline,
+  RequestInterruptedError,
+  type ActiveRequest
+} from '../../shared/utils/requestDeadline';
+import { testConnection } from './restConnectionProbe';
 import { getOptions } from '../store';
 import type { ConnectionChannelResult, ConnectionTestResult } from '../../shared/types/connection';
 import type { UserVisibleMessageDescriptor } from '../../shared/i18n/userVisibleMessageDescriptor';
@@ -128,10 +134,13 @@ export async function handleConnectionTest(
   restDraft?: Partial<RestOptions>
 ): Promise<ConnectionTestResult> {
   const startedAt = Date.now();
+  let storageTarget: StorageTarget = 'unknown';
   try {
-    const options = await getOptions();
-    const rest = mergeRestOptions(options.rest, restDraft);
-    try {
+    const summary = await withRequestDeadline(20_000, {}, async (request) => {
+      const options = await getOptions();
+      request.check();
+      const rest = mergeRestOptions(options.rest, restDraft);
+      storageTarget = rest.localFolderId ? 'local_folder' : 'rest_api';
       const config: ConnectionTestConfig = {
         baseUrl: rest.baseUrl,
         apiKey: rest.apiKey,
@@ -142,25 +151,10 @@ export async function handleConnectionTest(
         ...(rest.localFolderId ? { localFolderId: rest.localFolderId } : {}),
         ...(rest.localFolderName ? { localFolderName: rest.localFolderName } : {})
       };
-
-      const summary = await executeStorageTargetTest(config);
-      trackConnectionTestCompleted(summary, startedAt);
-      return summary.result;
-    } catch (error) {
-      const errorInput: ConnectionErrorInput =
-        error instanceof Error ||
-        typeof error === 'string' ||
-        typeof error === 'number' ||
-        typeof error === 'boolean' ||
-        error === null ||
-        error === undefined ||
-        typeof error === 'object'
-          ? error
-          : undefined;
-      const summary = buildFailureSummary(errorInput, 'rest_api');
-      trackConnectionTestCompleted(summary, startedAt);
-      return summary.result;
-    }
+      return executeStorageTargetTest(config, request);
+    });
+    trackConnectionTestCompleted(summary, startedAt);
+    return summary.result;
   } catch (error) {
     const errorInput: ConnectionErrorInput =
       error instanceof Error ||
@@ -172,7 +166,7 @@ export async function handleConnectionTest(
       typeof error === 'object'
         ? error
         : undefined;
-    const summary = buildFailureSummary(errorInput, 'unknown');
+    const summary = buildFailureSummary(errorInput, storageTarget);
     trackConnectionTestCompleted(summary, startedAt);
     return summary.result;
   }
@@ -182,52 +176,31 @@ export async function handleVaultConnectionTest(
   message: TestVaultConnectionMessage
 ): Promise<ConnectionTestResult> {
   const startedAt = Date.now();
+  let storageTarget: StorageTarget = message.vault?.localFolderId ? 'local_folder' : 'unknown';
   try {
-    const options = await getOptions();
-    const activeVaults = (options.vaultRouter?.vaults ?? []).filter((v) => v.enabled !== false);
-    const vault = resolveVaultConfig(message, activeVaults);
-    const httpsUrl = sanitizeUrl(vault.httpsUrl);
-    const httpUrl = sanitizeUrl(vault.httpUrl);
-    const baseUrl = httpsUrl ?? httpUrl ?? options.rest.baseUrl;
-    const label = vault.name || vault.vault;
-    const apiKey = (vault.apiKey ?? '').trim();
-
-    try {
+    const summary = await withRequestDeadline(20_000, {}, async (request) => {
+      const options = await getOptions();
+      request.check();
+      const activeVaults = (options.vaultRouter?.vaults ?? []).filter((v) => v.enabled !== false);
+      const vault = resolveVaultConfig(message, activeVaults);
+      storageTarget = vault.localFolderId ? 'local_folder' : 'rest_api';
+      const httpsUrl = sanitizeUrl(vault.httpsUrl);
+      const httpUrl = sanitizeUrl(vault.httpUrl);
       const config: ConnectionTestConfig = {
-        baseUrl,
-        apiKey,
+        baseUrl: httpsUrl ?? httpUrl ?? options.rest.baseUrl,
+        apiKey: (vault.apiKey ?? '').trim(),
         vault: vault.vault,
-        label,
+        label: vault.name || vault.vault,
         ...(httpsUrl ? { httpsUrl } : {}),
         ...(httpUrl ? { httpUrl } : {}),
         ...(vault.localFolderId ? { localFolderId: vault.localFolderId } : {}),
         ...(vault.localFolderName ? { localFolderName: vault.localFolderName } : {})
       };
-
-      const result = await executeVaultStorageTargetTest(config);
-      trackConnectionTestCompleted(
-        summarizeVaultStorageTargetTest(result, vault.localFolderId ? 'local_folder' : 'rest_api'),
-        startedAt
-      );
-      return result;
-    } catch (error) {
-      const errorInput: ConnectionErrorInput =
-        error instanceof Error ||
-        typeof error === 'string' ||
-        typeof error === 'number' ||
-        typeof error === 'boolean' ||
-        error === null ||
-        error === undefined ||
-        typeof error === 'object'
-          ? error
-          : undefined;
-      const summary = buildFailureSummary(
-        errorInput,
-        vault.localFolderId ? 'local_folder' : 'rest_api'
-      );
-      trackConnectionTestCompleted(summary, startedAt);
-      return summary.result;
-    }
+      const result = await executeVaultStorageTargetTest(config, request);
+      return summarizeVaultStorageTargetTest(result, storageTarget);
+    });
+    trackConnectionTestCompleted(summary, startedAt);
+    return summary.result;
   } catch (error) {
     const errorInput: ConnectionErrorInput =
       error instanceof Error ||
@@ -239,19 +212,18 @@ export async function handleVaultConnectionTest(
       typeof error === 'object'
         ? error
         : undefined;
-    const summary = buildFailureSummary(
-      errorInput,
-      message.vault?.localFolderId ? 'local_folder' : 'unknown'
-    );
+    const summary = buildFailureSummary(errorInput, storageTarget);
     trackConnectionTestCompleted(summary, startedAt);
     return summary.result;
   }
 }
 
 async function executeStorageTargetTest(
-  config: ConnectionTestConfig
+  config: ConnectionTestConfig,
+  request: ActiveRequest
 ): Promise<ConnectionTestSummary> {
-  const restResult = await executeConnectionTest(config);
+  const restResult = await executeConnectionTest(config, request);
+  request.check();
   const localChannel = config.localFolderId
     ? await executeLocalFolderChannelTest(config)
     : buildSkippedLocalFolderChannel();
@@ -300,7 +272,8 @@ function buildSkippedLocalFolderChannel(): ConnectionChannelResult {
 }
 
 async function executeConnectionTest(
-  config: ConnectionTestConfig
+  config: ConnectionTestConfig,
+  request: ActiveRequest
 ): Promise<ConnectionResultSummary> {
   const trimmedBase = config.baseUrl.trim();
   const httpsUrl = sanitizeUrl(config.httpsUrl);
@@ -382,9 +355,10 @@ async function executeConnectionTest(
   const errors: string[] = [];
 
   for (const candidate of urlsToTry) {
+    request.check();
     try {
       console.log(`[connectionTest] Testing URL (${candidate.protocol}):`, candidate.url);
-      const { response, text } = await testConnection(candidate.url, config.apiKey);
+      const { response, text } = await testConnection(candidate.url, config.apiKey, request.signal);
       if (!response.ok) {
         const detail = sanitizeSnippet(text);
         const statusLine = `HTTP ${response.status}`;
@@ -501,25 +475,6 @@ function buildRestChannelFailure(
   };
 }
 
-async function testConnection(url: string, apiKey: string) {
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${apiKey}`
-    }
-  });
-  const text = await readResponseTextSafely(response);
-  return { response, text };
-}
-
-async function readResponseTextSafely(response: Response): Promise<string> {
-  try {
-    return await response.text();
-  } catch {
-    return response.statusText || '';
-  }
-}
-
 function mergeRestOptions(rest: RestOptions, draft?: Partial<RestOptions>): RestOptions {
   if (!draft) {
     return { ...rest };
@@ -567,10 +522,12 @@ function normalizeProtocolLabel(protocol: string): string {
 }
 
 function isRecoverableNetworkError(error: ConnectionErrorInput): boolean {
+  if (error instanceof RequestInterruptedError) return error.timedOut;
   return error instanceof Error && isKnownNetworkFailure(error.message.toLowerCase());
 }
 
 function deriveExternalCategory(error: ConnectionErrorInput): FailureCategory {
+  if (error instanceof RequestInterruptedError) return 'network error';
   if (error instanceof Error) {
     const normalized = error.message.toLowerCase();
     if (normalized.includes('failed to fetch') || normalized.includes('networkerror')) {

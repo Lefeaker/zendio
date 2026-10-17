@@ -1,4 +1,8 @@
-import { waitForDownloadCompletion } from '../downloadCompletion';
+import {
+  withRequestDeadline,
+  type RequestDeadlineOptions
+} from '../../shared/utils/requestDeadline';
+import { DOWNLOAD_TIMEOUT_MS, waitForDownloadCompletion } from '../downloadCompletion';
 import type { DownloadTextFileOptions, DownloadsService } from '../interfaces/downloads';
 import { serializeBlobAttachmentContent } from '../../shared/attachments/clipAttachmentBinary';
 
@@ -78,23 +82,44 @@ export const chromeDownloadsService: DownloadsService = {
     // Chrome show() has no completion callback; this only requests the system file manager.
     chrome.downloads.show(Number(id));
   },
-  async download(options: DownloadTextFileOptions): Promise<number | undefined> {
+  async download(
+    options: DownloadTextFileOptions,
+    requestOptions: RequestDeadlineOptions = {}
+  ): Promise<number | undefined> {
     if (!chrome?.downloads?.download) {
       throw new Error('chrome.downloads.download is not available.');
     }
 
-    const resource = await createDownloadResource(options);
-    try {
-      const id = await chrome.downloads.download({
-        url: resource.url,
-        filename: options.filename,
-        saveAs: false,
-        conflictAction: 'uniquify'
-      });
-      await waitForDownloadCompletion(chromeDownloadsService, id);
-      return id;
-    } finally {
-      resource.revoke();
-    }
+    return withRequestDeadline(DOWNLOAD_TIMEOUT_MS, requestOptions, async (request) => {
+      const resource = await createDownloadResource(options);
+      let revoked = false;
+      const revoke = () => {
+        if (revoked) return;
+        revoked = true;
+        resource.revoke();
+      };
+      request.signal.addEventListener('abort', revoke, { once: true });
+      try {
+        request.check();
+        const id = await chrome.downloads.download({
+          url: resource.url,
+          filename: options.filename,
+          saveAs: false,
+          conflictAction: 'uniquify'
+        });
+        try {
+          request.check();
+        } catch (error) {
+          // Native creation can return its own ID after the request already ended.
+          if (id !== undefined) void chromeDownloadsService.cancel?.(id).catch(() => undefined);
+          throw error;
+        }
+        await waitForDownloadCompletion(chromeDownloadsService, id, request);
+        return id;
+      } finally {
+        request.signal.removeEventListener('abort', revoke);
+        revoke();
+      }
+    });
   }
 };
