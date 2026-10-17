@@ -44,6 +44,21 @@ reference must resolve to an attachment with that exact ID. IDs `a` and `ab` are
 independent. Plain marker text outside that destination syntax remains content.
 Unreferenced attachment entries remain accepted for compatibility.
 
+Validation and URL replacement share the same source boundary. Code examples in
+backtick/tilde fences, indented code blocks, matched inline code spans, and raw HTML
+blocks and inline HTML tokens remain byte-for-byte unchanged even when their
+example ID also belongs to an attachment. The scanner follows
+[CommonMark 0.31.2](https://spec.commonmark.org/0.31.2/)'s code and container rules: fences
+end at their enclosing list/quote boundary, inline delimiters must have equal
+length, and indented paragraph/list continuations remain ordinary Markdown. Only
+spaces and tabs form a blank line; empty list markers cannot interrupt a paragraph.
+HTML tags use the complete tag/attribute grammar, so quoted attribute text is
+literal while an invalid tag cannot hide a live attachment reference.
+Escaped brackets do not create attachment links; escaping only an image's `!`
+still leaves an ordinary link. A live missing reference beside a literal example
+still rejects the request before any write. This is a source-offset recognizer
+for the producer's inline destinations, not a Markdown renderer or AST rewrite.
+
 Physical output paths and the planned relative `markdownPath` retain their literal
 filename characters. Default `markdownUrl` values percent-encode each path segment,
 including spaces, `#`, `%`, parentheses, and Unicode; `/` and relative `..` segments

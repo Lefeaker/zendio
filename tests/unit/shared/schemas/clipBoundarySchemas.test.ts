@@ -28,6 +28,21 @@ describe('ClipPayloadSchema', () => {
     expect(res.success).toBe(true);
   });
 
+  it.each([
+    '```markdown\n![Screenshot](aiob-attachment:example)\n```',
+    'Use `![Screenshot](aiob-attachment:example)` in the producer.',
+    '    ![Screenshot](aiob-attachment:example)',
+    '!\\[Screenshot](aiob-attachment:example)'
+  ])('accepts literal code and escaped examples without attachment bytes: %s', (markdown) => {
+    const parsed = ClipPayloadSchema.parse({ markdown, type: 'ai_chat' });
+    expect(parsed.markdown).toBe(markdown);
+    expect(
+      ClipPayloadSchema.safeParse({
+        markdown: `${markdown}\n\n![Missing](aiob-attachment:missing)`
+      }).success
+    ).toBe(false);
+  });
+
   it('reserves inline attachment destinations while preserving ordinary marker text and unreferenced attachments', () => {
     const markdown = 'The token aiob-attachment:missing and `aiob-attachment:missing` are prose.';
     expect(ClipPayloadSchema.safeParse({ markdown }).success).toBe(true);

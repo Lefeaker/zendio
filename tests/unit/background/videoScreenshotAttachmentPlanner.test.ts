@@ -54,6 +54,35 @@ function createPayload(overrides: Partial<ClipPayload> = {}): ClipPayload {
 }
 
 describe('prepareVideoClipAttachments', () => {
+  it('keeps literal examples unchanged even when their ID also belongs to a real attachment', async () => {
+    const { prepareVideoClipAttachments } =
+      await import('../../../src/background/application/videoScreenshotAttachmentPlanner');
+    const marker = '![Screenshot](aiob-attachment:shot-1)';
+    const literal = `Use \`${marker}\` in a producer.\n\n~~~markdown\n${marker}\n~~~`;
+    const withoutAttachments = prepareVideoClipAttachments({
+      payload: createPayload({ markdown: literal, meta: {} }),
+      notePath: 'Videos/Test.md',
+      destination: 'vault'
+    });
+    expect(withoutAttachments).toEqual({ markdown: literal, attachments: [] });
+    const withAttachment = prepareVideoClipAttachments({
+      payload: createPayload({ markdown: `${literal}\n\n${marker}` }),
+      notePath: 'Videos/Test.md',
+      destination: 'vault'
+    });
+    expect(withAttachment.markdown).toBe(
+      `${literal}\n\n![Screenshot](assets/Test/file-20260606112233444.jpg)`
+    );
+    expect(withAttachment.attachments).toHaveLength(1);
+    expect(() =>
+      prepareVideoClipAttachments({
+        payload: createPayload({ markdown: `${literal}\n\n![Missing](aiob-attachment:missing)` }),
+        notePath: 'Videos/Test.md',
+        destination: 'vault'
+      })
+    ).toThrow('CLIP_ATTACHMENT_REFERENCE_MISSING');
+  });
+
   it('preserves current default vault behavior for video screenshots', async () => {
     const { prepareVideoClipAttachments } =
       await import('../../../src/background/application/videoScreenshotAttachmentPlanner');
