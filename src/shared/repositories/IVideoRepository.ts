@@ -10,6 +10,7 @@ import type { ClipAttachmentProgress } from '../types/clipResult';
 export interface VideoClipData {
   content: string;
   operationId?: string;
+  exportStartedAt?: number;
   attachmentProgress?: ClipAttachmentProgress;
   title: string;
   url: string;

@@ -607,7 +607,7 @@
   "localVaultWriteReauthorizationRequired": "Le dossier local doit être réautorisé. Réautorisez « {folderName} » dans les réglages.",
   "localVaultWriteFailed": "Échec de l’écriture dans le dossier local : {folderName}",
   "diagnosticsRunning": "Diagnostic en cours...",
-  "diagnosticsRunFailed": "Échec du diagnostic : {reason}",
+  "diagnosticsRunFailed": "Échec du diagnostic",
   "diagnosticsSectionCurrentConfigTitle": "Configuration actuelle",
   "diagnosticsSectionConfigChecksTitle": "Vérifications de configuration",
   "diagnosticsConfigNotFound": "Aucune configuration trouvée",
@@ -631,7 +631,7 @@
   "diagnosticsSectionAiChatTitle": "Configuration de sauvegarde de chat IA",
   "diagnosticsAiChatConfigMissing": "Configuration de sauvegarde de chat IA n’est pas configuré",
   "diagnosticsAiChatUserNameMissing": "Le nom utilisateur est vide. Définissez un nom d’affichage clair.",
-  "diagnosticsAiChatUserNameValue": "Nom d'utilisateur : {userName}",
+  "diagnosticsAiChatUserNameValue": "Le nom d’utilisateur est configuré",
   "diagnosticsSectionFragmentClipperTitle": "Configuration de sauvegarde de fragments",
   "diagnosticsFragmentClipperConfigMissing": "Configuration de sauvegarde de fragments n’est pas configuré",
   "diagnosticsFragmentFootnoteEnabled": "Le format de note de bas de page est activé et compatible avec Sidebar Highlights",
@@ -647,10 +647,10 @@
   "diagnosticsFragmentSelectionTriggerDirect": "La sélection de texte déclenche la capture sans touche modificatrice",
   "diagnosticsSectionReadingModeTitle": "Mode lecture",
   "diagnosticsReadingConfigMissing": "Mode lecture n’est pas configuré",
-  "diagnosticsReadingUnknownExportMode": "Mode d’export inconnu : {mode}",
+  "diagnosticsReadingUnknownExportMode": "Mode d’export inconnu",
   "diagnosticsReadingExportFull": "Article complet avec surlignages",
   "diagnosticsReadingExportHighlights": "Uniquement les extraits surlignés",
-  "diagnosticsReadingUnknownTheme": "Thème de surlignage inconnu : {theme}. Le thème par défaut sera utilisé",
+  "diagnosticsReadingUnknownTheme": "Thème de surlignage inconnu. Le thème par défaut sera utilisé",
   "diagnosticsReadingThemeValue": "Couleur de surlignage : {theme}",
   "diagnosticsSectionVideoModeTitle": "Mode vidéo",
   "diagnosticsVideoConfigMissing": "Mode vidéo n’est pas configuré",
@@ -900,5 +900,6 @@
   "savePhaseNote": "note",
   "savePhaseAttachments": "pièce jointe",
   "saveContinue": "Vérifié, poursuivre la sauvegarde",
-  "saveContinuationUnavailable": "Le contenu initial de l’export ou la destination est indisponible ou a changé. Votre contenu est conservé. Vérifiez les fichiers existants avant un nouvel export."
+  "saveContinuationUnavailable": "Le contenu initial de l’export ou la destination est indisponible ou a changé. Votre contenu est conservé. Vérifiez les fichiers existants avant un nouvel export.",
+  "diagnosticsPrivacyNotice": "Ce rapport omet les identifiants, les données personnelles, les chemins et les textes personnalisés. Copier la configuration crée une sauvegarde complète contenant les secrets."
 }

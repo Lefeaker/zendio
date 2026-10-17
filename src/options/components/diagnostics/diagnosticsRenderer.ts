@@ -71,13 +71,11 @@ export async function runDiagnostics(): Promise<void> {
   try {
     const options = await resolveOptionsSnapshot();
     diagOutput.textContent += buildDiagnosticsReport(options, messages);
-  } catch (error) {
+  } catch {
     diagOutput.textContent += `\n${renderDiagnosticLine(
       {
         severity: 'error',
-        message: createDiagnosticMessage('diagnosticsRunFailed', {
-          reason: error instanceof Error ? error.message : String(error)
-        })
+        message: createDiagnosticMessage('diagnosticsRunFailed')
       },
       messages
     )}\n`;

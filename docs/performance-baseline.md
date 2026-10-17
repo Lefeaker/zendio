@@ -2,6 +2,12 @@
 
 日期：2026-08-28
 
+2026-10-15 导出身份与请求截止修复保留原职责归属：processor / classifier / REST
+client 的物理行数分别登记为 636 / 280 / 289，Reader / Video session operations 与
+Video exporter 为 819 / 603 / 274；诊断隐私说明增加一个生成消息声明，登记为 1363。
+这些是现有 owner 的准确源代码行数，未为预算拆分逻辑；构建字节、chunk 数、覆盖率与
+命令时间限制保持原值，不据此宣称运行性能提升。
+
 ## 用户操作耗时采样
 
 附件续存指纹由 `clipAttachmentPlanId.ts` 在写入前生成：按顺序使用原生异步 SHA-256
@@ -13,6 +19,8 @@
 当前指纹。此兼容路径仍分配旧版完整 JSON，不能将正常路径的内存范围宣称适用于它。
 摘要 helper 可接收调用方已有取消/时限 owner 的检查回调，在每次摘要前后检查有效性；
 它本身不创建计时器、恢复状态或附件缓存。
+processor 用已有 `withRequestDeadline` 将当前及兼容摘要纳入同一次保存的 120 秒总预算；
+取消或超时可在原生摘要尚未返回时结束等待，晚到结果不得继续摘要、更新确认或启动写入。
 
 `tests/e2e/realWorkloadPerformance.browser.test.ts` 是手动、单 worker 的生产产物负载测量。
 先通过现有构建入口生成 `build/dist`，再用专属 config 运行；config 不启动 web server、

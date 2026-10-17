@@ -1,5 +1,5 @@
 import { parseManagedCommandInvocationArgv } from './config/commandBoundaryProfiles.mjs';
-import { runTaskGraph } from './utils/taskGraphRunner.mjs';
+import { formatTaskGraphFailure, runTaskGraph } from './utils/taskGraphRunner.mjs';
 
 const LEAVES = [
   ['verify-runtime', 'npm-script-quick-v1', ['verify:runtime']],
@@ -47,7 +47,9 @@ export function createPreflightTaskGraph() {
 
 export async function runPreflight(options = {}) {
   const graph = createPreflightTaskGraph();
-  return runTaskGraph(graph.tasks, { policyId: graph.policyId, ...options });
+  const result = await runTaskGraph(graph.tasks, { policyId: graph.policyId, ...options });
+  if (!result.ok) console.error(`Preflight failed\n${formatTaskGraphFailure(result, graph.tasks)}`);
+  return result;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

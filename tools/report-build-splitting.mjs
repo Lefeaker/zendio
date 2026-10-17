@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { auditRuntimeRegistryBuildOutput } from '../scripts/utils/runtimeRegistryBuildOutput.mjs';
 
 const ROOT = process.cwd();
 const DIST_DIR = join(ROOT, 'build', 'dist');
@@ -151,8 +152,8 @@ const chunkStats = chunkFiles.map((chunkFile) => {
   };
 });
 
-console.log('Build splitting report');
-const findings = [];
+console.log('Build splitting report (including AI parser lazy-boundary contract)');
+const findings = auditRuntimeRegistryBuildOutput(CHUNKS_DIR);
 const warnings = [];
 for (const entry of ENTRY_FILES) {
   const stats = statSync(entry);

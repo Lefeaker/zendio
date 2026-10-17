@@ -24,6 +24,15 @@ Use unit tests for:
 - section controllers and view-model logic
 - content helpers, presenters, prompt state, dialog orchestration
 
+### Built output contracts
+
+`audit:build:report` owns the actual AI parser chunk assertions: extractor static dependency
+closure must exclude parser implementations, and the sole runtime registry must dynamically
+import the sole platform parser chunk. Missing or inconsistent output fails. Fixture unit tests
+exercise the checker without a local build; unit collection never conditionally skips these checks.
+The existing dev build in preflight and production build in quality / CI Static preflight feed
+this same audit. No extra build is introduced for it.
+
 ### Flow / E2E
 
 - Command: `npm run test:e2e`

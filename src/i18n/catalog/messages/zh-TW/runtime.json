@@ -607,7 +607,7 @@
   "localVaultWriteReauthorizationRequired": "本機資料夾需要重新授權，請到設定頁重新授權「{folderName}」。",
   "localVaultWriteFailed": "本機資料夾寫入失敗：{folderName}",
   "diagnosticsRunning": "正在診斷...",
-  "diagnosticsRunFailed": "診斷失敗：{reason}",
+  "diagnosticsRunFailed": "診斷失敗",
   "diagnosticsSectionCurrentConfigTitle": "目前設定",
   "diagnosticsSectionConfigChecksTitle": "檢查設定",
   "diagnosticsConfigNotFound": "找不到設定",
@@ -631,7 +631,7 @@
   "diagnosticsSectionAiChatTitle": "AI 聊天保存配置",
   "diagnosticsAiChatConfigMissing": "AI 聊天保存配置未設定",
   "diagnosticsAiChatUserNameMissing": "使用者名稱為空，建議設定明確的稱呼",
-  "diagnosticsAiChatUserNameValue": "使用者名稱: {userName}",
+  "diagnosticsAiChatUserNameValue": "已設定使用者名稱",
   "diagnosticsSectionFragmentClipperTitle": "片段保存配置",
   "diagnosticsFragmentClipperConfigMissing": "片段保存配置未設定",
   "diagnosticsFragmentFootnoteEnabled": "已啟用腳註格式，與 Sidebar Highlights 相容",
@@ -647,10 +647,10 @@
   "diagnosticsFragmentSelectionTriggerDirect": "選取文字無需輔助鍵即可觸發",
   "diagnosticsSectionReadingModeTitle": "閱讀模式",
   "diagnosticsReadingConfigMissing": "閱讀模式未設定",
-  "diagnosticsReadingUnknownExportMode": "未知匯出模式: {mode}",
+  "diagnosticsReadingUnknownExportMode": "未知的匯出模式",
   "diagnosticsReadingExportFull": "包含高亮的完整文章",
   "diagnosticsReadingExportHighlights": "僅高亮摘錄",
-  "diagnosticsReadingUnknownTheme": "未知的高亮主題: {theme}，將回退到預設主題",
+  "diagnosticsReadingUnknownTheme": "未知的醒目提示主題，將使用預設主題",
   "diagnosticsReadingThemeValue": "高亮顏色: {theme}",
   "diagnosticsSectionVideoModeTitle": "影片模式",
   "diagnosticsVideoConfigMissing": "影片模式未設定",
@@ -900,5 +900,6 @@
   "savePhaseNote": "正文",
   "savePhaseAttachments": "附件",
   "saveContinue": "已核對，繼續剩餘儲存",
-  "saveContinuationUnavailable": "原匯出快照或儲存位置無法使用或已變更。內容已保留。請先檢查已有檔案，再開始新匯出。"
+  "saveContinuationUnavailable": "原匯出快照或儲存位置無法使用或已變更。內容已保留。請先檢查已有檔案，再開始新匯出。",
+  "diagnosticsPrivacyNotice": "此報告不包含憑證、私人識別資訊、路徑和自訂文字。複製設定會產生包含金鑰的完整備份。"
 }

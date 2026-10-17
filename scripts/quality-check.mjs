@@ -1,5 +1,5 @@
 import { parseManagedCommandInvocationArgv } from './config/commandBoundaryProfiles.mjs';
-import { runTaskGraph } from './utils/taskGraphRunner.mjs';
+import { formatTaskGraphFailure, runTaskGraph } from './utils/taskGraphRunner.mjs';
 
 const quick = (id, name, script, dependsOn) =>
   task(id, name, 'npm-script-quick-v1', [script], dependsOn);
@@ -135,6 +135,12 @@ export function createQualityTaskGraph() {
       ),
       task('build-fast', 'Release surface 生产构建', 'npm-script-build-v1', ['build:fast']),
       standard(
+        'audit-build-report',
+        'Build output and lazy parser contract',
+        'audit:build:report',
+        ['build-fast']
+      ),
+      standard(
         'audit-release-surface-report',
         'Release surface 守卫',
         'audit:release-surface:report',
@@ -170,8 +176,7 @@ export async function runQualityChecks(options = {}) {
   const graph = createQualityTaskGraph();
   const result = await runTaskGraph(graph.tasks, { policyId: graph.policyId, ...options });
   if (!result.ok) {
-    const failures = result.failed.map((failure) => failure.name).join(', ');
-    console.error(`❌ 质量检查失败: ${failures}`);
+    console.error(`❌ 质量检查失败\n${formatTaskGraphFailure(result, graph.tasks)}`);
   } else {
     console.log('🎉 质量检查全部通过');
   }

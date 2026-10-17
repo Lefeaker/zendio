@@ -607,7 +607,7 @@
   "localVaultWriteReauthorizationRequired": "La carpeta local necesita una nueva autorización. Vuelve a autorizar \"{folderName}\" en Ajustes.",
   "localVaultWriteFailed": "Error al escribir en la carpeta local: {folderName}",
   "diagnosticsRunning": "Ejecutando diagnóstico...",
-  "diagnosticsRunFailed": "El diagnóstico falló: {reason}",
+  "diagnosticsRunFailed": "El diagnóstico falló",
   "diagnosticsSectionCurrentConfigTitle": "Configuración actual",
   "diagnosticsSectionConfigChecksTitle": "Comprobaciones de configuración",
   "diagnosticsConfigNotFound": "No se encontró configuración",
@@ -631,7 +631,7 @@
   "diagnosticsSectionAiChatTitle": "Configuración de Recorte de Chat IA",
   "diagnosticsAiChatConfigMissing": "Configuración de Recorte de Chat IA no está configurado",
   "diagnosticsAiChatUserNameMissing": "El nombre de usuario está vacío. Define un nombre visible claro.",
-  "diagnosticsAiChatUserNameValue": "Nombre de Usuario: {userName}",
+  "diagnosticsAiChatUserNameValue": "El nombre de usuario está configurado",
   "diagnosticsSectionFragmentClipperTitle": "Configuración de Recorte de Fragmentos",
   "diagnosticsFragmentClipperConfigMissing": "Configuración de Recorte de Fragmentos no está configurado",
   "diagnosticsFragmentFootnoteEnabled": "El formato de nota al pie está activado y es compatible con Sidebar Highlights",
@@ -647,10 +647,10 @@
   "diagnosticsFragmentSelectionTriggerDirect": "La selección de texto activa la captura sin tecla modificadora",
   "diagnosticsSectionReadingModeTitle": "Modo Lectura",
   "diagnosticsReadingConfigMissing": "Modo Lectura no está configurado",
-  "diagnosticsReadingUnknownExportMode": "Modo de exportación desconocido: {mode}",
+  "diagnosticsReadingUnknownExportMode": "Modo de exportación desconocido",
   "diagnosticsReadingExportFull": "Artículo completo con resaltados",
   "diagnosticsReadingExportHighlights": "Solo pasajes resaltados",
-  "diagnosticsReadingUnknownTheme": "Tema de resaltado desconocido: {theme}. Se usará el tema predeterminado",
+  "diagnosticsReadingUnknownTheme": "Tema de resaltado desconocido. Se usará el tema predeterminado",
   "diagnosticsReadingThemeValue": "Color de resaltado: {theme}",
   "diagnosticsSectionVideoModeTitle": "Modo video",
   "diagnosticsVideoConfigMissing": "Modo video no está configurado",
@@ -900,5 +900,6 @@
   "savePhaseNote": "nota",
   "savePhaseAttachments": "adjunto",
   "saveContinue": "Revisado, continuar el guardado",
-  "saveContinuationUnavailable": "El contenido original o el destino no está disponible o ha cambiado. Tu contenido se conserva. Revisa los archivos existentes antes de una nueva exportación."
+  "saveContinuationUnavailable": "El contenido original o el destino no está disponible o ha cambiado. Tu contenido se conserva. Revisa los archivos existentes antes de una nueva exportación.",
+  "diagnosticsPrivacyNotice": "Este informe omite credenciales, identificadores privados, rutas y texto personalizado. Copiar la configuración crea un respaldo completo que incluye secretos."
 }

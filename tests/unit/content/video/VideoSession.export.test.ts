@@ -99,6 +99,8 @@ describe('VideoSession export', () => {
     'preserves the prepared payload and checks %s for attachment recovery',
     async (scenario) => {
       vi.useFakeTimers();
+      const startedAt = new Date(2026, 9, 15, 23, 59, 59).getTime();
+      vi.setSystemTime(startedAt);
       const deps = createDependencies();
       const session = new VideoSession(document, deps);
       const api = toSessionTestApi(session);
@@ -109,6 +111,9 @@ describe('VideoSession export', () => {
         if (!operationId) throw new Error('Missing attempt ID');
         input.onPrepared?.({
           operationId,
+          ...(input.exportStartedAt !== undefined
+            ? { exportStartedAt: input.exportStartedAt }
+            : {}),
           content: 'Original final Markdown',
           title: input.videoTitle,
           url: input.canonicalUrl,
@@ -138,6 +143,7 @@ describe('VideoSession export', () => {
       expect(exportMock).toHaveBeenCalledTimes(1);
       const [draft] = await listVideoDraftCandidates(deps);
       expect(draft?.payload.exportAttempt?.attachmentProgress?.confirmed).toHaveLength(1);
+      expect(exportMock.mock.calls[0]?.[0].exportStartedAt).toBe(startedAt);
       if (scenario === 'edit') {
         const capture = api.state.captures[0];
         if (!capture) throw new Error('Expected the captured video note');
@@ -145,6 +151,7 @@ describe('VideoSession export', () => {
       }
       if (scenario === 'missing-snapshot') api.state.frozenExportPayload = undefined;
       api.state.exportRecoveryAction = 'continue';
+      vi.setSystemTime(startedAt + 2000);
       await api.finish();
       expect(exportMock).toHaveBeenCalledTimes(1);
       if (scenario === 'continue') {
@@ -153,6 +160,7 @@ describe('VideoSession export', () => {
         expect(sendPreparedMock.mock.calls[0]?.[0].operationId).toBe(
           draft?.payload.exportAttempt?.operationId
         );
+        expect(sendPreparedMock.mock.calls[0]?.[0].exportStartedAt).toBe(startedAt);
         expect(sendPreparedMock.mock.calls[0]?.[1]?.confirmed).toHaveLength(1);
         expect(isVideoSessionActive(document)).toBe(false);
       } else {
@@ -164,6 +172,28 @@ describe('VideoSession export', () => {
       vi.useRealTimers();
     }
   );
+  it('creates a new operation and path time only for an explicit save-again', async () => {
+    vi.useFakeTimers();
+    const startedAt = new Date(2026, 9, 15, 23, 59, 59).getTime();
+    vi.setSystemTime(startedAt);
+    const deps = createDependencies();
+    const session = new VideoSession(document, deps);
+    const api = toSessionTestApi(session);
+    await session.start();
+    await api.handleAddCapture();
+    exportMock.mockResolvedValueOnce(createClipSaveFailure('unknown'));
+    await api.finish();
+    const original = exportMock.mock.calls[0]?.[0];
+    expect(original?.exportStartedAt).toBe(startedAt);
+    vi.setSystemTime(startedAt + 2000);
+    api.state.exportRecoveryAction = 'save-again';
+    await api.finish();
+    expect(exportMock).toHaveBeenCalledTimes(2);
+    expect(exportMock.mock.calls[1]?.[0].operationId).not.toBe(original?.operationId);
+    expect(exportMock.mock.calls[1]?.[0].exportStartedAt).toBe(startedAt + 2000);
+    expect(isVideoSessionActive(document)).toBe(false);
+    vi.useRealTimers();
+  });
   beforeEach(() => {
     document.body.innerHTML = '<h1>Video Title</h1><video></video>';
     document.title = 'Video Title___哔哩哔哩_bilibili';

@@ -97,7 +97,7 @@ describe('diagnostics', () => {
       await createDiagnosticsMessages({
         diagnosticsRunning: 'Running diagnostics sentinel...',
         diagnosticsRestUrlsMissing: 'HTTP/HTTPS URL sentinel',
-        diagnosticsReadingUnknownExportMode: 'Unknown export mode sentinel: {mode}'
+        diagnosticsReadingUnknownExportMode: 'Unknown export mode sentinel'
       })
     );
     const snapshot: StoredOptions = {
@@ -126,7 +126,8 @@ describe('diagnostics', () => {
     const output = document.getElementById('diagOutput');
     expect(output?.textContent).toContain('Running diagnostics sentinel...');
     expect(output?.textContent).toContain('HTTP/HTTPS URL sentinel');
-    expect(output?.textContent).toContain('Unknown export mode sentinel: weird');
+    expect(output?.textContent).toContain('Unknown export mode sentinel');
+    expect(output?.textContent).not.toContain('weird');
     expect(output?.textContent).not.toMatch(HAN_REGEX);
     expect(document.getElementById('diagSection')?.style.display).toBe('block');
   });
@@ -275,7 +276,7 @@ describe('diagnostics', () => {
       await createDiagnosticsMessages({
         diagnosticsActiveVaultCount: 'Configured vaults sentinel: {count}',
         diagnosticsRoutingRuleCount: 'Routing rules sentinel: {count}',
-        diagnosticsAiChatUserNameValue: 'User name sentinel: {userName}',
+        diagnosticsAiChatUserNameValue: 'User name configured sentinel',
         diagnosticsFragmentContextLengthValue: 'Context length sentinel: {value}',
         diagnosticsFragmentModifierKeysValue: 'Modifier keys sentinel: {keys}',
         diagnosticsReadingExportFull: 'Full export sentinel',
@@ -335,7 +336,8 @@ describe('diagnostics', () => {
     expect(repoGetMock).toHaveBeenCalledTimes(1);
     expect(output).toContain('Configured vaults sentinel: 1');
     expect(output).toContain('Routing rules sentinel: 1');
-    expect(output).toContain('User name sentinel: Alice');
+    expect(output).toContain('User name configured sentinel');
+    expect(output).not.toContain('Alice');
     expect(output).not.toContain('时间戳记录');
     expect(output).toContain('Context length sentinel: 120');
     expect(output).toContain('Modifier keys sentinel: alt + shift');
@@ -364,6 +366,18 @@ describe('diagnostics', () => {
     expect(output).toContain('No config sentinel');
     expect(errorSpy).toHaveBeenCalled();
     errorSpy.mockRestore();
+  });
+
+  it('does not include arbitrary exception messages in diagnostic output', async () => {
+    getSnapshotMock.mockImplementationOnce(() => {
+      throw new Error('PRIVATE_FAILURE_TEXT');
+    });
+    const { runDiagnostics } = await import('@options/components/diagnostics');
+    await runDiagnostics();
+    expect(document.getElementById('diagOutput')?.textContent).toContain('Diagnostics failed');
+    expect(document.getElementById('diagOutput')?.textContent).not.toContain(
+      'PRIVATE_FAILURE_TEXT'
+    );
   });
 
   it('returns early for empty options and covers fragment and reading fallback branches', async () => {

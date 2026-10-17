@@ -608,10 +608,41 @@ for (const [language, label] of [
   });
 }
 
+async function setAttachmentRecoveryClock(
+  context: BrowserContext,
+  extensionPage: Page,
+  tabId: number,
+  instant: number
+) {
+  const worker = context.serviceWorkers()[0];
+  if (!worker) throw new Error('Background worker missing');
+  await worker.evaluate((now) => {
+    globalThis.Date = new Proxy(Date, {
+      construct(target, args, newTarget) {
+        return Reflect.construct(target, args.length ? args : [now], newTarget) as Date;
+      }
+    });
+    Date.now = () => now;
+  }, instant);
+  await extensionPage.evaluate(
+    async ({ id, now }) => {
+      await chrome.scripting.executeScript({
+        target: { tabId: id },
+        func: (value) => {
+          Date.now = () => value;
+        },
+        args: [now]
+      });
+    },
+    { id: tabId, now: instant }
+  );
+}
+
 async function openTwoAttachmentRecoveryVideo(
   context: BrowserContext,
   extensionPage: Page,
-  faultAt: number
+  faultAt: number,
+  clock?: number
 ) {
   const url = `${YOUTUBE_URL}&recovery=two-attachments`;
   const { page, tabId } = await openFixtureWithRuntime(
@@ -621,6 +652,7 @@ async function openTwoAttachmentRecoveryVideo(
     youtubeFixtureHtml()
   );
   await installVideoScreenshotProbe(extensionPage, tabId);
+  if (clock !== undefined) await setAttachmentRecoveryClock(context, extensionPage, tabId, clock);
   await openVideoPanelFromControlBar(page, 'First attachment note', {
     captureScreenshotEnabled: true
   });
@@ -694,6 +726,7 @@ for (const scenario of [
   'destination-plan',
   'missing-file',
   'reload',
+  'clock-boundary',
   'lost-continuation-ack'
 ] as const) {
   test(`attachment recovery: ${scenario} preserves real files and requires explicit continuation`, async ({
@@ -706,11 +739,22 @@ for (const scenario of [
       language
     );
     const faultAt = scenario === 'note' ? 3 : 2;
+    const exportStartedAt = new Date(2026, 9, 15, 23, 59, 59).getTime();
     const { page, tabId, url } = await openTwoAttachmentRecoveryVideo(
       context,
       extensionPage,
-      faultAt
+      faultAt,
+      scenario === 'clock-boundary' ? exportStartedAt : undefined
     );
+    if (scenario === 'clock-boundary') {
+      await extensionPage.evaluate((options) => chrome.storage.sync.set({ options }), {
+        ...createOptionsFixture(),
+        templates: { video: 'Video/time-boundary_{yyyy}-{mm}-{dd}_{HHmmss}_{slug}.md' }
+      });
+      await expect(page.locator('#aiob-video-panel .export-destination-row')).toContainText(
+        'time-boundary_'
+      );
+    }
     await page.locator('[data-action-id="video:finish"]').click();
     const notice = page.locator('[data-session-export-notice="video"]');
     try {
@@ -779,6 +823,12 @@ for (const scenario of [
       await page.locator('#aiob-support-prompt').click({ position: { x: 3, y: 3 } });
     await page.locator('[data-action-id="video:finish"]').click();
     expect(await attachmentWriteAttempts(extensionPage)).toHaveLength(faultAt);
+
+    if (scenario === 'clock-boundary') {
+      expect(attempt.startedAt).toBe(exportStartedAt);
+      expect(firstFile.filename).toContain('2026-10-15_235959_');
+      await setAttachmentRecoveryClock(context, extensionPage, tabId, exportStartedAt + 2000);
+    }
 
     if (scenario === 'edit') {
       await page.locator('[data-capture-input]').first().fill('Newer content must remain');
@@ -854,6 +904,10 @@ for (const scenario of [
     expect(files).toHaveLength(3);
     const note = files.find((file) => file.filename.endsWith('.md'));
     if (!note) throw new Error('Final Markdown missing');
+    if (scenario === 'clock-boundary') {
+      expect(note.filename).toContain('2026-10-15_235959_');
+      expect(note.filename).not.toContain('2026-10-16_000001_');
+    }
     const markdown = await readFile(note.filename, 'utf8');
     const references = [...markdown.matchAll(/!\[Screenshot\]\(([^)]+)\)/gu)].map(
       (match) => match[1]
@@ -879,6 +933,8 @@ for (const scenario of [
       JSON.stringify({
         scenario,
         operationId: attempt.operationId,
+        exportStartedAt: attempt.startedAt,
+        notePath: note.filename,
         files: files.length,
         writes: 4,
         references,
