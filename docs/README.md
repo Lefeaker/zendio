@@ -1,6 +1,6 @@
 # 工程文档入口
 
-最后更新：2026-08-30
+最后更新：2026-10-15
 
 ## 当前真值入口
 
@@ -9,7 +9,7 @@
 - [`i18n-production-copy-governance.md`](./i18n-production-copy-governance.md)
 - [`ga4-telemetry-reference.md`](./ga4-telemetry-reference.md)
 - [`analytics-operations-runbook.md`](./analytics-operations-runbook.md)
-- [`performance-baseline.md`](./performance-baseline.md)
+- 性能预算与手动真实负载采样（`test:e2e:browser:performance`）：[`performance-baseline.md`](./performance-baseline.md)
 - [`source-of-truth-index.md`](./source-of-truth-index.md)
 - [`non-production-code-ownership.md`](./non-production-code-ownership.md)
 

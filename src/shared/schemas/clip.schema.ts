@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { isLegacyDataUrlForMimeType } from '../attachments/clipAttachmentBinary';
 import { ClassificationResultSchema } from './classification.schema';
 import { AppErrorSchema } from './error.schema';
+import { ClipAttachmentProgressSchema } from '../types/clipResult';
 
 const MAX_META_STRING_LENGTH = 4096;
 const MAX_PREVIEW_LENGTH = 512;
@@ -59,6 +60,11 @@ const ExportDestinationSchema = z
 
 export const ClipMetaSchema = z
   .object({
+    attachmentProgress: ClipAttachmentProgressSchema.optional(),
+    operationId: z
+      .string()
+      .regex(/^op_[a-z0-9]{6,24}$/u)
+      .optional(),
     url: BoundedMetaStringSchema.optional(),
     domain: BoundedMetaStringSchema.optional(),
     platform: BoundedMetaStringSchema.optional(),

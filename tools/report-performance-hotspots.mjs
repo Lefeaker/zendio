@@ -14,7 +14,7 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/background/services/sessionDraftOwnerLivenessProbe.ts', 266],
   ['src/background/services/sessionDraftStore.ts', 274],
   ['src/background/services/sessionDraftStoreMutations.ts', 267],
-  ['src/content/reader/readerSessionDraftController.ts', 261],
+  ['src/content/reader/readerSessionDraftController.ts', 275],
   ['src/shared/sessionDrafts/index.ts', 251],
   ['src/shared/sessionDrafts/pageIdentity.ts', 251],
   ['src/i18n/generated/localeRegistry.generated.ts', 8899],
@@ -32,7 +32,7 @@ export const MAX_LINE_BUDGETS = new Map([
   // Compact review and first-run navigation add three catalog labels.
   // Options topics add 18 labels/descriptions; existing shell/navigation owners
   // below forward explicit section navigation to the guide.
-  ['src/i18n/generated/messages.generated.ts', 1344],
+  ['src/i18n/generated/messages.generated.ts', 1362],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
   ['src/i18n/generated/locales/es-ES.generated.ts', 777],
@@ -81,7 +81,7 @@ export const MAX_LINE_BUDGETS = new Map([
   // 2026-06-13 GA P01: schema-owned contract replaces duplicated catalog and
   // sanitizer tables; current exact schema hotspot budget is the new source of truth.
   ['src/shared/analytics/schema/analyticsSchema.ts', 527],
-  ['src/content/video/sessionOperations.ts', 442],
+  ['src/content/video/sessionOperations.ts', 602],
   ['src/content/video/platforms/bilibiliRichText.ts', 302],
   ['src/content/video/platforms/bilibiliPlatformObserver.ts', 286],
   // 2026-06-20 Options/onboarding closeout: keep current video prompt lifecycle
@@ -96,7 +96,7 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/dev/localVaultWriteHarness.ts', 411],
   // 2026-06-11: Session mutation architecture adds fail-closed terminal draft
   // finalization and shared transaction plumbing across reader/video surfaces.
-  ['src/content/video/videoSessionRuntime.ts', 563],
+  ['src/content/video/videoSessionRuntime.ts', 569],
   // 2026-06-13 final combined integration: queue now carries explicit visible
   // capture request tracking while preserving the lazy screenshot preparation split.
   ['src/content/video/videoScreenshotPreparationQueue.ts', 401],
@@ -117,7 +117,7 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/content/video/videoScreenshotPreparationCoordinator.ts', 147],
   ['src/content/video/videoScreenshotPreparationQueueOwner.ts', 180],
   // Reader startup shares the mutation queue and presents the selection before draft recovery.
-  ['src/content/reader/session.ts', 634],
+  ['src/content/reader/session.ts', 648],
   ['src/content/video/videoControlBarButton.ts', 299],
   // 2026-06-20 support-link closeout: runtime surface copy now uses the shared
   // Zendio link registry while preserving the existing surface renderer split.
@@ -137,7 +137,7 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/background/services/obsidianWriter.ts', 423],
   ['src/background/vault-router.ts', 422],
   ['src/shared/state/globalStateManager.ts', 345],
-  ['src/content/reader/sessionOperations.ts', 659],
+  ['src/content/reader/sessionOperations.ts', 815],
   ['src/i18n/config.ts', 343],
   ['src/content/ui/supportPrompt.ts', 345],
   ['src/options/services/connectionTester.ts', 368],
@@ -159,7 +159,7 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/components/trial-notice.ts', 376],
   ['src/content/clipper/services/contextCapture.ts', 305],
   // 2026-06-12 P03: video session draft ownership moved into a focused controller.
-  ['src/content/video/videoSessionDraftController.ts', 416],
+  ['src/content/video/videoSessionDraftController.ts', 417],
   ['src/options/app/productionStitchActions.ts', 302],
   ['src/options/app/productionStitchLocalization.ts', 350],
   ['src/options/app/vaultConnectionTests.ts', 290],
@@ -173,7 +173,7 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/platform/chrome/contextMenus.ts', 285],
   ['src/content/shared/panels/sessionPanelResize.ts', 284],
   // Learning records the actual write receipt and download IDs at both existing commit points.
-  ['src/background/application/clipProcessor.ts', 500],
+  ['src/background/application/clipProcessor.ts', 626],
   // Guided practice owns one observer/receipt lifecycle; keep its exact source budget.
   ['src/onboarding/practiceCoach.ts', 315],
   // Vault practice adds browser-specific setup and actual-destination completion UI.
@@ -225,7 +225,7 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/third_party/ai-chat-exporter/platforms/kimi.ts', 258],
   ['src/i18n/catalog/languages.ts', 280],
   ['src/content/sessionDrafts/sessionDraftRepository.ts', 398],
-  ['src/content/reader/sessionDrafts.ts', 299],
+  ['src/content/reader/sessionDrafts.ts', 304],
   ['src/utils/trial-manager.ts', 363],
   ['src/content/runtime/localVaultPermissionFrame.ts', 345],
   ['src/content/extractors/aiChatExtractor.ts', 299],
@@ -240,7 +240,7 @@ export const MAX_LINE_BUDGETS = new Map([
   // out of the monolithic Stitch content seed behind the stable facade.
   ['src/options/stitch/content/runtimeSurfaceContent.ts', 283],
   // Explicit write success/failure acknowledgement keeps the existing pipeline owner.
-  ['src/background/pipelines/clipPipeline.ts', 254],
+  ['src/background/pipelines/clipPipeline.ts', 270],
   // 2026-06-19 Options shortcut copy stabilization: platform-aware modifier
   // labels and keyboard mappings are centralized for Options rendering.
   ['src/options/app/fragmentModifierOptions.ts', 277],
@@ -255,7 +255,11 @@ export const MAX_LINE_BUDGETS = new Map([
   // GA integration branch; these budgets are exact current-line gates.
   ['src/background/services/analyticsActivation.ts', 265],
   ['src/background/services/analyticsEvents.ts', 363],
-  ['src/shared/analytics/analyticsTransport.ts', 265],
+  ['src/shared/analytics/analyticsTransport.ts', 269],
+  // Save recovery keeps frozen capture inputs and optional attempt metadata in
+  // the existing exporter/draft owners; these are exact reviewed line counts.
+  ['src/content/video/videoSessionExporter.ts', 272],
+  ['src/content/video/sessionDrafts.ts', 253],
   // 2026-06-18 GA telemetry acceptance: reader/video export shape telemetry
   // adds small guarded hotspots around existing mutation and completion flows.
   ['src/content/video/videoCaptureMutationTransaction.ts', 257]

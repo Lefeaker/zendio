@@ -80,7 +80,16 @@ const detectVideoIdentityMock = vi.hoisted(() =>
     storageKey: 'video:test'
   }))
 );
-const exportMock = vi.hoisted(() => vi.fn(() => Promise.resolve({ success: true })));
+const exportMock = vi.hoisted(() =>
+  vi.fn<
+    import('../../../../src/content/video/videoSessionExporter').VideoSessionExporter['export']
+  >(() => Promise.resolve({ success: true }))
+);
+const sendPreparedMock = vi.hoisted(() =>
+  vi.fn<
+    import('../../../../src/content/video/videoSessionExporter').VideoSessionExporter['sendPrepared']
+  >(() => Promise.resolve({ success: true }))
+);
 const { createVideoPlatformAdapterMock, disposePlatformHubSubscriptions } = vi.hoisted(() => {
   const activeDisposers = new Set<() => void>();
   return {
@@ -173,7 +182,8 @@ vi.mock('../../../../src/content/video/videoSessionExporter', async () => {
     ...actual,
     VideoSessionExporter: vi.fn().mockImplementation(function VideoSessionExporterMock() {
       return {
-        export: exportMock
+        export: exportMock,
+        sendPrepared: sendPreparedMock
       };
     })
   };
@@ -255,6 +265,7 @@ export function getVideoSessionHarnessMocks() {
     loadStoredCaptureDataMock,
     detectVideoIdentityMock,
     exportMock,
+    sendPreparedMock,
     createVideoPlatformAdapterMock
   };
 }
@@ -291,6 +302,9 @@ export type SessionTestApi = {
   finish: () => Promise<void>;
   cancel: () => void;
   state: {
+    exportAttempt?: import('@shared/sessionDrafts/exportAttempt').SessionExportAttempt;
+    frozenExportPayload?: import('@shared/repositories/IVideoRepository').VideoClipData;
+    exportRecoveryAction?: import('@shared/sessionDrafts/exportAttempt').SessionExportRecoveryAction;
     captures: Array<{
       kind: 'timestamp' | 'fragment';
       id: string;

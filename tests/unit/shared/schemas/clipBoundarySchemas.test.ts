@@ -9,6 +9,20 @@ describe('ClipPayloadSchema', () => {
     dataUrl: 'data:image/jpeg;base64,aaa'
   };
 
+  it('preserves bounded export operation identity and rejects arbitrary operation text', () => {
+    const parsed = ClipPayloadSchema.parse({
+      markdown: '# note',
+      meta: { operationId: 'op_saved12345' }
+    });
+    expect(parsed.meta?.operationId).toBe('op_saved12345');
+    expect(
+      ClipPayloadSchema.safeParse({
+        markdown: '# note',
+        meta: { operationId: 'private path or content' }
+      }).success
+    ).toBe(false);
+  });
+
   it('accepts minimal valid payload', () => {
     const res = ClipPayloadSchema.safeParse({ markdown: '# title' });
     expect(res.success).toBe(true);

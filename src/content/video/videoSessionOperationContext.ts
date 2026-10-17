@@ -1,3 +1,4 @@
+import type { SessionExportRecoveryAction } from '../../shared/sessionDrafts/exportAttempt';
 import type { VideoFragmentCapture } from './types';
 import type { VideoSessionDependencies } from './sessionTypes';
 import type { VideoSessionState } from './sessionState';
@@ -43,10 +44,12 @@ export interface VideoSessionOperationContext {
   buildTimestampUrl: (timeSec: number) => string | null;
   applyHint: (state: VideoHintState) => void;
   syncPanel: () => void;
+  resumeExport?: (action: SessionExportRecoveryAction) => void;
   ensureCaptureHighlight: (capture: VideoFragmentCapture) => void;
   getSelectionForNode: (node: Node | null) => Selection | null;
   highlightFragmentText: (text: string) => void;
   getExportDestinationMetadata?: () => ExportDestinationMetadata | undefined;
+  getExportTargetPreview?: () => { label: string; path: string } | undefined;
   drafts: VideoSessionDraftRuntimePort;
   playbackEditLease: VideoSessionPlaybackEditLeasePort;
   screenshots: VideoSessionScreenshotsPort;
@@ -82,6 +85,7 @@ export function createVideoSessionOperationContext(
     buildTimestampUrl: args.buildTimestampUrl,
     applyHint: args.applyHint,
     syncPanel: args.syncPanel,
+    ...(args.resumeExport ? { resumeExport: args.resumeExport } : {}),
     drafts: args.drafts,
     playbackEditLease: args.playbackEditLease,
     screenshots: args.screenshots,
@@ -89,6 +93,7 @@ export function createVideoSessionOperationContext(
     ensureCaptureHighlight: args.ensureCaptureHighlight,
     getSelectionForNode: args.getSelectionForNode,
     highlightFragmentText: args.highlightFragmentText,
+    ...(args.getExportTargetPreview ? { getExportTargetPreview: args.getExportTargetPreview } : {}),
     ...(args.getExportDestinationMetadata
       ? { getExportDestinationMetadata: args.getExportDestinationMetadata }
       : {})

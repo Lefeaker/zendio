@@ -1,4 +1,5 @@
 import type { ExportDestinationMetadata } from '../exportDestination';
+import type { SessionExportAttempt } from './exportAttempt';
 import type {
   SessionDraftLease,
   SessionDraftLegacyCleanupObligation,
@@ -41,6 +42,7 @@ export type SessionDraftJsonPrimitive = string | number | boolean | null;
 export type SessionDraftJsonValue = SessionDraftJsonPrimitive | SessionDraftJsonValue[] | object;
 export type SessionDraftPayload = Record<string, SessionDraftJsonValue>;
 export interface SessionDraftClientPayloadBase {
+  exportAttempt?: SessionExportAttempt;
   commentDrafts?: SessionCommentDraftSnapshot;
   ownerContext?: SessionDraftOwnerContext;
   [key: string]: SessionDraftJsonValue | undefined;

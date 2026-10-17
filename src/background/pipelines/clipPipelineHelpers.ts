@@ -1,25 +1,28 @@
 import { tryParseUrl } from '../../shared/url';
 import type { ClipResultMessage } from '../../shared/types';
-import { AppError, errorHandler, notificationErrors } from '../../shared/errors';
+import { errorHandler, notificationErrors } from '../../shared/errors';
+import { runBestEffortEffect } from '../../shared/errors/bestEffortEffect';
 
 export async function safeNotify(
   action: () => Promise<void>,
   context: { channel: string; title: string }
 ): Promise<void> {
-  try {
-    await action();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    const appError = notificationErrors.dispatchFailed(
-      message,
-      {
-        channel: context.channel,
-        title: context.title
-      },
-      { cause: error }
-    );
-    await errorHandler.handle(appError, { suppressNotifications: true });
-  }
+  await runBestEffortEffect(async () => {
+    try {
+      await action();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const appError = notificationErrors.dispatchFailed(
+        message,
+        {
+          channel: context.channel,
+          title: context.title
+        },
+        { cause: error }
+      );
+      await errorHandler.handle(appError, { suppressNotifications: true });
+    }
+  }, context.channel);
 }
 
 export function normalizeClipPayload(
@@ -61,9 +64,10 @@ export function normalizeClipPayload(
   return payload;
 }
 
-export function buildFailureContext(
-  payload?: ClipResultMessage['payload']
-): Record<string, unknown> {
+export function buildFailureContext(payload?: ClipResultMessage['payload']): {
+  url?: string;
+  type?: string;
+} {
   return {
     ...(payload?.meta?.url !== undefined && { url: payload.meta.url }),
     ...(payload?.type !== undefined && { type: payload.type })
@@ -86,18 +90,15 @@ export function buildPipelineErrorContext(payload?: ClipResultMessage['payload']
 export function buildSupportOptions(
   status: 'success' | 'failure' | 'warning',
   payload: ClipResultMessage['payload'] | undefined,
-  vaultName?: string,
-  error?: AppError
+  vaultName?: string
 ): {
   status: 'success' | 'failure' | 'warning';
   source?: string;
   vaultName?: string;
-  error?: AppError;
 } {
   return {
     status,
     ...(payload?.type !== undefined && { source: payload.type }),
-    ...(vaultName !== undefined && { vaultName }),
-    ...(error !== undefined && { error })
+    ...(vaultName !== undefined && { vaultName })
   };
 }

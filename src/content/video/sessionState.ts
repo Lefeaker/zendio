@@ -6,6 +6,11 @@ import type { VideoPlatform } from './utils';
 import type { VideoCapture, VideoFragmentCapture, VideoTimestampCapture } from './types';
 import type { VideoPlatformAdapter } from './platforms';
 import type { VideoHintContext } from './videoHintManager';
+import type { VideoClipData } from '../../shared/repositories/IVideoRepository';
+import type {
+  SessionExportAttempt,
+  SessionExportRecoveryAction
+} from '../../shared/sessionDrafts/exportAttempt';
 
 export class VideoSessionState {
   captures: VideoCapture[] = [];
@@ -21,6 +26,9 @@ export class VideoSessionState {
   ending = false;
   disconnected = false;
   exportDispatched = false;
+  exportAttempt: SessionExportAttempt | undefined;
+  frozenExportPayload: VideoClipData | undefined;
+  exportRecoveryAction: SessionExportRecoveryAction | undefined;
   saving = false;
   stopOptionsWatcher: (() => void) | null = null;
   stopLanguageWatcher: (() => void) | null = null;

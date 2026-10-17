@@ -36,6 +36,10 @@ import { createMemoryStorageService } from '../../src/platform/preview/memorySto
 import type { PlatformServices } from '../../src/platform/types';
 import type { SessionCommentDraftSnapshot } from '../../src/content/shared/panels/sessionCommentDrafts';
 import type { StyleAttachmentHandle } from '../../src/ui/foundation/style-host';
+import { createSessionDraftStore } from '../../src/background/services/sessionDraftStore';
+import { handleSessionDraftMessage } from '../../src/background/listeners/sessionDraftMessages';
+import { normalizeSessionDraftStoredValue } from '../../src/shared/sessionDrafts';
+import type { EnumerableStorageAreaService } from '../../src/platform/interfaces/storage';
 
 type I18nContextModule = typeof import('../../src/content/i18n/context');
 type StyleSheetManagerModule = typeof import('../../src/content/clipper/shared/styleSheetManager');
@@ -330,6 +334,25 @@ describe('Content scripts repository integration (Video)', () => {
 });
 
 function createReaderSessionHarness(overrides?: Partial<ReaderSessionDependencies>) {
+  const storage = overrides?.storage ?? createMemoryStorageService();
+  const local = storage.local;
+  const storedKeys = new Set<string>();
+  const draftStorage: EnumerableStorageAreaService = {
+    ...local,
+    getAll: () => local.getMany([...storedKeys]),
+    setMany: async <T>(entries: Record<string, T>) => {
+      await local.setMany(entries);
+      Object.keys(entries).forEach((key) => storedKeys.add(key));
+    },
+    remove: async (keys: string | string[]) => {
+      await local.remove(keys);
+      (Array.isArray(keys) ? keys : [keys]).forEach((key) => storedKeys.delete(key));
+    }
+  };
+  const draftStore = createSessionDraftStore(draftStorage, {
+    ownerLivenessProbe: () => Promise.resolve('inactive')
+  });
+  if (!draftStore.ok) throw new Error(draftStore.code);
   const highlightManagerMocks = {
     applyTheme: vi.fn(),
     createHighlight: vi.fn(() => null),
@@ -449,7 +472,17 @@ function createReaderSessionHarness(overrides?: Partial<ReaderSessionDependencie
       overrides?.viewFactory ??
       ({ createView: vi.fn() } as ReaderSessionDependencies['viewFactory']),
     optionsRepository: overrides?.optionsRepository ?? ({} as IOptionsRepository),
-    storage: overrides?.storage ?? createMemoryStorageService(),
+    storage,
+    sessionDraftSender:
+      overrides?.sessionDraftSender ??
+      (async <Result>(message: unknown) =>
+        asType<Result>(
+          await handleSessionDraftMessage(
+            draftStore.store,
+            normalizeSessionDraftStoredValue(message),
+            { tabId: 8, frameId: 0 }
+          )
+        )),
     messaging:
       overrides?.messaging ?? ({ send: vi.fn() } as ReaderSessionDependencies['messaging']),
     readerRepository: overrides?.readerRepository ?? readerRepositoryMocks,

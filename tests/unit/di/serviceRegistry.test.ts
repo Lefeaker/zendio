@@ -334,7 +334,7 @@ describe('repository service container fallbacks', () => {
         timestamp: 1,
         platform: 'other'
       })
-    ).resolves.toEqual({ success: true });
+    ).resolves.toEqual({ success: true, outcome: 'saved' });
     expect(video.onConfigChange(() => undefined)).toEqual(expect.any(Function));
 
     const navigation = resolveRepository<INavigationRepository>(DI_TOKENS.INavigationRepository);

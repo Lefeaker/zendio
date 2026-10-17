@@ -165,7 +165,12 @@ const EXPECTED_RUNS = Object.freeze({
   'browser-firefox': [
     'node scripts/run-bounded-command.mjs --profile playwright-host-deps-platform-v1 -- firefox-with-host-deps',
     'node scripts/run-bounded-command.mjs --profile playwright-browser-install-v1 -- firefox-with-host-deps',
-    'node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:firefox'
+    'node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:firefox',
+    'node scripts/run-bounded-command.mjs --profile isolated-build-v1 -- --run-isolated-build --config-mode standalone-synthetic --browser firefox --dist-dir "${{ steps.node.outputs.attempt-root }}/build/dist-firefox" --temp-dir "${{ steps.node.outputs.attempt-root }}/build/tmp-firefox"',
+    'node scripts/run-bounded-command.mjs --profile firefox-geckodriver-provision-v1 -- --output-dir "${{ steps.node.outputs.attempt-root }}/geckodriver"',
+    'node scripts/run-bounded-command.mjs --profile firefox-prepare-v1 -- --config-mode standalone-synthetic --transport-mode local-private-v1 --attempt-root "${{ steps.node.outputs.attempt-root }}" --dist-dir "${{ steps.node.outputs.attempt-root }}/build/dist-firefox" --release-dir "${{ steps.node.outputs.attempt-root }}/release" --result-json "${{ steps.node.outputs.attempt-root }}/firefox-result.json"',
+    'node scripts/run-bounded-command.mjs --profile firefox-verify-v1 -- --manifest "${{ steps.node.outputs.attempt-root }}/release/manifest.json" --transport-mode local-private-v1',
+    'node scripts/run-bounded-command.mjs --profile firefox-smoke-v1 -- --manifest "${{ steps.node.outputs.attempt-root }}/release/manifest.json" --transport-mode local-private-v1 --result-json "${{ steps.node.outputs.attempt-root }}/firefox-smoke-result.json"'
   ],
   'browser-state': [G00_BROWSER_JOB_CONTRACTS['browser-state'].command],
   'browser-architecture': [G00_BROWSER_JOB_CONTRACTS['browser-architecture'].command],
@@ -235,6 +240,41 @@ function g00BrowserJobContract(job, block, contract) {
   if (/\b(?:needs|matrix|continue-on-error):|GITHUB_ENV|\bnpx\b|\bnpm exec\b/imu.test(block)) {
     throw new Error('browser job exposes masking, aggregation, or raw executable routes');
   }
+}
+
+function firefoxAcceptanceJobContract(job, block) {
+  if (job.if !== undefined || job.continueOnError !== undefined)
+    throw new Error('Firefox acceptance job must remain unconditional');
+  for (const step of job.steps.filter(
+    (item) => item.run && item.name !== 'Bootstrap command boundary'
+  )) {
+    if (step.if !== undefined || step.continueOnError !== undefined)
+      throw new Error('Firefox acceptance steps must remain unmasked');
+  }
+  for (const binding of [
+    'NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}',
+    'NPM_CONFIG_GLOBALCONFIG: ${{ steps.node.outputs.npm-globalconfig }}',
+    'ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: ${{ steps.node.outputs.attempt-root }}',
+    'PLAYWRIGHT_BROWSERS_PATH: ${{ steps.node.outputs.attempt-root }}/playwright-browsers'
+  ]) {
+    if (count(block, new RegExp(binding.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'), 'gu')) !== 8)
+      throw new Error(`Firefox acceptance attempt binding changed: ${binding}`);
+  }
+  if (
+    /WEB_EXT_API_|owner-public-vars|firefox-submit-v1|release-provenance-v1|secrets\./u.test(block)
+  )
+    throw new Error('Firefox acceptance must remain synthetic and credential-free');
+  const upload = job.steps.filter((step) => step.uses === UPLOAD_ARTIFACT_USE_WITH_COMMENT);
+  if (
+    upload.length !== 1 ||
+    upload[0].if !== 'always()' ||
+    upload[0].with?.name !== 'browser-firefox-reports' ||
+    !upload[0].with?.path?.includes(
+      '${{ steps.node.outputs.attempt-root }}/firefox-smoke-result.json'
+    ) ||
+    !upload[0].with?.path?.includes('${{ steps.node.outputs.attempt-root }}/firefox-save-output/')
+  )
+    throw new Error('Firefox save evidence upload changed');
 }
 
 function staticOwnershipStepContract(job) {
@@ -498,6 +538,7 @@ export function checkCiWorkflowContract({
       }
       const g00Contract = G00_BROWSER_JOB_CONTRACTS[jobId];
       if (g00Contract) g00BrowserJobContract(job, block, g00Contract);
+      if (jobId === 'browser-firefox') firefoxAcceptanceJobContract(job, block);
       if (jobId === 'static-preflight') {
         staticOwnershipStepContract(job);
         staticG01GateContract(job);

@@ -9,6 +9,7 @@ export interface DownloadTextFileOptions {
 export interface DownloadStatus {
   state: 'in_progress' | 'interrupted' | 'complete';
   filename: string;
+  exists?: boolean;
 }
 
 export interface DownloadsService {

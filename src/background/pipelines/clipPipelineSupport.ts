@@ -1,3 +1,4 @@
+import { runBestEffortEffect } from '../../shared/errors/bestEffortEffect';
 import { isTabsBoundaryError } from '../../platform/interfaces/tabs';
 import {
   SHOW_LOCAL_VAULT_PERMISSION_PROMPT,
@@ -5,12 +6,8 @@ import {
   type LocalVaultPermissionPromptMessage,
   type LocalVaultPermissionPromptResponse
 } from '../../shared/types';
-import {
-  AppError,
-  chromeApiErrors,
-  errorHandler,
-  toSerializableAppError
-} from '../../shared/errors';
+import { AppError, chromeApiErrors, errorHandler, ErrorSeverity } from '../../shared/errors';
+import { createClipSaveFailure, type ClipSaveFailure } from '../../shared/types/clipResult';
 import {
   toSerializableUserVisibleMessageDescriptor,
   type UserVisibleMessageDescriptor
@@ -20,8 +17,7 @@ export interface SupportPromptOptions {
   source?: string;
   vaultName?: string;
   status: 'success' | 'failure' | 'warning' | 'progress';
-  error?: AppError;
-  errorMessage?: string;
+  failure?: ClipSaveFailure;
   progress?: {
     value: number;
     label?: string;
@@ -37,13 +33,12 @@ export interface SupportPromptMessage {
   source?: string;
   vaultName?: string;
   status: SupportPromptStatus;
-  errorMessage?: string;
-  error?: ReturnType<typeof toSerializableAppError>;
+  error?: AppError;
   progress?: SupportPromptOptions['progress'];
 }
 
 export interface ClipPipelineDependencies {
-  sendSupportPrompt(tabId: number, message: SupportPromptMessage): Promise<unknown>;
+  sendSupportPrompt(tabId: number, message: SupportPromptMessage): Promise<void>;
   requestLocalVaultPermission?(
     tabId: number,
     message: LocalVaultPermissionPromptMessage
@@ -71,8 +66,20 @@ export function dispatchSupportPrompt(
   if (typeof tabId !== 'number') {
     return;
   }
-  const errorMessage = options.error?.userMessage ?? options.error?.message ?? options.errorMessage;
-  const serializableError = options.error ? toSerializableAppError(options.error) : undefined;
+  const failure = options.failure ?? createClipSaveFailure('unknown');
+  const warning = options.status === 'warning';
+  const code = warning ? 'CLIP_CLASSIFICATION_WARNING' : failure.code;
+  const serializableError: AppError | undefined =
+    warning || options.status === 'failure'
+      ? {
+          code,
+          message: code,
+          domain: 'background',
+          severity: warning ? ErrorSeverity.WARNING : ErrorSeverity.ERROR,
+          recoverable: true,
+          userMessageDescriptor: warning ? { key: 'supportPromptStatusWarning' } : failure.message
+        }
+      : undefined;
   const serializableMessage = toSerializableUserVisibleMessageDescriptor(options.progress?.message);
   const serializableProgress =
     options.progress === undefined
@@ -89,33 +96,39 @@ export function dispatchSupportPrompt(
     status: options.status,
     ...(options.source !== undefined && { source: options.source }),
     ...(options.vaultName !== undefined && { vaultName: options.vaultName }),
-    ...(errorMessage !== undefined && { errorMessage }),
     ...(serializableError !== undefined && { error: serializableError }),
     ...(serializableProgress !== undefined ? { progress: serializableProgress } : {})
   };
 
-  dependencies.sendSupportPrompt(tabId, message).catch((error) => {
-    if (isTabsBoundaryError(error)) return;
-    const message = error instanceof Error ? error.message : String(error);
-    if (
-      /Receiving end does not exist/i.test(message) ||
-      /The message port closed before a response was received/i.test(message) ||
-      /No tab with id/i.test(message)
-    ) {
-      return;
-    }
-    const appError = chromeApiErrors.runtimeError(
-      'Failed to send support prompt message.',
-      {
-        api: 'tabs.sendMessage',
-        operation: 'dispatchSupportPrompt',
-        details: {
-          tabId,
-          status: options.status
+  void runBestEffortEffect(
+    () =>
+      dependencies.sendSupportPrompt(tabId, message).catch((error) => {
+        if (isTabsBoundaryError(error)) return;
+        const message = error instanceof Error ? error.message : String(error);
+        if (
+          /Receiving end does not exist/i.test(message) ||
+          /The message port closed before a response was received/i.test(message) ||
+          /No tab with id/i.test(message)
+        ) {
+          return;
         }
-      },
-      error
-    );
-    void errorHandler.handle(appError, { suppressNotifications: true });
-  });
+        const appError = chromeApiErrors.runtimeError(
+          'Failed to send support prompt message.',
+          {
+            api: 'tabs.sendMessage',
+            operation: 'dispatchSupportPrompt',
+            details: {
+              tabId,
+              status: options.status
+            }
+          },
+          error
+        );
+        void runBestEffortEffect(
+          () => errorHandler.handle(appError, { suppressNotifications: true }),
+          'clip.support.report'
+        );
+      }),
+    'clip.support'
+  );
 }

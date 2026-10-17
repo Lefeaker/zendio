@@ -69,9 +69,11 @@ describe('clipProcessor downloads', () => {
       mimeType: 'text/markdown;charset=utf-8'
     });
     expect(result.filePath).toBe('/Users/fixture/Downloads/note (1).md');
-    expect(
-      readLearningProgress(await learningStorage.get(LEARNING_PROGRESS_KEY)).latest?.filePath
-    ).toBe(result.filePath);
+    await vi.waitFor(async () =>
+      expect(
+        readLearningProgress(await learningStorage.get(LEARNING_PROGRESS_KEY)).latest?.filePath
+      ).toBe(result.filePath)
+    );
     expect(JSON.stringify(trackUsageEventMock.mock.calls)).not.toContain('/Users/fixture');
   });
 

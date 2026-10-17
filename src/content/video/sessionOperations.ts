@@ -1,3 +1,19 @@
+import { snapshotVideoExportCaptures } from './videoSessionExporter';
+import {
+  createSessionExportAttempt,
+  sessionExportSnapshotId
+} from '../../shared/sessionDrafts/exportAttempt';
+import {
+  ClipSaveError,
+  createClipSaveFailure,
+  preserveClipAttachmentProgress,
+  readClipSaveResult
+} from '../../shared/types/clipResult';
+import {
+  clearSessionExportNotice,
+  showSessionExportNotice
+} from '../shared/panels/sessionPanelRecovery';
+import { buildVideoSessionDraftPayload } from './sessionDrafts';
 import { generateTextFragmentUrl } from '../clipper/utils/textFragment';
 import { bucketCount, createFeatureTimer, type AnalyticsSource } from '../../shared/analytics';
 import type { VideoFragmentCapture, VideoTimestampCapture } from './types';
@@ -16,7 +32,6 @@ import type { VideoSessionOperationContext } from './videoSessionOperationContex
 import {
   emitVideoUsageEvent,
   countVideoRequestedScreenshots,
-  createVideoExportFailure,
   mapVideoAnalyticsPlatform,
   requestRequestedScreenshotPreparation,
   resolveVideoExportDestination,
@@ -231,6 +246,39 @@ export function focusVideoSessionCapture(context: VideoSessionOperationContext, 
   }
 }
 
+function videoExportSnapshotId(context: VideoSessionOperationContext): string {
+  const destination = context.getExportDestinationMetadata?.();
+  return sessionExportSnapshotId(
+    buildVideoSessionDraftPayload({
+      retentionPolicy: { maxItemsPerPage: null },
+      captures: context.state.captures,
+      commentDrafts: context.state.commentDrafts,
+      platform: context.state.platform,
+      videoId: context.state.videoId,
+      videoUrl: context.state.videoUrl,
+      canonicalUrl: context.state.canonicalUrl,
+      videoTitle: context.state.videoTitle,
+      ...(destination ? { destination } : {})
+    })
+  );
+}
+
+export function showVideoExportRecovery(context: VideoSessionOperationContext): void {
+  showSessionExportNotice(
+    context.doc,
+    'video',
+    'saveResultUnknown',
+    context.resumeExport,
+    context.state.exportAttempt,
+    Boolean(context.state.frozenExportPayload)
+  );
+}
+
+async function persistVideoExportAttempt(context: VideoSessionOperationContext): Promise<void> {
+  if ((await context.drafts.flushNow('active')) === 'failure')
+    throw new Error('SESSION_DRAFT_SAVE_FAILED');
+}
+
 export async function finishVideoSession(
   context: VideoSessionOperationContext,
   onCleanup: () => void
@@ -246,6 +294,46 @@ export async function finishVideoSession(
   context.drafts.syncCommentDrafts();
   context.updateVideoContext();
   const exportDestination = context.getExportDestinationMetadata?.();
+  const previousAttempt = context.state.exportAttempt;
+  const recoveryAction = context.state.exportRecoveryAction;
+  context.state.exportRecoveryAction = undefined;
+  if (previousAttempt && !context.state.exportDispatched) {
+    if (recoveryAction === 'continue') {
+      if (
+        !context.state.frozenExportPayload ||
+        !previousAttempt.attachmentProgress ||
+        previousAttempt.attachmentProgress.blocked ||
+        videoExportSnapshotId(context) !== previousAttempt.snapshotId
+      ) {
+        showSessionExportNotice(
+          context.doc,
+          'video',
+          'saveContinuationUnavailable',
+          context.resumeExport,
+          previousAttempt
+        );
+        return;
+      }
+    } else if (recoveryAction === 'save-again') {
+      context.state.exportAttempt = undefined;
+      context.state.frozenExportPayload = undefined;
+    } else if (recoveryAction === 'confirm-saved' || previousAttempt.outcome === 'saved') {
+      if (videoExportSnapshotId(context) !== previousAttempt.snapshotId) {
+        context.state.exportAttempt = undefined;
+        context.state.frozenExportPayload = undefined;
+        await persistVideoExportAttempt(context);
+        showSessionExportNotice(context.doc, 'video', 'saveRecoveryChanged');
+        return;
+      }
+      context.state.exportDispatched = true;
+      context.state.frozenExportPayload = undefined;
+    } else {
+      showVideoExportRecovery(context);
+      return;
+    }
+  }
+  clearSessionExportNotice(context.doc, 'video');
+  let writeRequested = false;
   context.state.exporting = true;
   context.applyHint('exporting');
   context.dependencies.showSupportProgress?.({
@@ -272,23 +360,57 @@ export async function finishVideoSession(
       }
     });
     if (!context.state.exportDispatched) {
-      const result = await context.exporter.export({
-        captures: context.state.captures,
+      const attempt =
+        recoveryAction === 'continue' && previousAttempt
+          ? previousAttempt
+          : createSessionExportAttempt(
+              videoExportSnapshotId(context),
+              context.getExportTargetPreview?.()
+            );
+      const exportInput = {
+        onPrepared: (
+          payload: import('../../shared/repositories/IVideoRepository').VideoClipData
+        ) => {
+          context.state.frozenExportPayload = payload;
+        },
+        operationId: attempt.operationId,
+        captures: snapshotVideoExportCaptures(context.state.captures),
         videoTitle: context.state.videoTitle,
         canonicalUrl: context.state.canonicalUrl || '',
         videoUrl: context.state.videoUrl,
         platform: context.state.platform,
         messages: context.messages,
         storageKey: context.state.storageKey,
-        ...(exportDestination ? { exportDestination } : {})
-      });
-      if (typeof result !== 'object' || result === null || typeof result.success !== 'boolean') {
-        throw createVideoExportFailure('Invalid video export response', 'validation');
-      }
-      if (!result.success) {
-        throw createVideoExportFailure(result.error ?? 'Video clip failed', result.failureCategory);
+        ...(exportDestination ? { exportDestination: { ...exportDestination } } : {})
+      };
+      context.state.exportAttempt = attempt;
+      await persistVideoExportAttempt(context);
+      writeRequested = true;
+      const result = readClipSaveResult(
+        await (recoveryAction === 'continue' && context.state.frozenExportPayload
+          ? context.exporter.sendPrepared(
+              context.state.frozenExportPayload,
+              attempt.attachmentProgress
+            )
+          : context.exporter.export(exportInput))
+      );
+      if (!result.success) throw new ClipSaveError(result);
+      if (videoExportSnapshotId(context) !== attempt.snapshotId) {
+        context.state.exportAttempt = undefined;
+        context.state.frozenExportPayload = undefined;
+        await persistVideoExportAttempt(context);
+        showSessionExportNotice(context.doc, 'video', 'saveRecoveryChanged');
+        context.state.exporting = false;
+        return;
       }
       context.state.exportDispatched = true;
+      context.state.exportAttempt = {
+        ...attempt,
+        outcome: 'saved',
+        ...(result.filePath ? { filePath: result.filePath } : {})
+      };
+      await persistVideoExportAttempt(context);
+      context.state.frozenExportPayload = undefined;
     }
     const terminalized = await context.drafts.finalizeTerminal('exported');
     if (!terminalized) {
@@ -314,6 +436,41 @@ export async function finishVideoSession(
     onCleanup();
   } catch (error) {
     console.error('[VideoSession] Export failed:', error);
+    const failure = preserveClipAttachmentProgress(
+      error instanceof ClipSaveError
+        ? error.result
+        : createClipSaveFailure(
+            writeRequested ? 'unknown' : 'failed',
+            resolveVideoFailureCategory(error)
+          ),
+      recoveryAction === 'continue' ? previousAttempt?.attachmentProgress : undefined
+    );
+    if (failure.attachmentProgress && context.state.exportAttempt) {
+      context.state.exportAttempt = {
+        ...context.state.exportAttempt,
+        attachmentProgress: failure.attachmentProgress
+      };
+      if (failure.attachmentProgress.blocked) context.state.frozenExportPayload = undefined;
+      await persistVideoExportAttempt(context).catch(() => undefined);
+    }
+    if (
+      !context.state.exportDispatched &&
+      failure.outcome === 'failed' &&
+      !failure.attachmentProgress
+    ) {
+      context.state.exportAttempt = undefined;
+      context.state.frozenExportPayload = undefined;
+      await persistVideoExportAttempt(context).catch(() => undefined);
+    }
+    if (!context.state.exportDispatched)
+      showSessionExportNotice(
+        context.doc,
+        'video',
+        failure.message.key,
+        failure.outcome === 'unknown' ? context.resumeExport : undefined,
+        context.state.exportAttempt,
+        Boolean(context.state.frozenExportPayload)
+      );
     context.dependencies.showSupportProgress?.({
       value: 100,
       variant: 'failure'
@@ -374,6 +531,9 @@ export function cleanupVideoSession(context: VideoSessionOperationContext): void
   context.state.videoElement = null;
   context.state.exporting = false;
   context.state.exportDispatched = false;
+  context.state.exportAttempt = undefined;
+  context.state.exportRecoveryAction = undefined;
+  context.state.frozenExportPayload = undefined;
   context.state.ending = false;
   context.state.saving = false;
   context.state.analyticsTimer = null;

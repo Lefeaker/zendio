@@ -88,6 +88,37 @@ describe('report-performance-hotspots', () => {
 
   it('keeps the exact normalized budget transitions and every other budget unchanged', () => {
     const registeredBudgets = readRegisteredBudgets();
+    const attachmentRecoveryChanges: Array<[string, number, number]> = [
+      ['src/background/application/clipProcessor.ts', 550, 626],
+      ['src/content/reader/sessionOperations.ts', 759, 815],
+      ['src/content/video/sessionOperations.ts', 547, 602],
+      ['src/content/video/videoSessionExporter.ts', 259, 272],
+      ['src/i18n/generated/messages.generated.ts', 1357, 1362]
+    ];
+    for (const [file, before, after] of attachmentRecoveryChanges) {
+      expect(registeredBudgets.get(file)).toBe(after);
+      registeredBudgets.set(file, before);
+    }
+    const saveRecoveryChanges: Array<[string, number | null, number]> = [
+      ['src/background/application/clipProcessor.ts', 500, 550],
+      ['src/background/pipelines/clipPipeline.ts', 254, 270],
+      ['src/content/reader/readerSessionDraftController.ts', 261, 275],
+      ['src/content/reader/session.ts', 634, 648],
+      ['src/content/reader/sessionDrafts.ts', 299, 304],
+      ['src/content/reader/sessionOperations.ts', 659, 759],
+      ['src/content/video/sessionOperations.ts', 442, 547],
+      ['src/content/video/videoSessionDraftController.ts', 416, 417],
+      ['src/content/video/videoSessionRuntime.ts', 563, 569],
+      ['src/i18n/generated/messages.generated.ts', 1344, 1357],
+      ['src/shared/analytics/analyticsTransport.ts', 265, 269],
+      ['src/content/video/videoSessionExporter.ts', null, 259],
+      ['src/content/video/sessionDrafts.ts', null, 253]
+    ];
+    for (const [file, before, after] of saveRecoveryChanges) {
+      expect(registeredBudgets.get(file)).toBe(after);
+      if (before === null) registeredBudgets.delete(file);
+      else registeredBudgets.set(file, before);
+    }
     expect(registeredBudgets.get('src/background/pipelines/clipPipeline.ts')).toBe(254);
     registeredBudgets.set('src/background/pipelines/clipPipeline.ts', 253);
     const firstVaultChanges: Array<[string, number | null, number]> = [
