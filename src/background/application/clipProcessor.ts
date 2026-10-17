@@ -1,4 +1,5 @@
 import { REST_WRITE_TIMEOUT_MS } from '../../shared/interfaces/restClient';
+import { withRequestDeadline } from '../../shared/utils/requestDeadline';
 import { downloadPreparedClip } from './downloadClip';
 import { runBestEffortEffect } from '../../shared/errors/bestEffortEffect';
 import {
@@ -6,7 +7,7 @@ import {
   type ClipSaveFailure,
   type ClipAttachmentProgress
 } from '../../shared/types/clipResult';
-import { sha256Hex } from '../../shared/sessionDrafts/pageIdentity';
+import { clipAttachmentPlanId, matchesLegacyClipAttachmentPlanId } from './clipAttachmentPlanId';
 import { learningCoursesForExport, recordLearningExport } from '../services/learningProgress';
 import { getOptions } from '../store';
 import { RUNTIME_FALLBACK_MESSAGES } from '../../i18n/catalog/runtimeFallbackMessages';
@@ -243,26 +244,36 @@ export async function processClipPayload(
     });
     storageTarget = toRouteStorageTarget(routed);
     if (routed.prepared.attachments.length || attachmentProgress) {
-      // One digest per explicit dispatch, never per attachment progress callback.
-      const planId = clipAttachmentPlanId(payload, routed);
+      // One plan per explicit dispatch, never per attachment progress callback.
+      const planId = await withRequestDeadline(REST_WRITE_TIMEOUT_MS, requestOptions, (request) =>
+        clipAttachmentPlanId(payload, routed, () => request.check())
+      );
       const target =
         routed.destination === 'downloads' ? 'downloads' : routed.writeSession.target.storageTarget;
+      const previousPlanId = attachmentProgress?.planId ?? planId;
       if (
         attachmentProgress &&
         (attachmentProgress.blocked ||
           attachmentProgress.operationId !== operationId ||
-          attachmentProgress.planId !== planId ||
           attachmentProgress.storageTarget !== target ||
           attachmentProgress.total !== routed.prepared.attachments.length ||
           attachmentProgress.confirmed.some(
             (item, index) =>
               item.id !== routed.prepared.attachments[index]?.id ||
               item.outputPath !== routed.prepared.attachments[index]?.outputPath
-          ))
+          ) ||
+          (previousPlanId !== planId &&
+            !(await withRequestDeadline(REST_WRITE_TIMEOUT_MS, requestOptions, (request) =>
+              matchesLegacyClipAttachmentPlanId(payload, routed, previousPlanId, () =>
+                request.check()
+              )
+            ))))
       ) {
         attachmentProgress.blocked = true;
         throw new Error('CLIP_ATTACHMENT_PLAN_CHANGED');
       }
+      // Preserve historical confirmations while upgrading a verified legacy plan.
+      if (attachmentProgress) attachmentProgress.planId = planId;
       attachmentProgress ??= {
         operationId,
         planId,
@@ -486,32 +497,6 @@ export async function processClipPayload(
       attachmentProgress
     );
   }
-}
-
-function clipAttachmentPlanId(payload: ClipPayload, route: ResolvedClipRoute): string {
-  const target =
-    route.destination === 'downloads'
-      ? { storageTarget: 'downloads' }
-      : {
-          ...route.writeSession.target,
-          vault: route.restConfig.vault,
-          folderId: route.restConfig.localFolderId,
-          baseUrl: route.restConfig.baseUrl,
-          httpsUrl: route.restConfig.httpsUrl,
-          httpUrl: route.restConfig.httpUrl
-        };
-  return sha256Hex(
-    JSON.stringify({
-      markdown: payload.markdown,
-      title: payload.title,
-      type: payload.type,
-      sourceUrl: payload.meta?.url,
-      operationId: payload.meta?.operationId,
-      target,
-      filePath: route.filePath,
-      prepared: route.prepared
-    })
-  );
 }
 
 function resolveBackgroundOperationId(payload: ClipPayload): string {

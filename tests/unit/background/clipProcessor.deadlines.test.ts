@@ -10,7 +10,10 @@ import {
   clipProcessingFailureResult
 } from '../../../src/background/application/clipProcessor';
 import { errorHandler } from '../../../src/shared/errors';
-import { awaitClipSaveResult } from '../../../src/shared/types/clipResult';
+import {
+  awaitClipSaveResult,
+  type ClipAttachmentProgress
+} from '../../../src/shared/types/clipResult';
 
 let options: Options;
 vi.mock('../../../src/background/store', () => ({ getOptions: () => Promise.resolve(options) }));
@@ -89,6 +92,7 @@ it('shares one deadline across attachments, preserves confirmations and never wr
   useTransport(request);
   const result = processClipPayload(payload()).catch(clipProcessingFailureResult);
   const reply = awaitClipSaveResult(() => result);
+  await vi.waitFor(() => expect(request).toHaveBeenCalledOnce());
   await vi.advanceTimersByTimeAsync(80_000);
   expect(request).toHaveBeenCalledTimes(2);
   expect(request.mock.calls[1]?.[1]?.signal?.aborted).toBe(false);
@@ -125,9 +129,9 @@ it('includes classification time in the save deadline and sends no PUT after it 
     const result = processClipPayload(payload()).catch(clipProcessingFailureResult);
     await vi.advanceTimersByTimeAsync(120_000);
     await expect(result).resolves.toMatchObject({
-      outcome: 'unknown',
+      outcome: 'failed',
       failureCategory: 'timeout',
-      attachmentProgress: { confirmed: [] }
+      stage: 'prepare'
     });
     expect(request).toHaveBeenCalledOnce();
     expect(request.mock.calls[0]?.[1]?.method).toBe('POST');
@@ -144,8 +148,7 @@ it('propagates explicit cancellation through the actual processor, route and wri
   const result = processClipPayload(payload(), { signal: controller.signal }).catch(
     clipProcessingFailureResult
   );
-  await vi.advanceTimersByTimeAsync(0);
-  expect(request).toHaveBeenCalledOnce();
+  await vi.waitFor(() => expect(request).toHaveBeenCalledOnce());
   controller.abort();
   await expect(result).resolves.toMatchObject({
     outcome: 'unknown',
@@ -155,4 +158,57 @@ it('propagates explicit cancellation through the actual processor, route and wri
   expect(request.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
   await vi.advanceTimersByTimeAsync(150_000);
   expect(request).toHaveBeenCalledOnce();
+});
+
+it.each([
+  { timeout: true, history: false },
+  { timeout: true, history: true },
+  { timeout: false, history: false },
+  { timeout: false, history: true }
+])('bounds a pending native digest and preserves history: %j', async ({ timeout, history }) => {
+  const request = vi.fn<typeof fetch>();
+  useTransport(request);
+  const clip = payload();
+  const progress: ClipAttachmentProgress | undefined = history
+    ? {
+        operationId: 'op_deadline123',
+        planId: 'a'.repeat(64),
+        storageTarget: 'rest-api',
+        phase: 'attachments',
+        total: 3,
+        confirmed: [{ id: 'one', outputPath: 'one.png' }]
+      }
+    : undefined;
+  clip.meta = { ...clip.meta, attachmentProgress: progress };
+  const original = structuredClone(progress);
+  let finish = (_result: ArrayBuffer) => {};
+  const digest = vi.spyOn(crypto.subtle, 'digest').mockImplementationOnce(
+    () =>
+      new Promise<ArrayBuffer>((resolve) => {
+        finish = resolve;
+      })
+  );
+  const controller = new AbortController();
+  const pending = processClipPayload(clip, { signal: controller.signal }).catch(
+    clipProcessingFailureResult
+  );
+  await vi.advanceTimersByTimeAsync(0);
+  expect(digest).toHaveBeenCalledOnce();
+  expect(request).not.toHaveBeenCalled();
+  if (timeout) await vi.advanceTimersByTimeAsync(120_000);
+  else controller.abort();
+  const failure = await pending;
+  expect(failure).toMatchObject({
+    outcome: history ? 'unknown' : 'failed',
+    stage: 'prepare',
+    failureCategory: timeout ? 'timeout' : 'connection'
+  });
+  if (!('success' in failure)) throw new Error('Expected interrupted preparation');
+  expect(failure.attachmentProgress).toEqual(original);
+  expect(progress).toEqual(original);
+  finish(new ArrayBuffer(32));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(digest).toHaveBeenCalledOnce();
+  expect(request).not.toHaveBeenCalled();
+  expect(failure.attachmentProgress).toEqual(original);
 });
