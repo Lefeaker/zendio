@@ -52,6 +52,10 @@ example ID also belongs to an attachment. The scanner follows
 end at their enclosing list/quote boundary, inline delimiters must have equal
 length, and indented paragraph/list continuations remain ordinary Markdown. Only
 spaces and tabs form a blank line; empty list markers cannot interrupt a paragraph.
+An existing list's next item closes the previous item's inline block before code
+ranges are calculated, including non-1 ordered markers and empty items. This also
+applies inside nested lists and quotes. A new ordered list interrupting a paragraph
+still needs to start at 1; indented numeric paragraph text is not a sibling item.
 HTML tags use the complete tag/attribute grammar, so quoted attribute text is
 literal while an invalid tag cannot hide a live attachment reference.
 Escaped brackets do not create attachment links; escaping only an image's `!`

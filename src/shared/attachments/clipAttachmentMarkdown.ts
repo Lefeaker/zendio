@@ -140,8 +140,12 @@ export function* attachmentInlineBlocks(markdown: string): Generator<Range> {
       } else if (!BLANK.test(rest)) break;
       matched++;
     }
+    // A marker at an unmatched item starts another item, including non-1 numbers
+    // and empty items. Only a new list inside a paragraph needs the stricter rule.
+    const nextListItem = containers[matched]?.kind === 'list' && LIST.test(line.slice(offset));
     const lazy =
       matched < containers.length &&
+      !nextListItem &&
       block &&
       !BLANK.test(line.slice(offset)) &&
       !interruptsParagraph(line.slice(offset));

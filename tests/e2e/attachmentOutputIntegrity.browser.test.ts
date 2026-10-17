@@ -4,7 +4,7 @@ import { pathToFileURL, fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { expect } from '@playwright/test';
 import type { ClipPayload, ClipResultResponse } from '../../src/shared/types';
-import { test as exportTest } from './utils/exportTitleSinks';
+import { configureSink, test as exportTest } from './utils/exportTitleSinks';
 import {
   createOptionsFixture,
   seedOptions,
@@ -168,7 +168,13 @@ for (const withAttachments of [false, true]) {
     extensionPage
   }) => {
     const marker = '![example](aiob-attachment:a)';
-    const literal = `# Examples\n\n\`\`\`markdown\n${marker}\n\`\`\`\n\nUse \`${marker}\` here.\n\n    ${marker}\n\n!\\[example](aiob-attachment:a)`;
+    const literal = [
+      `# Examples\n\n\`\`\`markdown\n${marker}\n\`\`\`\n\nUse \`${marker}\` here.\n\n    ${marker}\n\n!\\[example](aiob-attachment:a)`,
+      `1. Intro\n2. ~~~markdown\n   ${marker}\n   ~~~`,
+      `1. Intro\n2. \`\`\`markdown\n   ${marker}\n   \`\`\``,
+      `1. Intro\n2. \`\`\`markdown\n   ${marker}\n   \`\`\`\``,
+      `1. Intro\n2. \`\`\`markdown\n   ${marker}`
+    ].join('\n\n');
     const clip = payload();
     clip.markdown = withAttachments ? `${literal}\n\n${clip.markdown}` : literal;
     if (!withAttachments && clip.meta) delete clip.meta.attachments;
@@ -206,3 +212,59 @@ test('installed export rejects a real missing reference next to a literal exampl
   });
   expect(await extensionPage.evaluate(() => chrome.downloads.search({}))).toHaveLength(0);
 });
+
+for (const destination of ['downloads', 'rest'] as const) {
+  test(`installed ${destination} export cannot hide a live attachment across ordered items`, async ({
+    extensionPage
+  }, testInfo) => {
+    const sink = await configureSink(extensionPage, destination, testInfo.outputPath('downloads'));
+    const clip: ClipPayload = {
+      title: 'List boundary',
+      type: 'article',
+      markdown: '1. `literal\n2. ![Screenshot](aiob-attachment:a)\n3. literal`',
+      meta: { url: 'https://attachment-integrity.test/list' }
+    };
+    try {
+      const missing: ClipResultResponse = await extensionPage.evaluate(
+        (data) => chrome.runtime.sendMessage({ type: 'clip', data }),
+        clip
+      );
+      expect(missing).toMatchObject({ success: false, failureCategory: 'validation' });
+      expect(sink.writeAttempts).toBe(0);
+      expect(await extensionPage.evaluate(() => chrome.downloads.search({}))).toHaveLength(0);
+
+      clip.meta = { ...clip.meta, attachments: payload().meta?.attachments?.slice(0, 1) };
+      const saved: ClipResultResponse = await extensionPage.evaluate(
+        (data) => chrome.runtime.sendMessage({ type: 'clip', data }),
+        clip
+      );
+      expect(saved.success).toBe(true);
+      if (!saved.success) throw new Error('List attachment export failed');
+      const markdown =
+        destination === 'rest'
+          ? await sink.read('Articles/list-boundary.md')
+          : await readFile(saved.filePath, 'utf8');
+      expect(markdown).not.toContain('aiob-attachment:');
+      expect(markdown).toContain('1. `literal');
+      expect(markdown).toContain('3. literal`');
+      const href = /!\[Screenshot\]\(([^)]+)\)/u.exec(markdown)?.[1];
+      expect(href).toBeTruthy();
+      if (!href) throw new Error('Missing resolved attachment path');
+      if (destination === 'rest') {
+        const relativePath = path.posix.join('Articles', decodeURIComponent(href));
+        expect(sink.writeAttempts).toBe(2);
+        expect(sink.files.get(`/vault/${relativePath}`)).toBe(
+          Buffer.from(imageData, 'base64').toString('utf8')
+        );
+      } else {
+        const bytes = await readFile(
+          path.resolve(path.dirname(saved.filePath), decodeURIComponent(href))
+        );
+        expect(bytes).toEqual(Buffer.from(imageData, 'base64'));
+        expect(await extensionPage.evaluate(() => chrome.downloads.search({}))).toHaveLength(2);
+      }
+    } finally {
+      await sink.close();
+    }
+  });
+}
