@@ -4,13 +4,29 @@ import { pathToFileURL, fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { expect } from '@playwright/test';
 import type { ClipPayload, ClipResultResponse } from '../../src/shared/types';
-import { test } from './utils/exportTitleSinks';
+import { test as exportTest } from './utils/exportTitleSinks';
 import {
   createOptionsFixture,
   seedOptions,
   EXTENSION_PATH,
   type StoredOptionsFixture
 } from './utils/videoListenerScopeHarness';
+
+// Output assertions need an extension origin, not a development-only harness page.
+const test = exportTest.extend({
+  extensionPage: async ({ context }, use) => {
+    const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
+    const extensionId = worker.url().split('/')[2];
+    if (!extensionId) throw new Error('Missing installed extension identity');
+    const page = await context.newPage();
+    await page.goto(`chrome-extension://${extensionId}/options/index.html`);
+    try {
+      await use(page);
+    } finally {
+      await page.close();
+    }
+  }
+});
 
 const imageData =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jX1sAAAAASUVORK5CYII=';
@@ -138,6 +154,50 @@ test('installed message boundary rejects a malformed second attachment before cr
   const response: ClipResultResponse = await extensionPage.evaluate(
     (clip) => chrome.runtime.sendMessage({ type: 'CLIP_RESULT', payload: clip }),
     payload(1)
+  );
+  expect(response).toMatchObject({
+    success: false,
+    outcome: 'failed',
+    failureCategory: 'validation'
+  });
+  expect(await extensionPage.evaluate(() => chrome.downloads.search({}))).toHaveLength(0);
+});
+
+for (const withAttachments of [false, true]) {
+  test(`installed export preserves literal attachment examples with attachments=${withAttachments}`, async ({
+    extensionPage
+  }) => {
+    const marker = '![example](aiob-attachment:a)';
+    const literal = `# Examples\n\n\`\`\`markdown\n${marker}\n\`\`\`\n\nUse \`${marker}\` here.\n\n    ${marker}\n\n!\\[example](aiob-attachment:a)`;
+    const clip = payload();
+    clip.markdown = withAttachments ? `${literal}\n\n${clip.markdown}` : literal;
+    if (!withAttachments && clip.meta) delete clip.meta.attachments;
+    const response: ClipResultResponse = await extensionPage.evaluate(
+      (input) => chrome.runtime.sendMessage({ type: 'CLIP_RESULT', payload: input }),
+      clip
+    );
+    expect(response.success).toBe(true);
+    if (!response.success) throw new Error('Literal example export failed');
+    const markdown = await readFile(response.filePath, 'utf8');
+    expect(markdown).toContain(literal);
+    if (withAttachments) {
+      expect(markdown).not.toContain('![first](aiob-attachment:');
+      expect(markdown).not.toContain('![second](aiob-attachment:');
+    }
+    const files = await extensionPage.evaluate(() => chrome.downloads.search({}));
+    expect(files).toHaveLength(withAttachments ? 3 : 1);
+    expect(files.every((file) => file.state === 'complete')).toBe(true);
+  });
+}
+
+test('installed export rejects a real missing reference next to a literal example before writing', async ({
+  extensionPage
+}) => {
+  const clip = payload();
+  clip.markdown = '`![example](aiob-attachment:missing)`\n\n![real](aiob-attachment:missing)';
+  const response: ClipResultResponse = await extensionPage.evaluate(
+    (input) => chrome.runtime.sendMessage({ type: 'CLIP_RESULT', payload: input }),
+    clip
   );
   expect(response).toMatchObject({
     success: false,

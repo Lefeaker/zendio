@@ -110,6 +110,7 @@ it('returns confirmed progress before the UI deadline and never starts Markdown 
   void reply.then((value) => {
     observed = value;
   });
+  await vi.waitFor(() => expect(native.download).toHaveBeenCalledOnce());
   await vi.advanceTimersByTimeAsync(80_000);
   expect(native.download).toHaveBeenCalledTimes(2);
   await vi.advanceTimersByTimeAsync(40_000);
@@ -133,6 +134,7 @@ it('returns confirmed progress before the UI deadline and never starts Markdown 
 it('gives an explicit continuation a fresh budget and verifies the confirmed file before new writes', async () => {
   const native = nativeDownloads();
   const result = processClipPayload(payload()).catch(clipProcessingFailureResult);
+  await vi.waitFor(() => expect(native.download).toHaveBeenCalledOnce());
   await vi.advanceTimersByTimeAsync(120_000);
   const failure = await result;
   if (!('success' in failure)) throw new Error('Expected the download request to fail');
@@ -141,6 +143,7 @@ it('gives an explicit continuation a fresh budget and verifies the confirmed fil
   const continued = payload();
   continued.meta = { ...continued.meta, attachmentProgress: failure.attachmentProgress };
   const resume = processClipPayload(continued);
+  await vi.waitFor(() => expect(native.download).toHaveBeenCalledTimes(3));
   await vi.advanceTimersByTimeAsync(100_000);
   await expect(resume).resolves.toMatchObject({ destination: 'downloads' });
   expect(native.download.mock.calls.map(([options]) => options.filename)).toEqual([
@@ -155,13 +158,16 @@ it('gives an explicit continuation a fresh budget and verifies the confirmed fil
 it('bounds a stalled continuation inspection without losing or blocking its confirmations', async () => {
   const native = nativeDownloads();
   const first = processClipPayload(payload()).catch(clipProcessingFailureResult);
+  await vi.waitFor(() => expect(native.download).toHaveBeenCalledOnce());
   await vi.advanceTimersByTimeAsync(120_000);
   const previous = await first;
   if (!('success' in previous)) throw new Error('Expected the download request to fail');
   const continued = payload();
   continued.meta = { ...continued.meta, attachmentProgress: previous.attachmentProgress };
   native.search.mockImplementation(() => new Promise(() => {}));
+  const previousInspections = native.search.mock.calls.length;
   const result = processClipPayload(continued).catch(clipProcessingFailureResult);
+  await vi.waitFor(() => expect(native.search).toHaveBeenCalledTimes(previousInspections + 1));
   await vi.advanceTimersByTimeAsync(120_000);
   await expect(result).resolves.toMatchObject({
     outcome: 'unknown',
@@ -184,6 +190,7 @@ it('bounds a native creation promise, cancels its late own ID and never starts a
       })
   );
   const result = processClipPayload(payload()).catch(clipProcessingFailureResult);
+  await vi.waitFor(() => expect(native.download).toHaveBeenCalledOnce());
   await vi.advanceTimersByTimeAsync(120_000);
   await expect(result).resolves.toMatchObject({
     outcome: 'unknown',
