@@ -7,6 +7,9 @@ import { TextDecoder } from 'node:util';
 const ROOT = process.cwd();
 
 export const MAX_LINE_BUDGETS = new Map([
+  // 2026-10-18: block/container source offsets remain in their existing lexer;
+  // link grammar consumes this metadata without reserializing Markdown.
+  ['src/shared/attachments/clipAttachmentMarkdown.ts', 270],
   // 2026-10-16: encoded attachment URL collision handling, propagation of the
   // existing request deadline and mounted connection-result invalidation remain
   // in their existing owners. Only measured physical-line registrations change.

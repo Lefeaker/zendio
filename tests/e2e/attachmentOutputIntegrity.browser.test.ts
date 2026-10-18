@@ -213,7 +213,8 @@ test('installed export rejects a real missing reference next to a literal exampl
   expect(await extensionPage.evaluate(() => chrome.downloads.search({}))).toHaveLength(0);
 });
 
-for (const destination of ['downloads', 'rest'] as const) {
+const orderedItemDestinations: ('downloads' | 'rest')[] = ['downloads', 'rest'];
+for (const destination of orderedItemDestinations) {
   test(`installed ${destination} export cannot hide a live attachment across ordered items`, async ({
     extensionPage
   }, testInfo) => {

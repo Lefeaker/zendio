@@ -58,6 +58,28 @@ applies inside nested lists and quotes. A new ordered list interrupting a paragr
 still needs to start at 1; indented numeric paragraph text is not a sibling item.
 HTML tags use the complete tag/attribute grammar, so quoted attribute text is
 literal while an invalid tag cannot hide a live attachment reference.
+Ordinary link/image destinations and titles, URI/email autolinks, and link
+reference definitions are also literal. The link lexer consumes a complete
+destination/title boundary before looking for more attachment destinations:
+balanced or escaped URL parentheses, angle-delimited destinations, quoted titles,
+and multiline titles follow CommonMark's link grammar. Titles cannot cross blank
+lines or enclosing block boundaries. Reference definitions are recognized only at
+the start of a paragraph, including consecutive definitions inside lists/quotes;
+they do not interrupt paragraph text. A failed title on the next line leaves the
+valid destination-only definition and the following text independently scannable.
+Malformed or unclosed links cannot hide a later live attachment reference.
+The same lexer collects reference labels before scanning inlines, including
+definitions later in the document. Resolved nested links invalidate an enclosing
+ordinary link, so its apparent destination/title cannot conceal a live marker.
+Label matching folds case and ASCII whitespace but retains escaped/entity
+spellings; image labels continue to allow links.
+
+Known producer IDs are matched in full before applying ordinary destination
+grammar, preserving existing IDs containing parentheses, spaces, escapes, and
+Unicode. Link delimiter and destination endpoints are indexed once per block to
+avoid repeatedly scanning long suffixes after invalid link candidates. Container
+prefix positions are used only for grammar; replacements retain original source
+offsets, line endings and all non-destination bytes.
 Escaped brackets do not create attachment links; escaping only an image's `!`
 still leaves an ordinary link. A live missing reference beside a literal example
 still rejects the request before any write. This is a source-offset recognizer

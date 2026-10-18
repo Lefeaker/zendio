@@ -32,10 +32,19 @@ describe('ClipPayloadSchema', () => {
     '```markdown\n![Screenshot](aiob-attachment:example)\n```',
     'Use `![Screenshot](aiob-attachment:example)` in the producer.',
     '    ![Screenshot](aiob-attachment:example)',
-    '!\\[Screenshot](aiob-attachment:example)'
-  ])('accepts literal code and escaped examples without attachment bytes: %s', (markdown) => {
+    '!\\[Screenshot](aiob-attachment:example)',
+    '[documentation](https://example.com "![shot](aiob-attachment:example)")',
+    '<https://example.com/![shot](aiob-attachment:example)>',
+    '[documentation]: https://example.com "![shot](aiob-attachment:example)"'
+  ])('accepts literal examples without attachment bytes: %s', (markdown) => {
     const parsed = ClipPayloadSchema.parse({ markdown, type: 'ai_chat' });
     expect(parsed.markdown).toBe(markdown);
+    expect(
+      ClipPayloadSchema.parse({
+        markdown,
+        meta: { attachments: [{ ...legacyAttachment, id: 'example' }] }
+      }).markdown
+    ).toBe(markdown);
     expect(
       ClipPayloadSchema.safeParse({
         markdown: `${markdown}\n\n![Missing](aiob-attachment:missing)`

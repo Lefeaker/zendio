@@ -3,34 +3,60 @@ import {
   attachmentRawHtmlEnd,
   attachmentInlineBlocks
 } from './clipAttachmentMarkdown';
+import { AttachmentLinkSyntax, ATTACHMENT_ESCAPABLE } from './clipAttachmentLinks';
 
 type AttachmentReference = { id: string; markdownUrl: string };
 const PREFIX = '(aiob-attachment:';
-const ESCAPABLE = /[!"#$%&'()*+,\-./:;<=>?@[\]\\^_`{|}~]/u;
 
 /** Shared recognition boundary for validation and both planned/native URL replacement. */
 function* attachmentDestinations(markdown: string, ids: readonly string[]) {
   if (!markdown.includes(PREFIX)) return;
+  const references = new Set<string>();
+  const blocks = [];
   for (const block of attachmentInlineBlocks(markdown)) {
-    const codeEnds = attachmentCodeSpanEnds(markdown, block);
+    const hasMarker = markdown.slice(block.start, block.end).includes(PREFIX);
+    if (!hasMarker && block.referenceStarts.size === 0) continue;
+    const links = new AttachmentLinkSyntax(markdown, block);
+    const start = links.definitionsEnd(references);
+    // Forward definitions need their labels, not retained indexes for unrelated prose.
+    if (hasMarker) blocks.push({ block, links, start });
+  }
+  for (const { block, links, start } of blocks) {
+    const codeEnds = attachmentCodeSpanEnds(markdown, { start, end: block.end });
     const htmlClosers = new Map<string, number>();
-    let brackets = 0;
-    for (let index = block.start; index < block.end; index++) {
+    const brackets: { start: number; image: boolean; linkVersion: number }[] = [];
+    let linkVersion = 0;
+    for (let index = start; index < block.end; index++) {
       const character = markdown[index];
-      if (character === '\\' && ESCAPABLE.test(markdown[index + 1] ?? '')) {
+      if (character === '\\' && ATTACHMENT_ESCAPABLE.test(markdown[index + 1] ?? '')) {
         index++;
       } else if (character === '`') {
         const end = codeEnds.get(index);
         if (end !== undefined) index = end - 1;
         else while (markdown[index + 1] === '`') index++;
       } else if (character === '<') {
-        const end = attachmentRawHtmlEnd(markdown, index, block.end, htmlClosers);
+        const autolink = links.autolinkEnd(index);
+        if (autolink !== undefined) linkVersion++;
+        const end = autolink ?? attachmentRawHtmlEnd(markdown, index, block.end, htmlClosers);
         if (end !== undefined && end <= block.end) index = end - 1;
       } else if (character === '[') {
-        brackets++;
-      } else if (character === ']' && brackets > 0) {
-        brackets--;
-        if (!markdown.startsWith(PREFIX, index + 1)) continue;
+        brackets.push({
+          start: index,
+          image: markdown[index - 1] === '!' && !links.escaped.has(index - 1),
+          linkVersion
+        });
+      } else if (character === ']') {
+        const opener = brackets.pop();
+        if (!opener || (!opener.image && opener.linkVersion !== linkVersion)) continue;
+        if (!markdown.startsWith(PREFIX, index + 1)) {
+          const end =
+            links.inlineEnd(index + 1) ?? links.referenceEnd(opener.start, index, references);
+          if (end !== undefined) {
+            index = end - 1;
+            if (!opener.image) linkVersion++;
+          }
+          continue;
+        }
         const start = index + 2;
         const idStart = index + 1 + PREFIX.length;
         // Match the complete map first: historical IDs may themselves contain ')'.
@@ -41,11 +67,14 @@ function* attachmentDestinations(markdown: string, ids: readonly string[]) {
         let end = idStart + (id?.length ?? 0);
         if (id === undefined) {
           while (end < block.end && !/[\r\n)]/u.test(markdown[end])) {
-            if (markdown[end] === '\\' && ESCAPABLE.test(markdown[end + 1] ?? '')) end++;
+            if (markdown[end] === '\\' && ATTACHMENT_ESCAPABLE.test(markdown[end + 1] ?? '')) end++;
             end++;
           }
         }
-        if (markdown[end] === ')') yield { start, end, id };
+        if (markdown[end] === ')') {
+          yield { start, end, id };
+          if (!opener.image) linkVersion++;
+        }
         index = end;
       }
     }

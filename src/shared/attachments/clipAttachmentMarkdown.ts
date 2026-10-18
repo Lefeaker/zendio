@@ -1,4 +1,8 @@
 type Range = { start: number; end: number };
+export type AttachmentInlineBlock = Range & {
+  contentStarts: Map<number, number>;
+  referenceStarts: Set<number>;
+};
 type Container = { kind: 'quote' } | { kind: 'list'; indent: number };
 type Fence = { character: string; length: number };
 
@@ -61,6 +65,14 @@ function expandTabs(line: string): string {
   });
 }
 
+function sourceColumn(line: string, column: number): number {
+  let index = 0;
+  for (let width = 0; width < column && index < line.length; index++) {
+    width += line[index] === '\t' ? 4 - (width % 4) : 1;
+  }
+  return index;
+}
+
 function opensFence(line: string): Fence | undefined {
   const match = FENCE.exec(line);
   if (!match || (match[1][0] === '`' && match[2].includes('`'))) return undefined;
@@ -116,11 +128,11 @@ function thematicTail(line: string): Range {
  * Tracks only the block boundaries needed by attachment destinations (CommonMark
  * 0.31.2 §§4–5). List/quote prefixes affect indentation, never the returned bytes.
  */
-export function* attachmentInlineBlocks(markdown: string): Generator<Range> {
+export function* attachmentInlineBlocks(markdown: string): Generator<AttachmentInlineBlock> {
   const containers: Container[] = [];
   let fence: Fence | undefined;
   let html: RegExp | undefined;
-  let block: Range | undefined;
+  let block: AttachmentInlineBlock | undefined;
   let start = 0;
   for (const match of markdown.matchAll(/[^\r\n]*(?:\r\n|\r|\n|$)/gu)) {
     if (!match[0]) break;
@@ -212,9 +224,20 @@ export function* attachmentInlineBlocks(markdown: string): Generator<Range> {
       block = undefined;
     }
     if (!literal && !blank && !separator) {
-      if (heading) yield { start, end };
-      else if (block) block.end = end;
-      else block = { start, end };
+      const current = block ?? {
+        start,
+        end,
+        contentStarts: new Map<number, number>(),
+        referenceStarts: new Set<number>()
+      };
+      current.end = end;
+      current.contentStarts.set(start, start + sourceColumn(match[0], offset));
+      const reference = !heading && /^ {0,3}(?=\[)/u.exec(content);
+      if (reference) {
+        current.referenceStarts.add(start + sourceColumn(match[0], offset + reference[0].length));
+      }
+      if (heading) yield current;
+      else block = current;
     }
     start = end;
   }

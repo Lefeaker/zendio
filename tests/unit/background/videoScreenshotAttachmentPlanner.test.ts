@@ -58,7 +58,13 @@ describe('prepareVideoClipAttachments', () => {
     const { prepareVideoClipAttachments } =
       await import('../../../src/background/application/videoScreenshotAttachmentPlanner');
     const marker = '![Screenshot](aiob-attachment:shot-1)';
-    const literal = `Use \`${marker}\` in a producer.\n\n~~~markdown\n${marker}\n~~~`;
+    const literal = [
+      `Use \`${marker}\` in a producer.`,
+      `~~~markdown\n${marker}\n~~~`,
+      `[documentation](https://example.com "${marker}")`,
+      `<https://example.com/${marker}>`,
+      `[documentation]: https://example.com "${marker}"`
+    ].join('\n\n');
     const withoutAttachments = prepareVideoClipAttachments({
       payload: createPayload({ markdown: literal, meta: {} }),
       notePath: 'Videos/Test.md',
