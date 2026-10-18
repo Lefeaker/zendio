@@ -82,10 +82,7 @@ export const chromeDownloadsService: DownloadsService = {
     // Chrome show() has no completion callback; this only requests the system file manager.
     chrome.downloads.show(Number(id));
   },
-  async download(
-    options: DownloadTextFileOptions,
-    requestOptions: RequestDeadlineOptions = {}
-  ): Promise<number | undefined> {
+  async download(options: DownloadTextFileOptions, requestOptions: RequestDeadlineOptions = {}) {
     if (!chrome?.downloads?.download) {
       throw new Error('chrome.downloads.download is not available.');
     }
@@ -114,8 +111,7 @@ export const chromeDownloadsService: DownloadsService = {
           if (id !== undefined) void chromeDownloadsService.cancel?.(id).catch(() => undefined);
           throw error;
         }
-        await waitForDownloadCompletion(chromeDownloadsService, id, request);
-        return id;
+        return await waitForDownloadCompletion(chromeDownloadsService, id, request);
       } finally {
         request.signal.removeEventListener('abort', revoke);
         revoke();

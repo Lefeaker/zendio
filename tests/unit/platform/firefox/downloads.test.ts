@@ -87,7 +87,11 @@ describe('firefox downloads adapter', () => {
     expect(revoke).not.toHaveBeenCalled();
     state = 'complete';
     for (const listener of listeners) listener();
-    await expect(pending).resolves.toBe(41);
+    await expect(pending).resolves.toEqual({
+      state: 'complete',
+      id: 41,
+      filename: '/downloads/note (1).md'
+    });
     expect(revoke).toHaveBeenCalledWith('blob:pending');
     expect(listeners.size).toBe(0);
   });
@@ -121,7 +125,7 @@ describe('firefox downloads adapter', () => {
         blob,
         mimeType: 'image/jpeg'
       })
-    ).resolves.toBe('download-id');
+    ).resolves.toEqual({ state: 'complete', id: 'download-id', filename: 'note.md' });
 
     expect(createObjectURLMock).toHaveBeenCalledWith(blob);
     expect(downloadApiMock).toHaveBeenCalledWith({
@@ -154,7 +158,7 @@ describe('firefox downloads adapter', () => {
         blob: new Blob(['bbb'], { type: 'image/jpeg' }),
         mimeType: 'image/jpeg'
       })
-    ).resolves.toBe('fallback-id');
+    ).resolves.toEqual({ state: 'complete', id: 'fallback-id', filename: 'note.md' });
 
     expect(downloadApiMock).toHaveBeenCalledWith({
       url: 'data:image/jpeg;base64,YmJi',

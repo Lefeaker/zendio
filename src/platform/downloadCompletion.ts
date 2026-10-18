@@ -1,5 +1,5 @@
 import { withRequestDeadline, type ActiveRequest } from '../shared/utils/requestDeadline';
-import type { DownloadStatus, DownloadsService } from './interfaces/downloads';
+import type { CompletedDownload, DownloadStatus, DownloadsService } from './interfaces/downloads';
 
 export const DOWNLOAD_TIMEOUT_MS = 120_000;
 
@@ -31,7 +31,7 @@ export function waitForDownloadCompletion(
   downloads: DownloadsService,
   id: number | string | undefined,
   request?: ActiveRequest
-): Promise<DownloadStatus> {
+): Promise<CompletedDownload> {
   if (!request) {
     return withRequestDeadline(DOWNLOAD_TIMEOUT_MS, {}, (active) =>
       waitForDownloadCompletion(downloads, id, active)
@@ -51,7 +51,7 @@ export function waitForDownloadCompletion(
       settled = true;
       request.signal.removeEventListener('abort', interrupted);
       stop();
-      if (item) resolve(item);
+      if (item) resolve({ state: 'complete', id, filename: item.filename });
       else reject(error ?? new Error('Download was interrupted.'));
     };
     const interrupted = () => {

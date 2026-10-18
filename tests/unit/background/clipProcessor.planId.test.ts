@@ -72,7 +72,9 @@ describe('asynchronous attachment plan preflight', () => {
     getOptionsMock.mockResolvedValue({ templates: templateOptions, domainMappings: {}, rest: {} });
     classifyClipMock.mockResolvedValue({ type: 'video', topics: [], tags: [], status: 'success' });
     resolvePathMock.mockReturnValue('Video/note.md');
-    downloadMock.mockResolvedValue(1);
+    downloadMock.mockImplementation(({ filename }) =>
+      Promise.resolve({ state: 'complete', id: 1, filename })
+    );
   });
   afterEach(() => {
     vi.useRealTimers();

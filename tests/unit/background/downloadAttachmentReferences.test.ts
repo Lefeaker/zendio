@@ -13,7 +13,11 @@ function createDownloads(actualNames: string[]) {
     onChanged: () => () => undefined,
     download(options) {
       writes.push(options);
-      return Promise.resolve(writes.length);
+      return Promise.resolve({
+        state: 'complete',
+        id: writes.length,
+        filename: `/Downloads/${actualNames[writes.length - 1]}`
+      });
     },
     inspect(id) {
       return Promise.resolve({

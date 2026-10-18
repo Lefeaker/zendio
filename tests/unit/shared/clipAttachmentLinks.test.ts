@@ -3,6 +3,8 @@ import {
   hasUnresolvedClipAttachmentReferences,
   replaceClipAttachmentReferences
 } from '../../../src/shared/attachments/clipAttachmentReferences';
+import { attachmentInlineBlocks } from '../../../src/shared/attachments/clipAttachmentMarkdown';
+import { AttachmentLinkSyntax } from '../../../src/shared/attachments/clipAttachmentLinks';
 
 const marker = '![Screenshot](aiob-attachment:a)';
 const attachment = { id: 'a', markdownUrl: 'assets/frame.jpg' };
@@ -165,5 +167,43 @@ describe('reference links participate in the same nesting boundary', () => {
     const source = `[outer ${inner}](/url "${marker}")\n\n${definition}: /ref`;
     expect(hasUnresolvedClipAttachmentReferences(source, [])).toBe(false);
     expect(replaceClipAttachmentReferences(source, [attachment])).toBe(source);
+  });
+});
+
+describe.each(['\n', '\r\n'])('link tokens stay inside their block with %j endings', (newline) => {
+  it('does not borrow a following paragraph closer to hide a heading attachment', () => {
+    const source = `# [outer](https://example.com "${marker}"${newline})${newline}`;
+    expect(hasUnresolvedClipAttachmentReferences(source, [])).toBe(true);
+    expect(replaceClipAttachmentReferences(source, [attachment])).toBe(
+      source.replace(marker, rendered)
+    );
+  });
+
+  it('retains a complete title and closer across lines in the same paragraph', () => {
+    const source = `[outer](https://example.com "first${newline}${marker}${newline}last"${newline})${newline}`;
+    expect(hasUnresolvedClipAttachmentReferences(source, [])).toBe(false);
+    expect(replaceClipAttachmentReferences(source, [attachment])).toBe(source);
+  });
+
+  it.each([
+    ['empty destination', `[link](${newline})`],
+    ['bare destination', `[link](/url${newline})`],
+    ['parentheses title', `[link](/url (title${newline}))`]
+  ])('does not complete a heading %s in the next block', (_name, link) => {
+    const source = `# ${link}${newline}`;
+    const [heading] = attachmentInlineBlocks(source);
+    if (!heading) throw new Error('Expected an ATX heading block');
+    const syntax = new AttachmentLinkSyntax(source, heading);
+    expect(syntax.inlineEnd(source.indexOf('('))).toBeUndefined();
+  });
+
+  it('does not complete an explicit reference label in the paragraph after a heading', () => {
+    const source = `# [text][ref${newline}]${newline}${newline}[ref]: /url${newline}`;
+    const [heading] = attachmentInlineBlocks(source);
+    if (!heading) throw new Error('Expected an ATX heading block');
+    const syntax = new AttachmentLinkSyntax(source, heading);
+    expect(
+      syntax.referenceEnd(source.indexOf('['), source.indexOf(']'), new Set(['REF']))
+    ).toBeUndefined();
   });
 });

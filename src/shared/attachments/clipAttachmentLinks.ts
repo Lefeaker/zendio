@@ -32,7 +32,7 @@ export class AttachmentLinkSyntax {
     this.bareEnds = new Int32Array(end - start + 1);
     this.bareEnds[end - start] = end;
     for (let index = start; index < end; index++) {
-      if (markdown[index] === '\\' && ATTACHMENT_ESCAPABLE.test(markdown[index + 1] ?? '')) {
+      if (this.character(index) === '\\' && ATTACHMENT_ESCAPABLE.test(this.character(index + 1))) {
         this.escaped.add(++index);
       }
     }
@@ -41,7 +41,7 @@ export class AttachmentLinkSyntax {
     let parenthesis = end;
     let autolink = end;
     for (let index = end - 1; index >= start; index--) {
-      const character = markdown[index];
+      const character = this.character(index);
       const code = character.charCodeAt(0);
       const controlOrSpace = code <= 0x20 || code === 0x7f;
       let bareEnd = this.bareEnds[index + 1 - start];
@@ -50,8 +50,7 @@ export class AttachmentLinkSyntax {
       } else if (controlOrSpace || character === ')') {
         bareEnd = index;
       } else if (character === '(') {
-        bareEnd =
-          bareEnd >= 0 && markdown[bareEnd] === ')' ? this.bareEnds[bareEnd + 1 - start] : -1;
+        bareEnd = this.character(bareEnd) === ')' ? this.bareEnds[bareEnd + 1 - start] : -1;
       }
       this.bareEnds[index - start] = bareEnd;
       if (!this.escaped.has(index)) {
@@ -60,24 +59,30 @@ export class AttachmentLinkSyntax {
           if (close !== undefined) this.tokenEnds.set(index, close + 1);
           quotes.set(character, index);
         } else if (character === '(' || character === ')') {
-          if (character === '(' && markdown[parenthesis] === ')') {
+          if (character === '(' && this.character(parenthesis) === ')') {
             this.tokenEnds.set(index, parenthesis + 1);
           }
           parenthesis = index;
         }
         if (/[<>\r\n]/u.test(character)) {
-          if (character === '<' && markdown[angle] === '>') this.tokenEnds.set(index, angle + 1);
+          if (character === '<' && this.character(angle) === '>')
+            this.tokenEnds.set(index, angle + 1);
           angle = index;
         }
       }
       // Backslash escapes do not apply inside autolinks.
       if (controlOrSpace || character === '<' || character === '>') {
-        if (character === '<' && markdown[autolink] === '>') {
+        if (character === '<' && this.character(autolink) === '>') {
           this.autolinkEnds.set(index, autolink + 1);
         }
         autolink = index;
       }
     }
+  }
+
+  /** A block endpoint is not a character: never borrow a delimiter from the next block. */
+  private character(index: number): string {
+    return index >= this.block.start && index < this.block.end ? this.markdown[index] : '';
   }
 
   autolinkEnd(start: number): number | undefined {
@@ -88,18 +93,18 @@ export class AttachmentLinkSyntax {
   }
 
   inlineEnd(start: number): number | undefined {
-    if (this.markdown[start] !== '(') return undefined;
+    if (this.character(start) !== '(') return undefined;
     const destinationStart = this.spaceEnd(start + 1);
-    if (this.markdown[destinationStart] === ')') return destinationStart + 1;
+    if (this.character(destinationStart) === ')') return destinationStart + 1;
     const destinationEnd = this.destinationEnd(destinationStart);
     if (destinationEnd === undefined) return undefined;
     const titleStart = this.spaceEnd(destinationEnd);
-    if (this.markdown[titleStart] === ')') return titleStart + 1;
+    if (this.character(titleStart) === ')') return titleStart + 1;
     if (titleStart === destinationEnd) return undefined;
     const titleEnd = this.titleEnd(titleStart);
     if (titleEnd === undefined) return undefined;
     const close = this.spaceEnd(titleEnd);
-    return this.markdown[close] === ')' ? close + 1 : undefined;
+    return this.character(close) === ')' ? close + 1 : undefined;
   }
 
   /** Only consecutive definitions at the start of a paragraph are block syntax. */
@@ -119,7 +124,7 @@ export class AttachmentLinkSyntax {
   referenceEnd(open: number, close: number, references: ReadonlySet<string>): number | undefined {
     if (references.size === 0) return undefined;
     const suffix = this.label(close + 1);
-    const collapsed = this.markdown.startsWith('[]', close + 1);
+    const collapsed = this.character(close + 1) === '[' && this.character(close + 2) === ']';
     if (suffix && !collapsed) return references.has(suffix.label) ? suffix.end : undefined;
     const label = this.label(open);
     return label?.end === close + 1 && references.has(label.label)
@@ -128,23 +133,23 @@ export class AttachmentLinkSyntax {
   }
 
   private destinationEnd(start: number): number | undefined {
-    if (this.markdown[start] === '<') return this.tokenEnds.get(start);
+    if (this.character(start) === '<') return this.tokenEnds.get(start);
     const end = this.bareEnds[start - this.block.start];
     return end > start ? end : undefined;
   }
 
   private titleEnd(start: number): number | undefined {
-    return /["'(]/u.test(this.markdown[start] ?? '') ? this.tokenEnds.get(start) : undefined;
+    return /["'(]/u.test(this.character(start)) ? this.tokenEnds.get(start) : undefined;
   }
 
   private nextLine(index: number): number {
-    return index + (this.markdown.startsWith('\r\n', index) ? 2 : 1);
+    return index + (this.character(index) === '\r' && this.character(index + 1) === '\n' ? 2 : 1);
   }
 
   private spaceEnd(start: number, newline = true): number {
     let index = start;
     while (index < this.block.end) {
-      const character = this.markdown[index];
+      const character = this.character(index);
       if (character === ' ' || character === '\t') index++;
       else if (newline && /[\r\n]/u.test(character)) {
         index = this.nextLine(index);
@@ -158,35 +163,37 @@ export class AttachmentLinkSyntax {
   private lineEnd(start: number): number | undefined {
     const index = this.spaceEnd(start, false);
     if (index === this.block.end) return index;
-    return /[\r\n]/u.test(this.markdown[index]) ? this.nextLine(index) : undefined;
+    return /[\r\n]/u.test(this.character(index)) ? this.nextLine(index) : undefined;
   }
 
   private label(start: number): { end: number; label: string } | undefined {
-    if (this.markdown[start] !== '[') return undefined;
+    if (this.character(start) !== '[') return undefined;
     let index = start + 1;
     let length = 0;
     let raw = '';
     for (; index < this.block.end && length <= 999; index++, length++) {
-      const character = this.markdown[index];
+      const character = this.character(index);
       if (character === ']') break;
       if (character === '[') return undefined;
       raw += character;
       if (character === '\\' && this.escaped.has(index + 1)) {
-        raw += this.markdown[++index];
+        raw += this.character(++index);
         length++;
       } else if (/[\r\n]/u.test(character)) {
         index = this.nextLine(index);
         index = (this.block.contentStarts.get(index) ?? index) - 1;
-      } else if ((this.markdown.codePointAt(index) ?? 0) > 0xffff) raw += this.markdown[++index];
+      } else if (index + 1 < this.block.end && (this.markdown.codePointAt(index) ?? 0) > 0xffff) {
+        raw += this.character(++index);
+      }
     }
-    return length <= 999 && this.markdown[index] === ']'
+    return length <= 999 && this.character(index) === ']'
       ? { end: index + 1, label: normalizeLabel(raw) }
       : undefined;
   }
 
   private definition(start: number): { end: number; label: string } | undefined {
     const label = this.label(start);
-    if (!label?.label || this.markdown[label.end] !== ':') return undefined;
+    if (!label?.label || this.character(label.end) !== ':') return undefined;
     const destinationEnd = this.destinationEnd(this.spaceEnd(label.end + 1));
     if (destinationEnd === undefined) return undefined;
     const withoutTitle = this.lineEnd(destinationEnd);

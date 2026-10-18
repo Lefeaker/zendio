@@ -14,6 +14,15 @@ export interface DownloadStatus {
   exists?: boolean;
 }
 
+export interface CompletedDownload {
+  state: 'complete';
+  id: number | string;
+  filename: string;
+}
+
+/** Preview services simulate the action without claiming a native file was saved. */
+export type DownloadResult = CompletedDownload | { state: 'simulated' };
+
 export interface DownloadsService {
   cancel?(id: number | string): Promise<void>;
   inspect?(id: number | string): Promise<DownloadStatus | undefined>;
@@ -22,5 +31,5 @@ export interface DownloadsService {
   download(
     options: DownloadTextFileOptions,
     request?: RequestDeadlineOptions
-  ): Promise<number | string | undefined>;
+  ): Promise<DownloadResult>;
 }

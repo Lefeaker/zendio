@@ -5,8 +5,10 @@ import { createHash } from 'node:crypto';
 import { expect } from '@playwright/test';
 import type { ClipPayload, ClipResultResponse } from '../../src/shared/types';
 import { configureSink, test as exportTest } from './utils/exportTitleSinks';
+import { longArticle, openControlledPage } from './performance/workloadEvidence';
 import {
   createOptionsFixture,
+  findCurrentTabId,
   seedOptions,
   EXTENSION_PATH,
   type StoredOptionsFixture
@@ -173,7 +175,11 @@ for (const withAttachments of [false, true]) {
       `1. Intro\n2. ~~~markdown\n   ${marker}\n   ~~~`,
       `1. Intro\n2. \`\`\`markdown\n   ${marker}\n   \`\`\``,
       `1. Intro\n2. \`\`\`markdown\n   ${marker}\n   \`\`\`\``,
-      `1. Intro\n2. \`\`\`markdown\n   ${marker}`
+      `1. Intro\n2. \`\`\`markdown\n   ${marker}`,
+      `<https://example.com/${marker}>`,
+      `[documentation](https://example.com "${marker}")`,
+      `[image](https://example.com/${marker})`,
+      `[documentation]: https://example.com "${marker}"\n\n[documentation]`
     ].join('\n\n');
     const clip = payload();
     clip.markdown = withAttachments ? `${literal}\n\n${clip.markdown}` : literal;
@@ -196,22 +202,34 @@ for (const withAttachments of [false, true]) {
   });
 }
 
-test('installed export rejects a real missing reference next to a literal example before writing', async ({
-  extensionPage
-}) => {
-  const clip = payload();
-  clip.markdown = '`![example](aiob-attachment:missing)`\n\n![real](aiob-attachment:missing)';
-  const response: ClipResultResponse = await extensionPage.evaluate(
-    (input) => chrome.runtime.sendMessage({ type: 'CLIP_RESULT', payload: input }),
-    clip
-  );
-  expect(response).toMatchObject({
-    success: false,
-    outcome: 'failed',
-    failureCategory: 'validation'
+const missingReferenceCases: [string, string][] = [
+  [
+    'next to a literal example',
+    '[documentation](https://example.com "![example](aiob-attachment:missing)")\n\n![real](aiob-attachment:missing)'
+  ],
+  [
+    'inside an invalid link crossing a heading boundary',
+    '# [outer](https://example.com "![example](aiob-attachment:missing)"\n)\n'
+  ]
+];
+for (const [name, markdown] of missingReferenceCases) {
+  test(`installed export rejects a real missing reference ${name} before writing`, async ({
+    extensionPage
+  }) => {
+    const clip = payload();
+    clip.markdown = markdown;
+    const response: ClipResultResponse = await extensionPage.evaluate(
+      (input) => chrome.runtime.sendMessage({ type: 'CLIP_RESULT', payload: input }),
+      clip
+    );
+    expect(response).toMatchObject({
+      success: false,
+      outcome: 'failed',
+      failureCategory: 'validation'
+    });
+    expect(await extensionPage.evaluate(() => chrome.downloads.search({}))).toHaveLength(0);
   });
-  expect(await extensionPage.evaluate(() => chrome.downloads.search({}))).toHaveLength(0);
-});
+}
 
 const orderedItemDestinations: ('downloads' | 'rest')[] = ['downloads', 'rest'];
 for (const destination of orderedItemDestinations) {
@@ -269,3 +287,38 @@ for (const destination of orderedItemDestinations) {
     }
   });
 }
+
+test('full article clipping preserves an attachment example in a website link title', async ({
+  extensionPage,
+  context
+}, testInfo) => {
+  const marker = '![shot](aiob-attachment:example)';
+  const html = longArticle('Literal link title', 20).replace(
+    '</article>',
+    `<p><a href="https://example.com" title="${marker}">documentation example</a></p></article>`
+  );
+  const page = await openControlledPage(context, 'https://example.com/literal-link', html);
+  const tabId = await findCurrentTabId(extensionPage, page.url());
+  await extensionPage.evaluate((id) => chrome.tabs.sendMessage(id, { action: 'clipFull' }), tabId);
+  await expect
+    .poll(async () => {
+      const files = await extensionPage.evaluate(() => chrome.downloads.search({}));
+      return files.length === 1 && files[0]?.state === 'complete';
+    })
+    .toBe(true);
+  const files = await extensionPage.evaluate(() => chrome.downloads.search({}));
+  const file = files[0];
+  if (!file) throw new Error('Missing clipped article file');
+  const markdown = await readFile(file.filename, 'utf8');
+  expect(markdown).toContain(`[documentation example](https://example.com/ "${marker}")`);
+  expect(markdown).toContain('Evidence paragraph 19 measured content.');
+  await testInfo.attach('full-article-literal-output', {
+    contentType: 'application/json',
+    body: JSON.stringify({
+      fixture: 'controlled HTML through installed content clipFull and native Downloads',
+      filename: file.filename,
+      state: file.state,
+      markdown
+    })
+  });
+});

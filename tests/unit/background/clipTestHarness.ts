@@ -32,7 +32,9 @@ export const createWriteSessionMock = vi.fn();
 export const recordUsageMock = vi.fn();
 export const downloadMock = vi.fn<DownloadsService['download']>();
 export const inspectDownloadMock = vi.fn<NonNullable<DownloadsService['inspect']>>();
-export const onDownloadChangedMock = vi.fn(() => () => {});
+export const onDownloadChangedMock = vi.fn<NonNullable<DownloadsService['onChanged']>>(
+  () => () => {}
+);
 export const trackUsageEventMock = vi.fn<TrackUsageEventMock>();
 export const trackActivationMilestoneIfNeededMock = vi.fn(() => Promise.resolve(undefined));
 export const notifySuccessMock = vi.fn();

@@ -2,7 +2,7 @@ import {
   withRequestDeadline,
   type RequestDeadlineOptions
 } from '../../shared/utils/requestDeadline';
-import { DOWNLOAD_TIMEOUT_MS, waitForDownloadCompletion } from '../../platform/downloadCompletion';
+import { DOWNLOAD_TIMEOUT_MS } from '../../platform/downloadCompletion';
 import type { DownloadsService } from '../../platform/interfaces/downloads';
 import type { ClipAttachmentProgress } from '../../shared/types/clipResult';
 import { serializedAttachmentContentToBlob } from '../../shared/attachments/clipAttachmentBinary';
@@ -91,7 +91,7 @@ export async function downloadPreparedClip(input: {
             });
             continue;
           }
-          const id = await downloads.download(
+          const completed = await downloads.download(
             {
               filename: attachment.outputPath,
               blob: serializedAttachmentContentToBlob(attachment.content, attachment.mimeType),
@@ -99,15 +99,16 @@ export async function downloadPreparedClip(input: {
             },
             requestOptions
           );
-          const completed = await waitForDownloadCompletion(downloads, id, request);
           request.check();
-          if (id === undefined) throw new Error('Download ID is unavailable.');
+          if (completed.state !== 'complete') {
+            throw new Error('Download completion cannot be confirmed.');
+          }
           progress?.confirmed.push({
             id: attachment.id,
             outputPath: attachment.outputPath,
-            download: { id, filename: completed.filename }
+            download: { id: completed.id, filename: completed.filename }
           });
-          downloadIds.push(id);
+          downloadIds.push(completed.id);
           attachmentUrls.push({
             id: attachment.id,
             markdownUrl: downloadedAttachmentUrl(attachment, completed.filename)
@@ -117,7 +118,7 @@ export async function downloadPreparedClip(input: {
     }
     return completeStage('write_markdown', async () => {
       request.check();
-      const downloadId = await downloads.download(
+      const completed = await downloads.download(
         {
           filename: input.filePath,
           content: replaceClipAttachmentReferences(input.sourceMarkdown, attachmentUrls),
@@ -125,11 +126,12 @@ export async function downloadPreparedClip(input: {
         },
         requestOptions
       );
-      const completed = await waitForDownloadCompletion(downloads, downloadId, request);
       request.check();
-      if (downloadId === undefined) throw new Error('Download ID is unavailable.');
-      downloadIds.push(downloadId);
-      return { filePath: completed.filename, downloadId, downloadIds };
+      if (completed.state !== 'complete') {
+        throw new Error('Download completion cannot be confirmed.');
+      }
+      downloadIds.push(completed.id);
+      return { filePath: completed.filename, downloadId: completed.id, downloadIds };
     });
   });
 }

@@ -68,7 +68,7 @@ it.each([
     files.set(options.filename, options.blob ? await options.blob.text() : (options.content ?? ''));
     const id = downloads.size + 1;
     downloads.set(id, options.filename);
-    return id;
+    return { state: 'complete', id, filename: `/downloads/${options.filename}` };
   });
   writeAttachmentMock.mockImplementation((name: string) => {
     attempts.push(name);

@@ -93,10 +93,7 @@ export const firefoxDownloadsService: DownloadsService = {
     if (!browser.downloads?.show) throw new Error('browser.downloads.show is not available.');
     await browser.downloads.show(Number(id));
   },
-  async download(
-    options: DownloadTextFileOptions,
-    requestOptions: RequestDeadlineOptions = {}
-  ): Promise<number | string | undefined> {
+  async download(options: DownloadTextFileOptions, requestOptions: RequestDeadlineOptions = {}) {
     const nativeDownloads = browser.downloads;
     if (!nativeDownloads?.download) {
       throw new Error('browser.downloads.download is not available.');
@@ -126,8 +123,7 @@ export const firefoxDownloadsService: DownloadsService = {
           if (id !== undefined) void firefoxDownloadsService.cancel?.(id).catch(() => undefined);
           throw error;
         }
-        await waitForDownloadCompletion(firefoxDownloadsService, id, request);
-        return id;
+        return await waitForDownloadCompletion(firefoxDownloadsService, id, request);
       } finally {
         request.signal.removeEventListener('abort', revoke);
         revoke();

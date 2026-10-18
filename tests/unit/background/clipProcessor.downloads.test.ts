@@ -34,7 +34,17 @@ describe('clipProcessor downloads', () => {
     getOptionsMock.mockResolvedValue({ templates: templateOptions, domainMappings: {}, rest: {} });
     classifyClipMock.mockResolvedValue({ type: 'video', topics: [], tags: [], status: 'success' });
     resolvePathMock.mockReturnValue('Video/note.md');
-    downloadMock.mockResolvedValueOnce(1).mockResolvedValueOnce(2);
+    downloadMock
+      .mockResolvedValueOnce({
+        state: 'complete',
+        id: 1,
+        filename: '/Users/fixture/Downloads/shot (1).jpg'
+      })
+      .mockResolvedValueOnce({
+        state: 'complete',
+        id: 2,
+        filename: '/Users/fixture/Downloads/note (1).md'
+      });
     inspectDownloadMock.mockImplementation((id) =>
       Promise.resolve({
         state: 'complete',
@@ -96,7 +106,13 @@ describe('clipProcessor downloads', () => {
     });
     classifyClipMock.mockResolvedValue({ type: 'video', topics: [], tags: [], status: 'success' });
     resolvePathMock.mockReturnValue('Video/note.md');
-    downloadMock.mockResolvedValueOnce(1).mockResolvedValueOnce(2);
+    downloadMock
+      .mockResolvedValueOnce({
+        state: 'complete',
+        id: 1,
+        filename: '/downloads/shot.jpg/shot (1).jpg'
+      })
+      .mockResolvedValueOnce({ state: 'complete', id: 2, filename: '/downloads/note.md' });
     inspectDownloadMock.mockImplementation((id) =>
       Promise.resolve({
         state: 'complete',
@@ -131,8 +147,7 @@ describe('clipProcessor downloads', () => {
     getOptionsMock.mockResolvedValue({ templates: templateOptions, domainMappings: {}, rest: {} });
     classifyClipMock.mockResolvedValue({ type: 'video', topics: [], tags: [], status: 'success' });
     resolvePathMock.mockReturnValue('Video/note.md');
-    downloadMock.mockResolvedValue(1);
-    inspectDownloadMock.mockResolvedValue({ state: 'interrupted', filename: 'shot.jpg' });
+    downloadMock.mockRejectedValue(new Error('Download was interrupted.'));
     const { processClipPayload } =
       await import('../../../src/background/application/clipProcessor');
     await expect(
@@ -190,7 +205,9 @@ describe('clipProcessor downloads', () => {
       status: 'success' as const
     });
     resolvePathMock.mockReturnValue('Articles/downloaded-note.md');
-    downloadMock.mockResolvedValue(12);
+    downloadMock.mockImplementation(({ filename }) =>
+      Promise.resolve({ state: 'complete', id: 12, filename })
+    );
     recordUsageMock.mockResolvedValue(undefined);
 
     const progressUpdates: Array<{
@@ -273,7 +290,9 @@ describe('clipProcessor downloads', () => {
     };
     classifyClipMock.mockResolvedValue(classificationResult);
     resolvePathMock.mockReturnValue('Articles/downloaded-note.md');
-    downloadMock.mockResolvedValue(12);
+    downloadMock.mockImplementation(({ filename }) =>
+      Promise.resolve({ state: 'complete', id: 12, filename })
+    );
     recordUsageMock.mockResolvedValue(undefined);
 
     const { processClipPayload } =
@@ -327,7 +346,9 @@ describe('clipProcessor downloads', () => {
     };
     classifyClipMock.mockResolvedValue(classificationResult);
     resolvePathMock.mockReturnValue('Articles/unconfigured-note.md');
-    downloadMock.mockResolvedValue(12);
+    downloadMock.mockImplementation(({ filename }) =>
+      Promise.resolve({ state: 'complete', id: 12, filename })
+    );
     recordUsageMock.mockResolvedValue(undefined);
 
     const { processClipPayload } =
@@ -375,7 +396,9 @@ describe('clipProcessor downloads', () => {
     };
     classifyClipMock.mockResolvedValue(classificationResult);
     resolvePathMock.mockReturnValue(resolvedPath);
-    downloadMock.mockResolvedValue(12);
+    downloadMock.mockImplementation(({ filename }) =>
+      Promise.resolve({ state: 'complete', id: 12, filename })
+    );
     recordUsageMock.mockResolvedValue(undefined);
 
     const { processClipPayload } =
@@ -421,7 +444,9 @@ describe('clipProcessor downloads', () => {
     };
     classifyClipMock.mockResolvedValue(classificationResult);
     resolvePathMock.mockReturnValue('Video/video-note.md');
-    downloadMock.mockResolvedValue(12);
+    downloadMock.mockImplementation(({ filename }) =>
+      Promise.resolve({ state: 'complete', id: 12, filename })
+    );
     recordUsageMock.mockResolvedValue(undefined);
 
     const { processClipPayload } =
@@ -498,7 +523,9 @@ describe('clipProcessor downloads', () => {
     };
     classifyClipMock.mockResolvedValue(classificationResult);
     resolvePathMock.mockReturnValue('folder/.hidden.md');
-    downloadMock.mockResolvedValue(12);
+    downloadMock.mockImplementation(({ filename }) =>
+      Promise.resolve({ state: 'complete', id: 12, filename })
+    );
     recordUsageMock.mockResolvedValue(undefined);
 
     const { processClipPayload } =
@@ -572,7 +599,9 @@ describe('clipProcessor downloads', () => {
     };
     classifyClipMock.mockResolvedValue(classificationResult);
     resolvePathMock.mockReturnValue('folder/.hidden.md');
-    downloadMock.mockResolvedValue(12);
+    downloadMock.mockImplementation(({ filename }) =>
+      Promise.resolve({ state: 'complete', id: 12, filename })
+    );
     recordUsageMock.mockResolvedValue(undefined);
 
     const { processClipPayload } =
