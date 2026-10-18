@@ -89,6 +89,7 @@ describe('report-performance-hotspots', () => {
   it('keeps the exact normalized budget transitions and every other budget unchanged', () => {
     const registeredBudgets = readRegisteredBudgets();
     const attachmentAndConnectionChanges: Array<[string, number | null, number]> = [
+      ['src/shared/attachments/clipAttachmentMarkdown.ts', null, 270],
       ['src/shared/attachments/videoScreenshotAttachmentTemplates.ts', 523, 560],
       ['src/background/application/clipProcessor.ts', 636, 637],
       ['src/options/app/productionStitchActionGroups.ts', null, 252]
