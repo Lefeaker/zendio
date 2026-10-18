@@ -1,4 +1,3 @@
-import { waitForDownloadCompletion } from '../../platform/downloadCompletion';
 import type { DownloadsService } from '../../platform/interfaces/downloads';
 import type { ClipAttachmentProgress } from '../../shared/types/clipResult';
 import { serializedAttachmentContentToBlob } from '../../shared/attachments/clipAttachmentBinary';
@@ -74,19 +73,20 @@ export async function downloadPreparedClip(input: {
             .join(downloadedAttachmentUrl(attachment, confirmed.filename));
           continue;
         }
-        const id = await downloads.download({
+        const completed = await downloads.download({
           filename: attachment.outputPath,
           blob: serializedAttachmentContentToBlob(attachment.content, attachment.mimeType),
           mimeType: attachment.mimeType
         });
-        const completed = await waitForDownloadCompletion(downloads, id);
-        if (id === undefined) throw new Error('Download ID is unavailable.');
+        if (completed.state !== 'complete') {
+          throw new Error('Download completion cannot be confirmed.');
+        }
         progress?.confirmed.push({
           id: attachment.id,
           outputPath: attachment.outputPath,
-          download: { id, filename: completed.filename }
+          download: { id: completed.id, filename: completed.filename }
         });
-        downloadIds.push(id);
+        downloadIds.push(completed.id);
         markdown = markdown
           .split(`aiob-attachment:${attachment.id}`)
           .join(downloadedAttachmentUrl(attachment, completed.filename));
@@ -94,14 +94,15 @@ export async function downloadPreparedClip(input: {
     });
   }
   return completeStage('write_markdown', async () => {
-    const downloadId = await downloads.download({
+    const completed = await downloads.download({
       filename: input.filePath,
       content: markdown,
       mimeType: 'text/markdown;charset=utf-8'
     });
-    const completed = await waitForDownloadCompletion(downloads, downloadId);
-    if (downloadId === undefined) throw new Error('Download ID is unavailable.');
-    downloadIds.push(downloadId);
-    return { filePath: completed.filename, downloadId, downloadIds };
+    if (completed.state !== 'complete') {
+      throw new Error('Download completion cannot be confirmed.');
+    }
+    downloadIds.push(completed.id);
+    return { filePath: completed.filename, downloadId: completed.id, downloadIds };
   });
 }

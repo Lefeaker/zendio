@@ -197,7 +197,9 @@ describe('clipProcessor analytics', () => {
       status: 'success' as const
     });
     resolvePathMock.mockReturnValue('Private/downloads-secret.md');
-    downloadMock.mockResolvedValue(12);
+    downloadMock.mockImplementation(({ filename }) =>
+      Promise.resolve({ state: 'complete', id: 12, filename })
+    );
     recordUsageMock.mockResolvedValue(undefined);
 
     const { processClipPayload } =
