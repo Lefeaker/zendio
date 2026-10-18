@@ -64,7 +64,7 @@ export function createMockPlatformServices(): PlatformServices {
       refresh: () => undefined
     },
     downloads: {
-      download: () => Promise.resolve(undefined)
+      download: () => Promise.resolve({ state: 'simulated' })
     },
     fileSystemAccess: {
       isSupported: () => false,

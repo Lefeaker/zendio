@@ -40,7 +40,7 @@ describe('attachment continuation through the clip processor', () => {
         files.set(actual, options.blob ? await options.blob.text() : (options.content ?? ''));
         const id = ids.size + 1;
         ids.set(id, actual);
-        return id;
+        return { state: 'complete', id, filename: `/downloads/${actual}` };
       });
       inspectDownloadMock.mockImplementation((id) =>
         Promise.resolve({
@@ -113,8 +113,8 @@ describe('attachment continuation through the clip processor', () => {
   ])('refuses old confirmations after %s changes before any further write', async (change) => {
     const payload = attachmentPayload();
     downloadMock
-      .mockResolvedValueOnce(1)
-      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce({ state: 'complete', id: 1, filename: '/downloads/note/a.jpg' })
+      .mockResolvedValueOnce({ state: 'complete', id: 2, filename: '/downloads/note/b.jpg' })
       .mockRejectedValueOnce(new Error('note reply lost'));
     inspectDownloadMock.mockImplementation((id) =>
       Promise.resolve({
