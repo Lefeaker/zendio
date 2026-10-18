@@ -53,7 +53,7 @@ Reader / Video 共用 `sessionEndingCoordinator` 关闭新编辑入口、等待�
 
 Reader 的 `CLIP_RESULT` 回复只在后台实际写入成功时返回 `success: true`；失败或缺少确认都保留高亮、批注与草稿，允许用户重试。消息已送达并不表示文件已保存。确认成功后的草稿 finalize/remove 仍沿用原 receipt，重试只完成清理；后台完成写入但 ACK 丢失、浏览器在两者之间崩溃时，结果仍可能未知，不能承诺跨进程不重复导出。
 
-Chrome / Firefox Downloads 由同一完成检查读取 `downloads.search` 并监听 `onChanged`：附件逐个完成后才生成 Markdown，主文件完成后才发送成功、记录首次保存与课程进度。浏览器对附件自动改名时，Markdown 使用最终相对文件名；本机绝对路径只用于本地结果与定位，不进入遥测。Blob URL 保留至终态，单次等待上限为 120 秒；超时只取消本次创建的 ID，并保留内容。取消失败或恰好完成的竞争仍视为结果未知，用户重试前可以检查 Downloads。既存学习 pending 收据在后台重启后继续按相同完成判定恢复。
+Chrome / Firefox Downloads 由平台 adapter 唯一负责新文件的完成观察，读取 `downloads.search` 并监听 `onChanged`，返回已完成文件的 ID 与实际文件名；应用层复用该结果，不再为同一新文件二次订阅。附件逐个完成后才生成 Markdown，主文件完成后才发送成功、记录首次保存与课程进度。浏览器对附件自动改名时，Markdown 使用最终相对文件名；本机绝对路径只用于本地结果与定位，不进入遥测。Blob URL 由 adapter 保留至终态并释放，单次等待上限为 120 秒；超时只取消本次创建的 ID，并保留内容。取消失败或恰好完成的竞争仍视为结果未知，用户重试前可以检查 Downloads。既存学习 pending 收据在后台重启后继续按相同完成判定恢复，其独立查询保留。预览服务返回显式模拟结果，不伪造下载 ID、文件名或保存成功确认。
 
 `readerSaveBoundary.test.ts` 覆盖 Reader → 生产后台 pipeline → writer 失败 → 草稿保留 → 重试；`exportTitleRoutes.browser.test.ts` 的保存失败场景通过真实 loopback REST 500/200 与原生 Downloads 检查实际 Markdown、附件和同名文件引用。
 

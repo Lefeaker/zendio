@@ -19,7 +19,7 @@ import { generateYamlFrontMatter } from '../../src/shared/utils/yamlGenerator';
 
 const mockDownloads: DownloadsService = {
   download() {
-    return Promise.resolve(undefined);
+    return Promise.resolve({ state: 'simulated' });
   }
 };
 

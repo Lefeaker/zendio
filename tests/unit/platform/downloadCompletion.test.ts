@@ -38,6 +38,7 @@ describe('download completion boundary', () => {
     r.notify();
     release({ state: 'in_progress', filename: 'note.md' });
     await expect(pending).resolves.toEqual({
+      id: 1,
       state: 'complete',
       filename: '/downloads/note (1).md'
     });

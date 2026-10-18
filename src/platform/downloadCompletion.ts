@@ -1,4 +1,4 @@
-import type { DownloadStatus, DownloadsService } from './interfaces/downloads';
+import type { CompletedDownload, DownloadStatus, DownloadsService } from './interfaces/downloads';
 
 const DOWNLOAD_COMPLETION_TIMEOUT_MS = 120_000;
 
@@ -29,7 +29,7 @@ export async function inspectDownloads(
 export function waitForDownloadCompletion(
   downloads: DownloadsService,
   id: number | string | undefined
-): Promise<DownloadStatus> {
+): Promise<CompletedDownload> {
   const subscribe = downloads.onChanged?.bind(downloads);
   if (id === undefined || !downloads.inspect || !subscribe) {
     return Promise.reject(new Error('Download completion cannot be confirmed.'));
@@ -44,7 +44,7 @@ export function waitForDownloadCompletion(
       settled = true;
       clearTimeout(deadline);
       stop();
-      if (item) resolve(item);
+      if (item) resolve({ state: 'complete', id, filename: item.filename });
       else reject(error ?? new Error('Download was interrupted.'));
     };
     const deadline = setTimeout(() => {
