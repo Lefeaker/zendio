@@ -89,6 +89,7 @@ export function createProductionStorageActions(
   let connectionGeneration = 0;
   return {
     'storage:addVault': () => {
+      connectionGeneration += 1;
       const draft = context.getDraft();
       const router = context.ensureVaultRouter();
       const nextIndex = router.vaults.length + 1;
@@ -106,6 +107,7 @@ export function createProductionStorageActions(
       context.render('storage');
     },
     'storage:removeVault': ({ args }) => {
+      connectionGeneration += 1;
       const index = Number(args[0] ?? -1);
       const draft = context.getDraft();
       const router = context.ensureVaultRouter();
@@ -121,15 +123,19 @@ export function createProductionStorageActions(
       context.render('storage');
     },
     'storage:updateVaultField': ({ args, value }) => {
+      connectionGeneration += 1;
       context.updateVaultField(Number(args[0] ?? -1), String(args[1] ?? ''), value);
     },
     'storage:activateLocalFolder': ({ args }) => {
+      connectionGeneration += 1;
       void context.activateVaultLocalFolder(Number(args[0] ?? -1));
     },
     'storage:chooseLocalFolder': ({ args }) => {
+      connectionGeneration += 1;
       void context.chooseVaultLocalFolder(Number(args[0] ?? -1));
     },
     'storage:deleteLocalFolder': ({ args }) => {
+      connectionGeneration += 1;
       const index = Number(args[0] ?? -1);
       context.runPersistenceTask('storage:deleteLocalFolder', () =>
         context.clearVaultLocalFolder(index)
@@ -140,8 +146,30 @@ export function createProductionStorageActions(
       context.render('storage');
     },
     'storage:testConnection': () => {
+      context.ensureVaultRouter();
       const generation = ++connectionGeneration;
-      const isCurrent = () => context.isActive() && generation === connectionGeneration;
+      const snapshot = () =>
+        JSON.stringify(
+          context
+            .getDraft()
+            .vaultRouter?.vaults.map((vault) => [
+              vault.id,
+              vault.name,
+              vault.vault,
+              vault.apiKey,
+              vault.httpsUrl,
+              vault.httpUrl,
+              vault.localFolderId,
+              vault.localFolderName,
+              vault.enabled,
+              vault.isDefault
+            ])
+        );
+      const testedConfiguration = snapshot();
+      const isCurrent = () =>
+        context.isActive() &&
+        generation === connectionGeneration &&
+        snapshot() === testedConfiguration;
       void (async () => {
         try {
           const result = await context.runVaultListConnectionTest();

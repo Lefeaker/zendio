@@ -1,5 +1,6 @@
 import { sanitizeDownloadsPathSegment } from '../downloadsFilename';
 import { normalizeVaultRelativePath } from '../paths/vaultRelativePath';
+import { encodeAttachmentMarkdownPath } from './clipAttachmentReferences';
 
 export const DEFAULT_VIDEO_SCREENSHOT_ATTACHMENT_LOCATION_TEMPLATE = './assets/${noteFileName}';
 export const DEFAULT_VIDEO_SCREENSHOT_ATTACHMENT_FILE_NAME_TEMPLATE =
@@ -19,10 +20,16 @@ export interface VideoScreenshotAttachmentTemplateContext {
   attachmentIndex: number;
 }
 
+export type AttachmentMarkdownUrlPart =
+  | { kind: 'literal'; value: string }
+  | { kind: 'generatedFileName' }
+  | { kind: 'generatedFilePath' };
+
 export interface ResolvedVideoScreenshotAttachmentTemplate {
   outputPath: string;
   markdownPath: string;
   markdownUrl: string;
+  markdownUrlParts?: readonly AttachmentMarkdownUrlPart[];
   generatedFileName: string;
   generatedAttachmentFilePath: string;
   usedFallback: boolean;
@@ -45,6 +52,7 @@ interface TemplateRenderResult {
   value: string;
   warning?: string;
   usedFallback: boolean;
+  markdownUrlParts?: readonly AttachmentMarkdownUrlPart[];
 }
 
 const GENERATED_ATTACHMENT_FILE_NAME_TOKEN = 'generatedattachmentfilename';
@@ -71,7 +79,7 @@ export function resolveVideoScreenshotAttachmentTemplate(
   };
   const markdownUrlResolution = resolveMarkdownUrlFormat(
     options.markdownUrlFormat,
-    markdownPath,
+    encodeAttachmentMarkdownPath(markdownPath),
     markdownTokenContext
   );
   const warnings = [
@@ -84,6 +92,9 @@ export function resolveVideoScreenshotAttachmentTemplate(
     outputPath: generatedAttachmentFilePath,
     markdownPath,
     markdownUrl: markdownUrlResolution.value,
+    ...(markdownUrlResolution.markdownUrlParts
+      ? { markdownUrlParts: markdownUrlResolution.markdownUrlParts }
+      : {}),
     generatedFileName: fileNameResolution.value,
     generatedAttachmentFilePath,
     usedFallback:
@@ -105,15 +116,11 @@ export function disambiguateResolvedVideoScreenshotAttachmentTemplate(
   const nextFileName = appendOccurrenceSuffix(resolved.generatedFileName, occurrence);
   const nextOutputPath = replaceLastSegment(resolved.outputPath, nextFileName);
   const nextMarkdownPath = replaceLastSegment(resolved.markdownPath, nextFileName);
-  const nextMarkdownUrl = replaceExactValue(
-    replaceExactValue(
-      replaceExactValue(resolved.markdownUrl, resolved.generatedAttachmentFilePath, nextOutputPath),
-      resolved.markdownPath,
-      nextMarkdownPath
-    ),
-    resolved.generatedFileName,
-    nextFileName
-  );
+  const nextMarkdownUrl = renderAttachmentMarkdownUrl(resolved, {
+    generatedFileName: nextFileName,
+    generatedAttachmentFilePath: nextOutputPath,
+    markdownPath: nextMarkdownPath
+  });
 
   return {
     ...resolved,
@@ -123,6 +130,32 @@ export function disambiguateResolvedVideoScreenshotAttachmentTemplate(
     generatedFileName: nextFileName,
     generatedAttachmentFilePath: nextOutputPath
   };
+}
+
+/** Generated token values are verbatim; native Downloads supplies URL-safe renamed values. */
+export function renderAttachmentMarkdownUrl(
+  source: Pick<
+    ResolvedVideoScreenshotAttachmentTemplate,
+    'markdownUrl' | 'markdownPath' | 'markdownUrlParts'
+  >,
+  next: { generatedFileName: string; generatedAttachmentFilePath: string; markdownPath: string }
+): string {
+  if (source.markdownUrlParts) {
+    return source.markdownUrlParts
+      .map((part) => {
+        if (part.kind === 'literal') return part.value;
+        return part.kind === 'generatedFileName'
+          ? next.generatedFileName
+          : next.generatedAttachmentFilePath;
+      })
+      .join('')
+      .trim();
+  }
+  // Manual/legacy prepared values have no provenance. Only a known default path is derived.
+  return source.markdownUrl === source.markdownPath ||
+    source.markdownUrl === encodeAttachmentMarkdownPath(source.markdownPath)
+    ? encodeAttachmentMarkdownPath(next.markdownPath)
+    : source.markdownUrl;
 }
 
 function createTemplateTokenContext(
@@ -189,8 +222,19 @@ function resolveMarkdownUrlFormat(
     };
   }
   try {
+    const markdownUrlParts: AttachmentMarkdownUrlPart[] = [];
+    const value = renderTemplate(
+      trimmedTemplate,
+      context,
+      'markdownUrlFormat',
+      markdownUrlParts
+    ).trim();
+    if (looksLikeEmbeddedMarkdown(value)) {
+      throw new Error('markdownUrlFormat must resolve to a URL fragment, not a full embed.');
+    }
     return {
-      value: renderMarkdownUrlFormat(trimmedTemplate, fallbackMarkdownPath, context),
+      value: value || fallbackMarkdownPath,
+      ...(value ? { markdownUrlParts } : {}),
       usedFallback: false
     };
   } catch (error) {
@@ -271,25 +315,11 @@ function renderFileNameTemplate(template: string, context: TemplateTokenContext)
   return IMAGE_EXTENSION_PATTERN.test(safeBaseName) ? safeBaseName : `${safeBaseName}.jpg`;
 }
 
-function renderMarkdownUrlFormat(
-  template: string,
-  fallbackMarkdownPath: string,
-  context: TemplateTokenContext
-): string {
-  const rendered = renderTemplate(template, context, 'markdownUrlFormat').trim();
-  if (rendered.length === 0) {
-    return fallbackMarkdownPath;
-  }
-  if (looksLikeEmbeddedMarkdown(rendered)) {
-    throw new Error('markdownUrlFormat must resolve to a URL fragment, not a full embed.');
-  }
-  return rendered;
-}
-
 function renderTemplate(
   template: string,
   context: TemplateTokenContext,
-  fieldName: string
+  fieldName: string,
+  parts?: AttachmentMarkdownUrlPart[]
 ): string {
   if (template.trim().length === 0) {
     throw new Error(`${fieldName} must not be empty.`);
@@ -300,18 +330,30 @@ function renderTemplate(
 
   while (cursor < template.length) {
     const nextTokenStart = template.indexOf('${', cursor);
+    const literal = template.slice(cursor, nextTokenStart === -1 ? undefined : nextTokenStart);
+    rendered += literal;
+    if (literal) parts?.push({ kind: 'literal', value: literal });
     if (nextTokenStart === -1) {
-      rendered += template.slice(cursor);
       break;
     }
 
-    rendered += template.slice(cursor, nextTokenStart);
     const nextTokenEnd = findTokenEnd(template, nextTokenStart + 2);
     if (nextTokenEnd === -1) {
       throw new Error(`${fieldName} contains an unclosed token.`);
     }
     const token = template.slice(nextTokenStart + 2, nextTokenEnd);
-    rendered += resolveTemplateToken(token, context, fieldName);
+    const value = resolveTemplateToken(token, context, fieldName);
+    rendered += value;
+    if (parts) {
+      const normalizedToken = token.replace(/\s+/gu, '').toLowerCase();
+      parts.push(
+        normalizedToken === GENERATED_ATTACHMENT_FILE_NAME_TOKEN
+          ? { kind: 'generatedFileName' }
+          : normalizedToken === GENERATED_ATTACHMENT_FILE_PATH_TOKEN
+            ? { kind: 'generatedFilePath' }
+            : { kind: 'literal', value }
+      );
+    }
     cursor = nextTokenEnd + 1;
   }
 
@@ -515,8 +557,4 @@ function replaceLastSegment(path: string, nextFileName: string): string {
   }
   segments[segments.length - 1] = nextFileName;
   return segments.join('/');
-}
-
-function replaceExactValue(input: string, target: string, nextValue: string): string {
-  return target.length === 0 ? input : input.split(target).join(nextValue);
 }

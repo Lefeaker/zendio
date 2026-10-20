@@ -66,7 +66,14 @@ describe('connectionTest pipeline', () => {
     );
 
     const fetchMock = setFetchMock();
-    fetchMock.mockResolvedValue(createResponse('OK', { status: 200 }));
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        createResponse(
+          JSON.stringify({ status: 'OK', service: 'Obsidian Local REST API', authenticated: true }),
+          { status: 200 }
+        )
+      )
+    );
 
     const result = await handleConnectionTest();
     expect(result.success).toBe(true);
@@ -101,7 +108,12 @@ describe('connectionTest pipeline', () => {
     const fetchMock = setFetchMock();
     const error = Object.assign(new Error('Failed to fetch'), { message: 'Failed to fetch' });
     fetchMock.mockRejectedValueOnce(error);
-    fetchMock.mockResolvedValueOnce(createResponse('OK', { status: 200 }));
+    fetchMock.mockResolvedValueOnce(
+      createResponse(
+        JSON.stringify({ status: 'OK', service: 'Obsidian Local REST API', authenticated: true }),
+        { status: 200 }
+      )
+    );
 
     const result = await handleConnectionTest();
     expect(result.success).toBe(true);
@@ -122,7 +134,14 @@ describe('connectionTest pipeline', () => {
     );
 
     const fetchMock = setFetchMock();
-    fetchMock.mockResolvedValue(createResponse('OK', { status: 200 }));
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        createResponse(
+          JSON.stringify({ status: 'OK', service: 'Obsidian Local REST API', authenticated: true }),
+          { status: 200 }
+        )
+      )
+    );
 
     const result = await handleConnectionTest({
       httpsUrl: DRAFT_HTTPS_URL,
@@ -152,7 +171,14 @@ describe('connectionTest pipeline', () => {
     getOptionsMock.mockResolvedValue(options);
 
     const fetchMock = setFetchMock();
-    fetchMock.mockResolvedValue(createResponse('OK', { status: 200 }));
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        createResponse(
+          JSON.stringify({ status: 'OK', service: 'Obsidian Local REST API', authenticated: true }),
+          { status: 200 }
+        )
+      )
+    );
 
     const result = await handleConnectionTest(
       Object.assign(
@@ -384,7 +410,14 @@ describe('connectionTest pipeline', () => {
     getOptionsMock.mockResolvedValue(createOptions({ baseUrl: 'https://default.example/' }));
 
     const fetchMock = setFetchMock();
-    fetchMock.mockResolvedValue(createResponse('OK', { status: 200 }));
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        createResponse(
+          JSON.stringify({ status: 'OK', service: 'Obsidian Local REST API', authenticated: true }),
+          { status: 200 }
+        )
+      )
+    );
 
     const result = await handleVaultConnectionTest({
       type: 'TEST_VAULT_CONNECTION',
@@ -458,7 +491,12 @@ describe('connectionTest pipeline', () => {
       .mockRejectedValueOnce(
         Object.assign(new Error('Failed to fetch'), { message: 'Failed to fetch' })
       )
-      .mockResolvedValueOnce(createResponse('OK', { status: 200 }));
+      .mockResolvedValueOnce(
+        createResponse(
+          JSON.stringify({ status: 'OK', service: 'Obsidian Local REST API', authenticated: true }),
+          { status: 200 }
+        )
+      );
     queryPermissionMock.mockResolvedValue('granted');
 
     const result = await handleVaultConnectionTest({
@@ -548,7 +586,14 @@ describe('connectionTest pipeline', () => {
     getOptionsMock.mockResolvedValue(createOptions({ baseUrl: 'https://default.example/' }));
 
     const fetchMock = setFetchMock();
-    fetchMock.mockResolvedValue(createResponse('OK', { status: 200 }));
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        createResponse(
+          JSON.stringify({ status: 'OK', service: 'Obsidian Local REST API', authenticated: true }),
+          { status: 200 }
+        )
+      )
+    );
     queryPermissionMock.mockResolvedValue('granted');
 
     const result = await handleVaultConnectionTest({
@@ -616,7 +661,14 @@ describe('connectionTest pipeline', () => {
     getOptionsMock.mockResolvedValue(createOptions({ baseUrl: 'https://default.example/' }));
 
     const fetchMock = setFetchMock();
-    fetchMock.mockResolvedValue(createResponse('OK', { status: 200 }));
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        createResponse(
+          JSON.stringify({ status: 'OK', service: 'Obsidian Local REST API', authenticated: true }),
+          { status: 200 }
+        )
+      )
+    );
     queryPermissionMock.mockResolvedValue('prompt');
 
     const result = await handleVaultConnectionTest({
@@ -679,7 +731,14 @@ describe('connectionTest pipeline', () => {
     );
 
     const fetchMock = setFetchMock();
-    fetchMock.mockResolvedValue(createResponse('OK', { status: 200 }));
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        createResponse(
+          JSON.stringify({ status: 'OK', service: 'Obsidian Local REST API', authenticated: true }),
+          { status: 200 }
+        )
+      )
+    );
 
     const result = await handleVaultConnectionTest({
       type: 'TEST_VAULT_CONNECTION',

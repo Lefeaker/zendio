@@ -7,6 +7,13 @@ import { TextDecoder } from 'node:util';
 const ROOT = process.cwd();
 
 export const MAX_LINE_BUDGETS = new Map([
+  // 2026-10-18: block/container source offsets remain in their existing lexer;
+  // link grammar consumes this metadata without reserializing Markdown.
+  ['src/shared/attachments/clipAttachmentMarkdown.ts', 270],
+  // 2026-10-16: encoded attachment URL collision handling, propagation of the
+  // existing request deadline and mounted connection-result invalidation remain
+  // in their existing owners. Only measured physical-line registrations change.
+  ['src/options/app/productionStitchActionGroups.ts', 252],
   // 2026-10-15: stable export time stays in session/export owners; network deadline
   // checks stay in existing processor/transport owners. Exact physical-line changes
   // and one generated diagnostics key are reviewed together; no byte/runtime gate moves.
@@ -71,7 +78,7 @@ export const MAX_LINE_BUDGETS = new Map([
   // 2026-06-23 P05 Options/Stitch decomposition: shared surface chrome
   // helpers back the stable surface-builder facade.
   ['src/ui/stitch-surfaces/builders/surfaceChrome.ts', 275],
-  ['src/shared/attachments/videoScreenshotAttachmentTemplates.ts', 523],
+  ['src/shared/attachments/videoScreenshotAttachmentTemplates.ts', 560],
   ['src/options/app/productionStitchStateMapper.ts', 517],
   // 2026-06-23 P05 Options/Stitch decomposition: pure theme/state seed
   // mapping moved behind the production state mapper facade.
@@ -176,7 +183,7 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/platform/chrome/contextMenus.ts', 285],
   ['src/content/shared/panels/sessionPanelResize.ts', 284],
   // Learning records the actual write receipt and download IDs at both existing commit points.
-  ['src/background/application/clipProcessor.ts', 636],
+  ['src/background/application/clipProcessor.ts', 637],
   // Guided practice owns one observer/receipt lifecycle; keep its exact source budget.
   ['src/onboarding/practiceCoach.ts', 315],
   // Vault practice adds browser-specific setup and actual-destination completion UI.

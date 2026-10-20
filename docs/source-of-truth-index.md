@@ -1,8 +1,10 @@
 # Source of Truth 索引
 
-最后更新：2026-10-15
+最后更新：2026-10-16
 
 - 当前活动运行时：`.nvmrc` 为 Node `24.21.0`，npm `11.19.0` 与精确身份来自 `scripts/config/runtimePolicy.mjs`；bounded command、Firefox release manifest 与 reviewer source archive 复用该来源。CI 使用 `.nvmrc`。历史 R02 transition 和既有 Node 20 验证记录不变，不能当作当前运行时验收结果。
+
+- 2026-10-16 导出与连接恢复：附件在消息边界与规划入口整批检查 Base64/声明长度、唯一 ID 和内联引用；物理路径与默认 Markdown URL 分开，前缀相同的 ID 精确替换。Downloads 共用本次请求的 120 秒预算，保留已确认文件，超时后不启动后续写入；晚到 ID 只取消本次下载。连接探测核对 Local REST API 服务与 authenticated 状态，并限制探测、后台流程和设置页等待时间。详见 [`video-screenshot-attachment-location.md`](./video-screenshot-attachment-location.md)、[`downloads-operation-deadline.md`](./downloads-operation-deadline.md)、[`connection-testing.md`](./connection-testing.md)。
 
 ## 正式入口
 

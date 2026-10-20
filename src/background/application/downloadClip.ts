@@ -1,6 +1,16 @@
+import {
+  withRequestDeadline,
+  type RequestDeadlineOptions
+} from '../../shared/utils/requestDeadline';
+import { DOWNLOAD_TIMEOUT_MS } from '../../platform/downloadCompletion';
 import type { DownloadsService } from '../../platform/interfaces/downloads';
 import type { ClipAttachmentProgress } from '../../shared/types/clipResult';
 import { serializedAttachmentContentToBlob } from '../../shared/attachments/clipAttachmentBinary';
+import {
+  encodeAttachmentMarkdownPath,
+  replaceClipAttachmentReferences
+} from '../../shared/attachments/clipAttachmentReferences';
+import { renderAttachmentMarkdownUrl } from '../../shared/attachments/videoScreenshotAttachmentTemplates';
 import type {
   PreparedClipAttachments,
   PreparedClipAttachment
@@ -14,22 +24,23 @@ function downloadedAttachmentUrl(attachment: PreparedClipAttachment, filename: s
   const actualName = normalized.split('/').pop();
   if (!actualName) throw new Error('Downloaded attachment filename is unavailable.');
   const directory = attachment.outputPath.slice(0, attachment.outputPath.lastIndexOf('/') + 1);
-  const relativePath = `${directory}${actualName}`;
-  if (normalized !== relativePath && !normalized.endsWith(`/${relativePath}`)) {
+  // Chromium's native filename validation replaces percent signs with underscores.
+  // Accept that known transformation, while retaining the requested-folder boundary.
+  const actualDirectory = [directory, directory.replaceAll('%', '_')].find((candidate) => {
+    const relative = `${candidate}${actualName}`;
+    return normalized === relative || normalized.endsWith(`/${relative}`);
+  });
+  if (actualDirectory === undefined) {
     throw new Error('Downloaded attachment moved outside its requested folder.');
   }
-  if (actualName === attachment.fileName) return attachment.markdownUrl;
-  const encodedName = encodeURIComponent(actualName).replace(
-    /[()]/gu,
-    (value) => `%${value.charCodeAt(0).toString(16).toUpperCase()}`
-  );
-  const escapedName = attachment.fileName.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
-  // Only rename file leaves, including generated-filename query values. A folder may
-  // itself have the original filename, and must not be renamed with the attachment.
-  return attachment.markdownUrl.replace(
-    new RegExp(`(^|[/=?&])${escapedName}(?=$|[?#&])`, 'gu'),
-    (_match, prefix: string) => `${prefix}${encodedName}`
-  );
+  const relativePath = `${actualDirectory}${actualName}`;
+  if (relativePath === attachment.outputPath) return attachment.markdownUrl;
+  const encodedName = encodeAttachmentMarkdownPath(actualName);
+  return renderAttachmentMarkdownUrl(attachment, {
+    generatedFileName: encodedName,
+    generatedAttachmentFilePath: `${actualDirectory}${encodedName}`,
+    markdownPath: relativePath
+  });
 }
 
 export async function downloadPreparedClip(input: {
@@ -38,71 +49,89 @@ export async function downloadPreparedClip(input: {
   sourceMarkdown: string;
   prepared: PreparedClipAttachments;
   attachmentProgress?: ClipAttachmentProgress;
+  requestOptions?: RequestDeadlineOptions;
   completeStage: <T>(stage: WriteStage, action: () => Promise<T>) => Promise<T>;
 }): Promise<{
   filePath: string;
   downloadId: number | string;
   downloadIds: Array<number | string>;
 }> {
-  const { downloads, prepared, completeStage } = input;
-  const downloadIds: Array<number | string> = [];
-  let markdown = input.sourceMarkdown;
-  const progress = input.attachmentProgress;
-  // Check every historically confirmed file before writing any remaining file.
-  for (const confirmed of progress?.confirmed ?? []) {
-    const download = confirmed.download;
-    const current = download ? await downloads.inspect?.(download.id) : undefined;
-    if (
-      !download ||
-      current?.state !== 'complete' ||
-      current.exists !== true ||
-      current.filename !== download.filename
-    ) {
-      if (progress) progress.blocked = true;
-      throw new Error('CLIP_CONFIRMED_ATTACHMENT_UNAVAILABLE');
-    }
-  }
-  if (prepared.attachments.length) {
-    await completeStage('write_attachments', async () => {
-      for (const [index, attachment] of prepared.attachments.entries()) {
-        const confirmed = progress?.confirmed[index]?.download;
-        if (confirmed) {
-          downloadIds.push(confirmed.id);
-          markdown = markdown
-            .split(`aiob-attachment:${attachment.id}`)
-            .join(downloadedAttachmentUrl(attachment, confirmed.filename));
-          continue;
-        }
-        const completed = await downloads.download({
-          filename: attachment.outputPath,
-          blob: serializedAttachmentContentToBlob(attachment.content, attachment.mimeType),
-          mimeType: attachment.mimeType
-        });
-        if (completed.state !== 'complete') {
-          throw new Error('Download completion cannot be confirmed.');
-        }
-        progress?.confirmed.push({
-          id: attachment.id,
-          outputPath: attachment.outputPath,
-          download: { id: completed.id, filename: completed.filename }
-        });
-        downloadIds.push(completed.id);
-        markdown = markdown
-          .split(`aiob-attachment:${attachment.id}`)
-          .join(downloadedAttachmentUrl(attachment, completed.filename));
+  return withRequestDeadline(DOWNLOAD_TIMEOUT_MS, input.requestOptions ?? {}, async (request) => {
+    const { downloads, prepared, completeStage } = input;
+    const requestOptions = { ...input.requestOptions, signal: request.signal };
+    const downloadIds: Array<number | string> = [];
+    const attachmentUrls: Array<Pick<PreparedClipAttachment, 'id' | 'markdownUrl'>> = [];
+    const progress = input.attachmentProgress;
+    // Check every historically confirmed file before writing any remaining file.
+    for (const confirmed of progress?.confirmed ?? []) {
+      request.check();
+      const download = confirmed.download;
+      const current = download ? await downloads.inspect?.(download.id) : undefined;
+      request.check();
+      if (
+        !download ||
+        current?.state !== 'complete' ||
+        current.exists !== true ||
+        current.filename !== download.filename
+      ) {
+        if (progress) progress.blocked = true;
+        throw new Error('CLIP_CONFIRMED_ATTACHMENT_UNAVAILABLE');
       }
-    });
-  }
-  return completeStage('write_markdown', async () => {
-    const completed = await downloads.download({
-      filename: input.filePath,
-      content: markdown,
-      mimeType: 'text/markdown;charset=utf-8'
-    });
-    if (completed.state !== 'complete') {
-      throw new Error('Download completion cannot be confirmed.');
     }
-    downloadIds.push(completed.id);
-    return { filePath: completed.filename, downloadId: completed.id, downloadIds };
+    if (prepared.attachments.length) {
+      await completeStage('write_attachments', async () => {
+        for (const [index, attachment] of prepared.attachments.entries()) {
+          request.check();
+          const confirmed = progress?.confirmed[index]?.download;
+          if (confirmed) {
+            downloadIds.push(confirmed.id);
+            attachmentUrls.push({
+              id: attachment.id,
+              markdownUrl: downloadedAttachmentUrl(attachment, confirmed.filename)
+            });
+            continue;
+          }
+          const completed = await downloads.download(
+            {
+              filename: attachment.outputPath,
+              blob: serializedAttachmentContentToBlob(attachment.content, attachment.mimeType),
+              mimeType: attachment.mimeType
+            },
+            requestOptions
+          );
+          request.check();
+          if (completed.state !== 'complete') {
+            throw new Error('Download completion cannot be confirmed.');
+          }
+          progress?.confirmed.push({
+            id: attachment.id,
+            outputPath: attachment.outputPath,
+            download: { id: completed.id, filename: completed.filename }
+          });
+          downloadIds.push(completed.id);
+          attachmentUrls.push({
+            id: attachment.id,
+            markdownUrl: downloadedAttachmentUrl(attachment, completed.filename)
+          });
+        }
+      });
+    }
+    return completeStage('write_markdown', async () => {
+      request.check();
+      const completed = await downloads.download(
+        {
+          filename: input.filePath,
+          content: replaceClipAttachmentReferences(input.sourceMarkdown, attachmentUrls),
+          mimeType: 'text/markdown;charset=utf-8'
+        },
+        requestOptions
+      );
+      request.check();
+      if (completed.state !== 'complete') {
+        throw new Error('Download completion cannot be confirmed.');
+      }
+      downloadIds.push(completed.id);
+      return { filePath: completed.filename, downloadId: completed.id, downloadIds };
+    });
   });
 }

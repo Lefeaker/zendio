@@ -63,7 +63,7 @@ export interface ClipProcessingProgress {
 }
 
 export interface ClipProcessingHooks {
-  /** Cancels outbound network requests; local filesystem and Downloads have their own owners. */
+  /** Cancels outbound network requests and the current native download; local writes keep their owner. */
   signal?: AbortSignal;
   onProgress?: (progress: ClipProcessingProgress) => void;
   requestLocalVaultPermission?: (
@@ -296,7 +296,8 @@ export async function processClipPayload(
         sourceMarkdown: payload.markdown,
         prepared: routed.prepared,
         ...(attachmentProgress ? { attachmentProgress } : {}),
-        completeStage
+        completeStage,
+        requestOptions
       });
       void runBestEffortEffect(
         () =>

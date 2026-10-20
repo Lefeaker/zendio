@@ -73,11 +73,14 @@ describe('clipProcessor downloads', () => {
         }
       })
     );
-    expect(downloadMock).toHaveBeenLastCalledWith({
-      filename: 'note.md',
-      content: '# video\n![Screenshot](shot%20%281%29.jpg)',
-      mimeType: 'text/markdown;charset=utf-8'
-    });
+    expect(downloadMock).toHaveBeenLastCalledWith(
+      {
+        filename: 'note.md',
+        content: '# video\n![Screenshot](shot%20%281%29.jpg)',
+        mimeType: 'text/markdown;charset=utf-8'
+      },
+      expect.anything()
+    );
     expect(result.filePath).toBe('/Users/fixture/Downloads/note (1).md');
     await vi.waitFor(async () =>
       expect(
@@ -305,11 +308,14 @@ describe('clipProcessor downloads', () => {
 
     expect(selectVaultMock).not.toHaveBeenCalled();
     expect(writeMarkdownMock).not.toHaveBeenCalled();
-    expect(downloadMock).toHaveBeenCalledWith({
-      filename: 'downloaded-note.md',
-      content: '# note',
-      mimeType: 'text/markdown;charset=utf-8'
-    });
+    expect(downloadMock).toHaveBeenCalledWith(
+      {
+        filename: 'downloaded-note.md',
+        content: '# note',
+        mimeType: 'text/markdown;charset=utf-8'
+      },
+      expect.anything()
+    );
     expect(result).toEqual({
       filePath: 'downloaded-note.md',
       restVault: '',
@@ -352,11 +358,14 @@ describe('clipProcessor downloads', () => {
     expect(selectVaultMock).toHaveBeenCalled();
     expect(createWriteSessionMock).not.toHaveBeenCalled();
     expect(writeMarkdownMock).not.toHaveBeenCalled();
-    expect(downloadMock).toHaveBeenCalledWith({
-      filename: 'unconfigured-note.md',
-      content: '# note',
-      mimeType: 'text/markdown;charset=utf-8'
-    });
+    expect(downloadMock).toHaveBeenCalledWith(
+      {
+        filename: 'unconfigured-note.md',
+        content: '# note',
+        mimeType: 'text/markdown;charset=utf-8'
+      },
+      expect.anything()
+    );
     expect(result).toEqual({
       filePath: 'unconfigured-note.md',
       restVault: '',
@@ -403,11 +412,14 @@ describe('clipProcessor downloads', () => {
       })
     );
 
-    expect(downloadMock).toHaveBeenCalledWith({
-      filename: expectedFilename,
-      content: '# note',
-      mimeType: 'text/markdown;charset=utf-8'
-    });
+    expect(downloadMock).toHaveBeenCalledWith(
+      {
+        filename: expectedFilename,
+        content: '# note',
+        mimeType: 'text/markdown;charset=utf-8'
+      },
+      expect.anything()
+    );
     expect(result.filePath).toBe(expectedFilename);
   });
 
@@ -485,12 +497,16 @@ describe('clipProcessor downloads', () => {
       'image/jpeg',
       'bbb'
     );
-    expect(downloadMock).toHaveBeenNthCalledWith(3, {
-      filename: 'video-note.md',
-      content:
-        '# video\n![Screenshot](attachments/video/video-note/file-20260509194226985.jpg)\n![Screenshot](attachments/video/video-note/file-20260509194227986.jpg)',
-      mimeType: 'text/markdown;charset=utf-8'
-    });
+    expect(downloadMock).toHaveBeenNthCalledWith(
+      3,
+      {
+        filename: 'video-note.md',
+        content:
+          '# video\n![Screenshot](attachments/video/video-note/file-20260509194226985.jpg)\n![Screenshot](attachments/video/video-note/file-20260509194227986.jpg)',
+        mimeType: 'text/markdown;charset=utf-8'
+      },
+      expect.anything()
+    );
   });
 
   it('normalizes attachment filenames under a safe note-folder stem for downloads', async () => {
@@ -549,11 +565,16 @@ describe('clipProcessor downloads', () => {
 
     await expectDownloadedBlob(0, '.hidden/escape.jpg', 'image/jpeg', 'aaa');
     await expectDownloadedBlob(1, '.hidden/attachment.jpg', 'image/jpeg', 'bbb');
-    expect(downloadMock).toHaveBeenNthCalledWith(3, {
-      filename: '.hidden.md',
-      content: '# video\n![Screenshot](.hidden/escape.jpg)\n![Screenshot](.hidden/attachment.jpg)',
-      mimeType: 'text/markdown;charset=utf-8'
-    });
+    expect(downloadMock).toHaveBeenNthCalledWith(
+      3,
+      {
+        filename: '.hidden.md',
+        content:
+          '# video\n![Screenshot](.hidden/escape.jpg)\n![Screenshot](.hidden/attachment.jpg)',
+        mimeType: 'text/markdown;charset=utf-8'
+      },
+      expect.anything()
+    );
   });
 
   it('falls back to legacy-safe downloads attachments when a custom video template is malformed', async () => {
@@ -621,11 +642,16 @@ describe('clipProcessor downloads', () => {
 
     await expectDownloadedBlob(0, '.hidden/escape.jpg', 'image/jpeg', 'aaa');
     await expectDownloadedBlob(1, '.hidden/attachment.jpg', 'image/jpeg', 'bbb');
-    expect(downloadMock).toHaveBeenNthCalledWith(3, {
-      filename: '.hidden.md',
-      content: '# video\n![Screenshot](.hidden/escape.jpg)\n![Screenshot](.hidden/attachment.jpg)',
-      mimeType: 'text/markdown;charset=utf-8'
-    });
+    expect(downloadMock).toHaveBeenNthCalledWith(
+      3,
+      {
+        filename: '.hidden.md',
+        content:
+          '# video\n![Screenshot](.hidden/escape.jpg)\n![Screenshot](.hidden/attachment.jpg)',
+        mimeType: 'text/markdown;charset=utf-8'
+      },
+      expect.anything()
+    );
   });
 
   it('writes video screenshots to the Obsidian custom attachment location', async () => {

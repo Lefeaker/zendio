@@ -170,9 +170,10 @@ describe.each(['chrome', 'firefox'])('%s application download completion owner',
       prepared,
       completeStage: (_stage, action) => action()
     });
-    const rejected = expect(pending).rejects.toThrow('result is unknown');
-    await vi.advanceTimersByTimeAsync(120_000);
-    await rejected;
+    await Promise.all([
+      expect(pending).rejects.toMatchObject({ message: 'REQUEST_TIMEOUT', timedOut: true }),
+      vi.advanceTimersByTimeAsync(120_000)
+    ]);
     native.complete(1);
     await vi.advanceTimersByTimeAsync(0);
     expect(native.api.cancel).toHaveBeenCalledExactlyOnceWith(1);

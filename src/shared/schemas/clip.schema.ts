@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { isLegacyDataUrlForMimeType } from '../attachments/clipAttachmentBinary';
+import {
+  isLegacyDataUrlForMimeType,
+  isValidLegacyAttachmentDataUrl,
+  isValidSerializedClipAttachmentBinaryContent
+} from '../attachments/clipAttachmentBinary';
+import { hasUnresolvedClipAttachmentReferences } from '../attachments/clipAttachmentReferences';
 import { ClassificationResultSchema } from './classification.schema';
 import { AppErrorSchema } from './error.schema';
 import { ClipAttachmentProgressSchema } from '../types/clipResult';
@@ -26,7 +31,8 @@ const SerializedClipAttachmentBinaryContentSchema = z
     data: z.string().min(1).max(MAX_ATTACHMENT_DATA_URL_LENGTH),
     byteLength: NonNegativeIntegerSchema
   })
-  .strip();
+  .strip()
+  .refine(isValidSerializedClipAttachmentBinaryContent, 'CLIP_ATTACHMENT_INVALID_BINARY');
 
 const LegacyClipAttachmentSchema = ClipAttachmentBaseSchema.extend({
   dataUrl: z.string().min(1).max(MAX_ATTACHMENT_DATA_URL_LENGTH)
@@ -37,6 +43,12 @@ const LegacyClipAttachmentSchema = ClipAttachmentBaseSchema.extend({
       message: 'CLIP_ATTACHMENT_DATA_URL_MIME_MISMATCH',
       path: ['dataUrl']
     });
+  } else if (!isValidLegacyAttachmentDataUrl(attachment.dataUrl, attachment.mimeType)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'CLIP_ATTACHMENT_INVALID_BINARY',
+      path: ['dataUrl']
+    });
   }
 });
 
@@ -45,6 +57,22 @@ const BinaryClipAttachmentSchema = ClipAttachmentBaseSchema.extend({
 });
 
 const ClipAttachmentSchema = z.union([LegacyClipAttachmentSchema, BinaryClipAttachmentSchema]);
+
+export const ClipAttachmentsSchema = z
+  .array(ClipAttachmentSchema)
+  .max(50)
+  .superRefine((attachments, context) => {
+    const ids = new Set<string>();
+    attachments.forEach((attachment, index) => {
+      if (ids.has(attachment.id))
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'CLIP_ATTACHMENT_DUPLICATE_ID',
+          path: [index, 'id']
+        });
+      ids.add(attachment.id);
+    });
+  });
 
 const ExportDestinationSchema = z
   .discriminatedUnion('kind', [
@@ -87,7 +115,7 @@ export const ClipMetaSchema = z
     timestampCount: NonNegativeIntegerSchema.optional(),
     fragmentCount: NonNegativeIntegerSchema.optional(),
     storageKey: z.string().min(1).max(512).optional(),
-    attachments: z.array(ClipAttachmentSchema).max(50).optional(),
+    attachments: ClipAttachmentsSchema.optional(),
     exportDestination: ExportDestinationSchema
   })
   .strip();
@@ -103,7 +131,16 @@ export const ClipPayloadSchema = z
     type: z.string().optional(),
     meta: ClipMetaSchema.optional()
   })
-  .strip();
+  .strip()
+  .superRefine((payload, context) => {
+    if (hasUnresolvedClipAttachmentReferences(payload.markdown, payload.meta?.attachments ?? [])) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'CLIP_ATTACHMENT_REFERENCE_MISSING',
+        path: ['markdown']
+      });
+    }
+  });
 
 /**
  * ClipProcessingResult Schema

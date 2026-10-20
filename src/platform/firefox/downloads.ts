@@ -1,4 +1,8 @@
-import { waitForDownloadCompletion } from '../downloadCompletion';
+import {
+  withRequestDeadline,
+  type RequestDeadlineOptions
+} from '../../shared/utils/requestDeadline';
+import { DOWNLOAD_TIMEOUT_MS, waitForDownloadCompletion } from '../downloadCompletion';
 import type { DownloadTextFileOptions, DownloadsService } from '../interfaces/downloads';
 import { serializeBlobAttachmentContent } from '../../shared/attachments/clipAttachmentBinary';
 
@@ -89,22 +93,41 @@ export const firefoxDownloadsService: DownloadsService = {
     if (!browser.downloads?.show) throw new Error('browser.downloads.show is not available.');
     await browser.downloads.show(Number(id));
   },
-  async download(options: DownloadTextFileOptions) {
-    if (!browser?.downloads?.download) {
+  async download(options: DownloadTextFileOptions, requestOptions: RequestDeadlineOptions = {}) {
+    const nativeDownloads = browser.downloads;
+    if (!nativeDownloads?.download) {
       throw new Error('browser.downloads.download is not available.');
     }
 
-    const resource = await createDownloadResource(options);
-    try {
-      const id = await browser.downloads.download({
-        url: resource.url,
-        filename: options.filename,
-        saveAs: false,
-        conflictAction: 'uniquify'
-      });
-      return await waitForDownloadCompletion(firefoxDownloadsService, id);
-    } finally {
-      resource.revoke();
-    }
+    return withRequestDeadline(DOWNLOAD_TIMEOUT_MS, requestOptions, async (request) => {
+      const resource = await createDownloadResource(options);
+      let revoked = false;
+      const revoke = () => {
+        if (revoked) return;
+        revoked = true;
+        resource.revoke();
+      };
+      request.signal.addEventListener('abort', revoke, { once: true });
+      try {
+        request.check();
+        const id = await nativeDownloads.download({
+          url: resource.url,
+          filename: options.filename,
+          saveAs: false,
+          conflictAction: 'uniquify'
+        });
+        try {
+          request.check();
+        } catch (error) {
+          // Native creation can return its own ID after the request already ended.
+          if (id !== undefined) void firefoxDownloadsService.cancel?.(id).catch(() => undefined);
+          throw error;
+        }
+        return await waitForDownloadCompletion(firefoxDownloadsService, id, request);
+      } finally {
+        request.signal.removeEventListener('abort', revoke);
+        revoke();
+      }
+    });
   }
 };

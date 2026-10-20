@@ -1,3 +1,4 @@
+import type { ActiveRequest } from '../../shared/utils/requestDeadline';
 import type { ConnectionChannelResult, ConnectionTestResult } from '../../shared/types/connection';
 import type { UserVisibleMessageDescriptor } from '../../shared/i18n/userVisibleMessageDescriptor';
 import { isLocalAddress } from '../utils/restCandidates';
@@ -14,12 +15,13 @@ import {
 import { executeLocalFolderChannelTest } from './vaultLocalFolderChannel';
 
 export async function executeVaultStorageTargetTest(
-  config: ConnectionTestConfig
+  config: ConnectionTestConfig,
+  request: ActiveRequest
 ): Promise<ConnectionTestResult> {
   const channels: ConnectionChannelResult[] = [
     await executeLocalFolderChannelTest(config),
-    await executeRestChannelTest('https', config.httpsUrl, config),
-    await executeRestChannelTest('http', config.httpUrl, config)
+    await executeRestChannelTest('https', config.httpsUrl, config, request),
+    await executeRestChannelTest('http', config.httpUrl, config, request)
   ];
   const configuredChannels = channels.filter((channel) => channel.configured);
   if (configuredChannels.length === 0) {
@@ -65,8 +67,10 @@ export async function executeVaultStorageTargetTest(
 async function executeRestChannelTest(
   channel: 'https' | 'http',
   url: string | undefined,
-  config: ConnectionTestConfig
+  config: ConnectionTestConfig,
+  request: ActiveRequest
 ): Promise<ConnectionChannelResult> {
+  request.check();
   const protocolLabel = channel.toUpperCase();
   const labelDescriptor = createDescriptor('connectionChannelRestLabel');
   if (!url) {
@@ -92,7 +96,7 @@ async function executeRestChannelTest(
   const testUrl = normalizeRootEndpoint(url);
   try {
     console.log(`[connectionTest] Testing URL (${protocolLabel}):`, testUrl);
-    const { response, text } = await testConnection(testUrl, config.apiKey);
+    const { response, text } = await testConnection(testUrl, config.apiKey, request.signal);
     if (!response.ok) {
       const detail = sanitizeSnippet(text);
       const statusLine = `HTTP ${response.status}`;

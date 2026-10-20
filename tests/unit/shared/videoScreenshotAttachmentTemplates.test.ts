@@ -4,6 +4,7 @@ import {
   DEFAULT_VIDEO_SCREENSHOT_ATTACHMENT_FILE_NAME_TEMPLATE,
   DEFAULT_VIDEO_SCREENSHOT_ATTACHMENT_LOCATION_TEMPLATE,
   disambiguateResolvedVideoScreenshotAttachmentTemplate,
+  renderAttachmentMarkdownUrl,
   resolveVideoScreenshotAttachmentTemplate
 } from '../../../src/shared/attachments/videoScreenshotAttachmentTemplates';
 
@@ -30,7 +31,7 @@ describe('resolveVideoScreenshotAttachmentTemplate', () => {
       markdownPath: 'assets/My Clip/file-20260606112233444.jpg',
       outputPath: 'Videos/assets/My Clip/file-20260606112233444.jpg',
       generatedAttachmentFilePath: 'Videos/assets/My Clip/file-20260606112233444.jpg',
-      markdownUrl: 'assets/My Clip/file-20260606112233444.jpg',
+      markdownUrl: 'assets/My%20Clip/file-20260606112233444.jpg',
       usedFallback: false,
       warnings: []
     });
@@ -48,7 +49,7 @@ describe('resolveVideoScreenshotAttachmentTemplate', () => {
 
     expect(result.outputPath).toBe('Media/Video/My Clip/file-20260606112233444.jpg');
     expect(result.markdownPath).toBe('../Media/Video/My Clip/file-20260606112233444.jpg');
-    expect(result.markdownUrl).toBe('../Media/Video/My Clip/file-20260606112233444.jpg');
+    expect(result.markdownUrl).toBe('../Media/Video/My%20Clip/file-20260606112233444.jpg');
   });
 
   it('renders note folder, note name, and note path tokens case-insensitively', () => {
@@ -116,7 +117,7 @@ describe('resolveVideoScreenshotAttachmentTemplate', () => {
     );
 
     expect(result.markdownPath).toBe('assets/My Clip/file-20260606112233444.jpg');
-    expect(result.markdownUrl).toBe(result.markdownPath);
+    expect(result.markdownUrl).toBe('assets/My%20Clip/file-20260606112233444.jpg');
     expect(result.usedFallback).toBe(true);
     expect(result.warnings).toEqual(
       expect.arrayContaining([
@@ -137,7 +138,7 @@ describe('resolveVideoScreenshotAttachmentTemplate', () => {
     );
 
     expect(result.markdownPath).toBe('assets/My Clip/file-20260606112233444.jpg');
-    expect(result.markdownUrl).toBe(result.markdownPath);
+    expect(result.markdownUrl).toBe('assets/My%20Clip/file-20260606112233444.jpg');
     expect(result.usedFallback).toBe(true);
     expect(result.warnings).toEqual(
       expect.arrayContaining([
@@ -259,4 +260,108 @@ describe('disambiguateResolvedVideoScreenshotAttachmentTemplate', () => {
       'obsidian://vault/Videos/assets/My Clip/file-20260606112233444-2.jpg?file=file-20260606112233444-2.jpg'
     );
   });
+});
+
+it('disambiguates default encoded URLs while preserving raw paths', () => {
+  const resolved = resolveVideoScreenshotAttachmentTemplate(
+    {
+      locationTemplate: './assets/${noteFileName}',
+      fileNameTemplate: '${originalAttachmentFileName}',
+      markdownUrlFormat: ''
+    },
+    {
+      ...BASE_CONTEXT,
+      noteFilePath: 'Videos/Note #50% (中文).md',
+      originalAttachmentFileName: 'frame #50% (截图).jpg'
+    }
+  );
+  const duplicate = disambiguateResolvedVideoScreenshotAttachmentTemplate(resolved, 2);
+  expect(duplicate.outputPath).toBe('Videos/assets/Note #50% (中文)/frame #50% (截图)-2.jpg');
+  expect(duplicate.markdownUrl).toBe(
+    'assets/Note%20%2350%25%20%28%E4%B8%AD%E6%96%87%29/frame%20%2350%25%20%28%E6%88%AA%E5%9B%BE%29-2.jpg'
+  );
+  expect(decodeURIComponent(duplicate.markdownUrl)).toBe(duplicate.markdownPath);
+});
+
+it('renames generated URL tokens without changing identical folder and literal text', () => {
+  const resolved = resolveVideoScreenshotAttachmentTemplate(
+    {
+      locationTemplate: 'shot.jpg',
+      fileNameTemplate: '${originalAttachmentFileName}',
+      markdownUrlFormat:
+        'obsidian://vault/${generatedAttachmentFilePath}?file=pre-${generatedAttachmentFileName}.cache&keep=shot.jpg&original=${originalAttachmentFileName}&note=${noteFileName}'
+    },
+    { ...BASE_CONTEXT, noteFilePath: 'shot.jpg.md', originalAttachmentFileName: 'shot.jpg' }
+  );
+  const duplicate = disambiguateResolvedVideoScreenshotAttachmentTemplate(resolved, 2);
+  expect(duplicate.outputPath).toBe('shot.jpg/shot-2.jpg');
+  expect(duplicate.markdownUrl).toBe(
+    'obsidian://vault/shot.jpg/shot-2.jpg?file=pre-shot-2.jpg.cache&keep=shot.jpg&original=shot&note=shot.jpg'
+  );
+});
+
+it('renders native URL-safe values only into generated tokens, including embedded and repeated tokens', () => {
+  const resolved = resolveVideoScreenshotAttachmentTemplate(
+    {
+      locationTemplate: 'Raw Folder/shot.jpg',
+      fileNameTemplate: '${originalAttachmentFileName}',
+      markdownUrlFormat:
+        'obsidian://vault/${GeneratedAttachmentFilePath}?file=pre-${generatedAttachmentFileName}.cache&keep=shot.jpg#${generatedAttachmentFileName}/${date:{momentJsFormat:"YYYY"}}'
+    },
+    { ...BASE_CONTEXT, originalAttachmentFileName: 'shot.jpg' }
+  );
+  expect(
+    renderAttachmentMarkdownUrl(resolved, {
+      generatedFileName: 'shot%20%281%29.jpg',
+      generatedAttachmentFilePath: 'Raw Folder/shot.jpg/shot%20%281%29.jpg',
+      markdownPath: '../Raw Folder/shot.jpg/shot (1).jpg'
+    })
+  ).toBe(
+    'obsidian://vault/Raw Folder/shot.jpg/shot%20%281%29.jpg?file=pre-shot%20%281%29.jpg.cache&keep=shot.jpg#shot%20%281%29.jpg/2026'
+  );
+});
+
+it('preserves an explicit custom literal even when it equals the generated default path', () => {
+  const resolved = resolveVideoScreenshotAttachmentTemplate(
+    {
+      locationTemplate: './assets',
+      fileNameTemplate: '${originalAttachmentFileName}',
+      markdownUrlFormat: 'assets/shot.jpg'
+    },
+    { ...BASE_CONTEXT, noteFilePath: 'note.md', originalAttachmentFileName: 'shot.jpg' }
+  );
+  expect(disambiguateResolvedVideoScreenshotAttachmentTemplate(resolved, 2)).toMatchObject({
+    outputPath: 'assets/shot-2.jpg',
+    markdownPath: 'assets/shot-2.jpg',
+    markdownUrl: 'assets/shot.jpg'
+  });
+});
+
+it.each(['assets/My Clip/shot.jpg', 'assets/My%20Clip/shot.jpg'])(
+  'keeps a default URL without optional provenance compatible: %s',
+  (markdownUrl) => {
+    expect(
+      renderAttachmentMarkdownUrl(
+        { markdownUrl, markdownPath: 'assets/My Clip/shot.jpg' },
+        {
+          generatedFileName: 'shot%20%281%29.jpg',
+          generatedAttachmentFilePath: 'assets/My Clip/shot%20%281%29.jpg',
+          markdownPath: 'assets/My Clip/shot (1).jpg'
+        }
+      )
+    ).toBe('assets/My%20Clip/shot%20%281%29.jpg');
+  }
+);
+
+it('leaves an unknown manual custom URL without provenance unchanged', () => {
+  expect(
+    renderAttachmentMarkdownUrl(
+      { markdownUrl: 'https://example.invalid/static-shot.jpg', markdownPath: 'assets/shot.jpg' },
+      {
+        generatedFileName: 'shot-2.jpg',
+        generatedAttachmentFilePath: 'assets/shot-2.jpg',
+        markdownPath: 'assets/shot-2.jpg'
+      }
+    )
+  ).toBe('https://example.invalid/static-shot.jpg');
 });

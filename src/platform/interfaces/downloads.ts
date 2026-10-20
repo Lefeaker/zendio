@@ -1,3 +1,5 @@
+import type { RequestDeadlineOptions } from '../../shared/utils/requestDeadline';
+
 export interface DownloadTextFileOptions {
   filename: string;
   content?: string;
@@ -26,5 +28,8 @@ export interface DownloadsService {
   inspect?(id: number | string): Promise<DownloadStatus | undefined>;
   onChanged?(listener: () => void): () => void;
   show?(id: number | string): Promise<void>;
-  download(options: DownloadTextFileOptions): Promise<DownloadResult>;
+  download(
+    options: DownloadTextFileOptions,
+    request?: RequestDeadlineOptions
+  ): Promise<DownloadResult>;
 }
