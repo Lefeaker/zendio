@@ -211,9 +211,9 @@ function verifiedNpmLifecycleEnvironment({
     npm_config_local_prefix: resolve('.'),
     npm_config_node_gyp: join(npmRoot, 'node_modules/node-gyp/bin/node-gyp.js'),
     npm_config_noproxy: '',
-    npm_config_npm_version: '10.8.2',
+    npm_config_npm_version: '11.19.0',
     npm_config_prefix: runtimePrefix,
-    npm_config_user_agent: `npm/10.8.2 node/${process.version} ${process.platform} ${process.arch} workspaces/false${githubActions ? ' ci/github-actions' : ''}`,
+    npm_config_user_agent: `npm/11.19.0 node/${process.version} ${process.platform} ${process.arch} workspaces/false${githubActions ? ' ci/github-actions' : ''}`,
     ...(includeLowercaseUserconfig ? { npm_config_userconfig: userconfig } : {}),
     npm_execpath: cliPath,
     npm_lifecycle_event: event,
@@ -317,6 +317,7 @@ function vitestIdentityFixture(): VitestIdentityFixturePaths {
     'package.json',
     'package-lock.json',
     'scripts/config/commandBoundaryProfiles.mjs',
+    'scripts/config/runtimePolicy.mjs',
     'tools/npm-audit-regression/canonical-json.mjs',
     'tools/npm-audit-regression/runtime-discovery.mjs',
     'tools/npm-audit-regression/transition-validator.mjs',
@@ -668,8 +669,8 @@ async function createFirefoxSubmissionBinding(attemptRoot: string) {
     git: { head: 'a'.repeat(40), tree: 'b'.repeat(40) },
     packageMetadata: { version, manifestVersion: version, geckoId: 'fixture@example.test' },
     toolchain: {
-      node: 'v20.20.2',
-      npm: '10.8.2',
+      node: 'v24.21.0',
+      npm: '11.19.0',
       amoClient: 'direct-v5',
       bidiAdapter: 'webdriver-bidi-v1',
       geckodriver: '0.37.1',
@@ -5233,5 +5234,38 @@ describe('shared readonly Firefox release toolchain', () => {
         operations: row.cache.operations
       })
     ).toThrow('NPM_CONFIG_AUTHORITY_INVALID');
+  });
+});
+
+describe('Firefox opt-in save scenario grammar', () => {
+  const base = [
+    'node',
+    'scripts/run-bounded-command.mjs',
+    '--profile',
+    'firefox-smoke-v1',
+    '--',
+    '--manifest',
+    '/tmp/attempt/manifest.json',
+    '--transport-mode',
+    'local-private-v1',
+    '--result-json',
+    '/tmp/attempt/result.json'
+  ];
+
+  it('accepts the default smoke and the sole explicit save scenario', () => {
+    expect(parseManagedCommandInvocationArgv(base)).toMatchObject({
+      profileId: 'firefox-smoke-v1'
+    });
+    expect(
+      parseManagedCommandInvocationArgv([...base, '--scenario', 'save-retry-v1'])?.arguments
+    ).toEqual([...base.slice(5), '--scenario', 'save-retry-v1']);
+  });
+
+  it.each([
+    ['--scenario', 'arbitrary'],
+    ['--scenario', 'save-retry-v1', '--scenario', 'save-retry-v1'],
+    ['--scenario']
+  ])('rejects unsupported, duplicate or incomplete scenarios: %j', (...extra) => {
+    expect(() => parseManagedCommandInvocationArgv([...base, ...extra])).toThrow();
   });
 });

@@ -28,6 +28,7 @@ export function runVerifiedFirefoxXpiSmoke(
     transportMode: FirefoxReleaseTransportMode;
     driverEnvironment: Readonly<Record<string, string>>;
     browserInput?: FirefoxBrowserInput;
+    scenario?: 'save-retry-v1';
   },
   dependencies?: Record<string, unknown>
 ): Promise<

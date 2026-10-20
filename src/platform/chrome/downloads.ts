@@ -1,3 +1,4 @@
+import { waitForDownloadCompletion } from '../downloadCompletion';
 import type { DownloadTextFileOptions, DownloadsService } from '../interfaces/downloads';
 import { serializeBlobAttachmentContent } from '../../shared/attachments/clipAttachmentBinary';
 
@@ -51,6 +52,9 @@ async function createDownloadResource(
 }
 
 export const chromeDownloadsService: DownloadsService = {
+  async cancel(id) {
+    await chrome.downloads?.cancel(Number(id));
+  },
   async inspect(id) {
     const items = await chrome.downloads?.search({ id: Number(id) });
     const item = items?.[0];
@@ -68,21 +72,22 @@ export const chromeDownloadsService: DownloadsService = {
     // Chrome show() has no completion callback; this only requests the system file manager.
     chrome.downloads.show(Number(id));
   },
-  async download(options: DownloadTextFileOptions): Promise<number | undefined> {
+  async download(options: DownloadTextFileOptions) {
     if (!chrome?.downloads?.download) {
       throw new Error('chrome.downloads.download is not available.');
     }
 
     const resource = await createDownloadResource(options);
     try {
-      return await chrome.downloads.download({
+      const id = await chrome.downloads.download({
         url: resource.url,
         filename: options.filename,
         saveAs: false,
         conflictAction: 'uniquify'
       });
+      return await waitForDownloadCompletion(chromeDownloadsService, id);
     } finally {
-      setTimeout(() => resource.revoke(), 30_000);
+      resource.revoke();
     }
   }
 };

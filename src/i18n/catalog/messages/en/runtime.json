@@ -881,5 +881,6 @@
   "learningUpdateDismiss": "Dismiss",
   "learningUpdateSaveError": "Could not save your preference. Please try again.",
   "learningUpdateDismissed": "You can reopen the tutorials from First-time setup on the Options page.",
-  "aiConfigLoadFailed": "AI configuration could not be loaded. Reopen this section or refresh the page."
+  "aiConfigLoadFailed": "AI configuration could not be loaded. Reopen this section or refresh the page.",
+  "practiceVaultDownload": "The Markdown was downloaded. To finish this practice, choose your vault in the capture panel and save again."
 }

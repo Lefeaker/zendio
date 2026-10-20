@@ -45,6 +45,8 @@ export type Destination = 'downloads' | 'local' | 'rest' | 'explicit-downloads';
 const folderId = 'title-test-folder';
 export async function configureSink(page: Page, destination: Destination, outputDirectory: string) {
   const received = new Map<string, string>();
+  let writeStatus = 200;
+  let writeAttempts = 0;
   const server = createServer((request, response) => {
     let body = '';
     request.setEncoding('utf8');
@@ -52,8 +54,13 @@ export async function configureSink(page: Page, destination: Destination, output
       body += chunk;
     });
     request.on('end', () => {
-      if (request.method === 'PUT') received.set(decodeURIComponent(request.url ?? ''), body);
-      response.writeHead(200, { 'Content-Type': 'application/json' });
+      if (request.method === 'PUT') {
+        writeAttempts += 1;
+        if (writeStatus < 400) received.set(decodeURIComponent(request.url ?? ''), body);
+      }
+      response.writeHead(request.method === 'PUT' ? writeStatus : 200, {
+        'Content-Type': 'application/json'
+      });
       response.end('{}');
     });
   });
@@ -137,6 +144,15 @@ export async function configureSink(page: Page, destination: Destination, output
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Browser.setDownloadBehavior', { behavior: 'default' });
   return {
+    setWriteStatus(status: number) {
+      writeStatus = status;
+    },
+    get writeAttempts() {
+      return writeAttempts;
+    },
+    get files() {
+      return new Map(received);
+    },
     async read(relativePath: string, dated = false): Promise<string> {
       if (dated) {
         const directory = path.posix.dirname(relativePath);

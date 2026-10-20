@@ -1,3 +1,4 @@
+import { downloadPreparedClip } from './downloadClip';
 import { learningCoursesForExport, recordLearningExport } from '../services/learningProgress';
 import { getOptions } from '../store';
 import { RUNTIME_FALLBACK_MESSAGES } from '../../i18n/catalog/runtimeFallbackMessages';
@@ -215,41 +216,24 @@ export async function processClipPayload(
         message: createClipProgressMessage('supportProgressSavingDownloads')
       });
       const downloads = getDownloadsService();
-      const downloadIds: Array<number | string> = [];
-      if (routed.prepared.attachments.length > 0) {
-        await completeStage('write_attachments', async () => {
-          for (const attachment of routed.prepared.attachments) {
-            const blob = serializedAttachmentContentToBlob(attachment.content, attachment.mimeType);
-            const attachmentId = await downloads.download({
-              filename: attachment.outputPath,
-              blob,
-              mimeType: attachment.mimeType
-            });
-            if (attachmentId !== undefined) downloadIds.push(attachmentId);
-          }
-        });
-      }
-      const downloadId = await completeStage('write_markdown', () =>
-        downloads.download({
-          filename: routed.filePath,
-          content: routed.prepared.markdown,
-          mimeType: 'text/markdown;charset=utf-8'
-        })
-      );
-
-      if (downloadId !== undefined) downloadIds.push(downloadId);
+      const downloaded = await downloadPreparedClip({
+        downloads,
+        filePath: routed.filePath,
+        sourceMarkdown: payload.markdown,
+        prepared: routed.prepared,
+        completeStage
+      });
       await recordLearningExport({
         receipt: {
           operationId,
           ...(payload.meta?.url ? { sourceUrl: payload.meta.url } : {}),
-          filePath: routed.filePath,
+          filePath: downloaded.filePath,
           destination: 'downloads',
           savedAt: Date.now(),
-          ...(downloadId !== undefined ? { downloadId } : {})
+          downloadId: downloaded.downloadId
         },
         courses: learningCoursesForExport(payload, routed.prepared.attachments.length),
-        downloadIds:
-          downloadIds.length === routed.prepared.attachments.length + 1 ? downloadIds : []
+        downloadIds: downloaded.downloadIds
       });
 
       hooks.onProgress?.({
@@ -265,7 +249,7 @@ export async function processClipPayload(
       });
 
       const result: ClipProcessingResult = {
-        filePath: routed.filePath,
+        filePath: downloaded.filePath,
         restVault: '',
         destination: 'downloads',
         storageTarget: 'downloads',

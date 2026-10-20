@@ -470,6 +470,7 @@
     "practiceStart": "開始上手練習",
     "practiceTitle": "跟著操作，存下你的第一篇筆記",
     "practiceVault": "目前選擇的儲存庫是「{name}」，筆記會寫入這個儲存庫。",
+    "practiceVaultDownload": "Markdown 已下載。要完成存入倉庫的練習，請在剪藏面板中選擇你的倉庫，再次儲存。",
     "practiceVideoFinish": "你已經試過時間戳記跳轉和截圖開關。讓第一個圓點保持實心，再完成匯出，查看筆記中的兩個時間戳記和選中的截圖。",
     "practiceVideoFrames": "選擇示範時刻",
     "practiceVideoIntro": "這段短影片會隨時鐘變化切換顏色。先開始影片模式，記錄兩個時刻，再練習時間戳記跳轉和選擇保留截圖。",

@@ -149,7 +149,7 @@ function createPreviewRestClient(): RestClient {
 function createPreviewDownloadsService(): DownloadsService {
   return {
     download() {
-      return Promise.resolve(undefined);
+      return Promise.resolve({ state: 'simulated' });
     }
   };
 }

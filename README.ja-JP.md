@@ -10,20 +10,18 @@
 
 | ブラウザ        | ストア                                                                                                                             | 公開状況          |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| Google Chrome   | [Chrome ウェブストアからインストール](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)                   | v0.3.1 を公開中。 |
-| Mozilla Firefox | [Firefox Add-ons からインストール](https://addons.mozilla.org/firefox/addon/zendio/)                                               | v0.3.1 を公開中。 |
-| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | v0.3.1 を公開中。 |
+| Google Chrome   | [Chrome ウェブストアからインストール](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)                   | v0.3.3 を公開中。 |
+| Mozilla Firefox | [Firefox Add-ons からインストール](https://addons.mozilla.org/firefox/addon/zendio/)                                               | v0.3.3 を公開中。 |
+| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | ストアで確認。    |
 
-公開状況は **2026 年 9 月 13 日**に確認しました。審査はストアごとに行われるため、提供されるバージョンは現在のソースバージョン **v0.3.2** と異なる場合があります。
+公開状況は **2026 年 10 月 11 日**に確認しました。Chrome と Firefox では **v0.3.3** を利用できます。Edge の現在のバージョンはストアで確認してください。審査はストアごとに行われます。現在のソースバージョンは **v0.3.3** です。
 
-## v0.3.2 の変更点
+## v0.3.3 の変更点
 
-- 読書モード開始時に、選択テキスト、件数、ページのハイライトをすばやく同期して表示します。
-- 初期化中に読書モードをキャンセルすると、ハイライトが残ったり再表示されたりする問題を修正しました。
-- クリップ・読書・動画パネルの「保管庫を設定」から、設定画面の保管庫設定へ直接移動できるようにしました。
-- 読書・動画モードの初回利用時に、パネルの幅と高さの調整方法と、アイコンから設定を開く方法を案内します。
-- 保存先を1行で表示し、長いパスや名前は省略します。マウスを重ねると全文を確認できます。
-- 匿名使用統計を有効にしても送信されない問題を修正しました。既存のプライバシー設定は維持します。
+- テキスト選択、Markdown 保存、読書の引用位置や動画タイムスタンプへの移動を実践できるチュートリアルを追加しました。
+- 設定ガイドは基本 4 ステップと任意の 20 トピックに対応し、練習に戻って確認できます。
+- ローカルフォルダーや Obsidian Local REST API の接続と、ブラウザーごとの制約を案内します。
+- 自分の AI チャットで生成した設定を、変更内容のプレビュー後に適用して取り消せます。フォルダー権限、キー、接続テストは手動で行います。
 
 ## 概要
 
@@ -106,14 +104,14 @@
    - **ダウンロード**：Obsidian や Vault に接続せず Markdown を保存できます。
 3. **好みに合わせて設定**：言語とテーマを選び、必要に応じて Vault ルーティング、保存パス、YAML フィールド、添付画像、モデルプロバイダーを設定します。任意の利用統計とエラー診断のスイッチも確認してください。
 
-手動インストールには、公開済みの [GitHub Release](https://github.com/Lefeaker/zendio/releases) に添付されたブラウザ別パッケージを使用してください。Chrome / Edge の ZIP は解凍し、`chrome://extensions` または `edge://extensions` でデベロッパーモードを有効にしてフォルダを読み込みます。Firefox には署名済み XPI が必要です。通常はストアからのインストールを推奨します。GitHub が自動生成する **Source code** アーカイブは、そのまま拡張機能としてインストールできません。
+現在、公開 GitHub Release には v0.3.3 のブラウザー別パッケージが添付されていません。上記ストアからインストールしてください。検証済みパッケージが公開された場合、Chrome / Edge の ZIP は解凍し、`chrome://extensions` または `edge://extensions` でデベロッパーモードを有効にしてフォルダーを読み込みます。Firefox には署名済み XPI が必要です。GitHub が自動生成する **Source code** アーカイブは、そのまま拡張機能としてインストールできません。
 
 ソースからのビルドは、[エンジニアリングガイド](docs/engineering-entrypoints.md)の固定環境とコマンドに従ってください。[Edge のビルド手順](docs/engineering-entrypoints.md#microsoft-edge-distribution)も同じガイドにあります。
 
 ## 開発ベースライン
 
-- Node.js: `.nvmrc` は `20.20.2`、package engines は `>=20.19 <21`。
-- npm: 検証済みバージョンは `10.8.2`、package engines は `>=10 <11`。
+- Node.js: `.nvmrc` は `24.21.0`、package engines は `>=24.21 <25`。
+- npm: 検証済みバージョンは `11.19.0`、package engines は `>=11.19 <12`。
 - `npm run test*` と `npm run visual*` は先に `verify:runtime` を実行します。
 - よく使うローカルゲート:
   - `npm run quality`

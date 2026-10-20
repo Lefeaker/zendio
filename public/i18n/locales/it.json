@@ -470,6 +470,7 @@
     "practiceStart": "Inizia la pratica guidata",
     "practiceTitle": "Salva la tua prima nota passo dopo passo",
     "practiceVault": "Il vault selezionato è «{name}». La nota sarà salvata in questo vault.",
+    "practiceVaultDownload": "Il file Markdown è stato scaricato. Per completare questa esercitazione, scegli il tuo vault nel pannello di acquisizione e salva di nuovo.",
     "practiceVideoFinish": "Hai provato i salti e la scelta delle immagini. Lascia il primo punto pieno ed esporta. Controlla i due timestamp e l’immagine scelta nella nota.",
     "practiceVideoFrames": "Scegli un momento di prova",
     "practiceVideoIntro": "Questo breve video cambia colore insieme all’orologio. Avvia la modalità video, registra due momenti e prova i salti temporali e la scelta delle schermate.",

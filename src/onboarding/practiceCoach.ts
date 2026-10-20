@@ -57,6 +57,8 @@ export async function mountPracticeCoach(args: {
   const { view, messages: m, options, storage } = args;
   let config = (await options.get()).fragmentClipper;
   let receipt: LearningReceipt | undefined;
+  let previousReceipt: LearningReceipt | undefined;
+  let captureDialog: ShadowRoot | null = null;
   let failed = false;
   let saving = false;
   let disposed = false;
@@ -92,6 +94,9 @@ export async function mountPracticeCoach(args: {
         ? event.target.closest<HTMLElement>('[data-action-id]')
         : null;
     if (['clip', 'reader:finish', 'video:finish'].includes(target?.dataset.actionId ?? '')) {
+      previousReceipt = receipt ?? previousReceipt;
+      receipt = undefined;
+      failed = false;
       saving = true;
       schedule();
     }
@@ -120,11 +125,18 @@ export async function mountPracticeCoach(args: {
       }
     }
     const clipper = panel('obsidian-clipper-dialog');
+    if (clipper && clipper !== captureDialog) {
+      previousReceipt = receipt ?? previousReceipt;
+      receipt = undefined;
+      failed = false;
+    }
+    captureDialog = clipper;
     const reader = panel('aiob-reader-panel');
     const video = panel('aiob-video-panel');
     const support = panel('aiob-support-prompt');
     const close = support?.querySelector<HTMLElement>('[data-action-id="resource:close"]');
     const supportFailed = Boolean(support?.querySelector('.task-progress-track.is-failure'));
+    if (supportFailed) failed = true;
     const disabled = config.selectionTriggerMode === 'disabled';
     let hint: PracticeHint | undefined;
     let milestones: string[] = [];
@@ -169,13 +181,16 @@ export async function mountPracticeCoach(args: {
       (receipt.course === 'reader' || receipt.course === 'video' || (!reader && !video))
     ) {
       saving = false;
-      view.update({ title: m.practiceSaved, text: m.practiceResult, phase: 'saved', receipt });
+      const needsVault = view.lesson === 'vault' && receipt.destination !== 'vault';
+      const title = needsVault ? m.learningDownloadSaved : m.practiceSaved;
+      const text = needsVault ? m.practiceVaultDownload : m.practiceResult;
+      view.update({ title, text, phase: needsVault ? 'ready' : 'saved', receipt });
       if (support && close) {
         container = support;
         hint = {
           target: close,
-          title: m.practiceSaved,
-          body: m.practiceCloseResult,
+          title,
+          body: needsVault ? text : m.practiceCloseResult,
           side: 'left'
         };
       }
@@ -230,7 +245,11 @@ export async function mountPracticeCoach(args: {
     overlay.render(hint, container);
     view.setOverlayActive(container instanceof ShadowRoot);
     if (clipper) milestones = ['selected'];
-    else if (receipt && !reader && !video) milestones = ['selected', 'saved'];
+    else if (receipt && !reader && !video)
+      milestones =
+        view.lesson === 'vault' && receipt.destination !== 'vault'
+          ? ['selected']
+          : ['selected', 'saved'];
     overlay.celebrate(milestones, hint?.target ?? view.status);
   }
   const readProgress = async () => {
@@ -240,9 +259,17 @@ export async function mountPracticeCoach(args: {
         (await storage.get(LEARNING_PROGRESS_KEY)) ?? emptyLearningProgress()
       );
       if (disposed || current !== generation) return;
-      if (state.latest && matchesPracticeSource(state.latest.sourceUrl, location.href))
+      if (
+        state.latest &&
+        matchesPracticeSource(state.latest.sourceUrl, location.href) &&
+        (state.latest.operationId !== previousReceipt?.operationId ||
+          state.latest.savedAt !== previousReceipt?.savedAt)
+      ) {
         receipt = state.latest;
-      failed = state.pending.some(
+        saving = false;
+        failed = false;
+      }
+      failed ||= state.pending.some(
         (item) => item.failed && matchesPracticeSource(item.receipt.sourceUrl, location.href)
       );
       schedule();

@@ -383,7 +383,7 @@ describe('mountProductionStitchShell resource i18n', () => {
     findButton('Onboarding Title Sentinel').click();
 
     expect(openSpy).toHaveBeenCalledWith(
-      '../onboarding/index.html',
+      '../onboarding/index.html?source=options',
       '_blank',
       'noopener,noreferrer'
     );

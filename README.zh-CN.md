@@ -8,22 +8,20 @@
 
 [产品网站](https://zendio.sxnian.com/) · [GitHub Releases](https://github.com/Lefeaker/zendio/releases) · [反馈问题](https://github.com/Lefeaker/zendio/issues)
 
-| 浏览器          | 商店入口                                                                                                                           | 上架状态        |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------------- |
-| Google Chrome   | [从 Chrome 应用商店安装](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)                                | v0.3.1 已上架。 |
-| Mozilla Firefox | [从 Firefox 附加组件商店安装](https://addons.mozilla.org/firefox/addon/zendio/)                                                    | v0.3.1 已上架。 |
-| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | v0.3.1 已上架。 |
+| 浏览器          | 商店入口                                                                                                                           | 上架状态         |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| Google Chrome   | [从 Chrome 应用商店安装](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)                                | v0.3.3 已上架。  |
+| Mozilla Firefox | [从 Firefox 附加组件商店安装](https://addons.mozilla.org/firefox/addon/zendio/)                                                    | v0.3.3 已上架。  |
+| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | 以商店页面为准。 |
 
-商店状态核对于 **2026 年 9 月 13 日**。各商店独立审核，实际提供的版本可能与当前源码版本 **v0.3.2** 不同。
+商店状态核对于 **2026 年 10 月 11 日**：Chrome 与 Firefox 已公开 **v0.3.3**。Edge 当前版本请以商店页面为准，各商店独立审核。当前源码版本为 **v0.3.3**。
 
-## v0.3.2 更新
+## v0.3.3 更新
 
-- 优化阅读模式启动，选中文字、计数与页面高亮及时同步显示。
-- 修复初始化期间取消阅读模式后，高亮残留或重新出现的问题。
-- 修复剪藏、阅读和视频面板的“配置仓库”跳转，直接定位设置页的仓库配置。
-- 首次进入阅读或视频模式时，提示如何调整面板宽高，以及点击图标打开设置。
-- 保存目标保持单行，长路径或名称自动省略，悬停可查看完整内容。
-- 修复开启匿名使用统计后仍无法上报的问题，保留原有隐私选择。
+- 新增实操教程，练习选中文字、保存 Markdown、定位阅读摘抄和跳转视频时间戳。
+- 设置导览提供 4 步基础入门和 20 个可选专题，可返回练习验证。
+- 引导连接本地仓库目录或 Obsidian Local REST API，并说明各浏览器的限制。
+- 新增 AI 辅助配置：在自己的 AI 对话中生成设置，预览修改后应用，支持撤销。目录授权、密钥和连接测试仍需手动完成。
 
 ## 简介
 
@@ -106,14 +104,14 @@
    - **下载**：无需连接 Obsidian 或配置仓库，即可保存 Markdown。
 3. **完成个性化设置**：选择语言和主题，再按需配置仓库路由、文件路径、YAML 字段、截图附件和模型提供方；检查可选的使用统计与错误诊断开关。
 
-手动安装时，请使用已公开的 [GitHub Release](https://github.com/Lefeaker/zendio/releases) 所附的对应浏览器安装包。Chrome / Edge 的 ZIP 需要先解压，再在 `chrome://extensions` 或 `edge://extensions` 开启开发者模式并加载该目录。Firefox 需要已签名的 XPI，推荐直接从商店安装。GitHub 自动生成的 **Source code** 源码压缩包不能直接作为扩展安装。
+目前公开的 GitHub Release 尚未提供 v0.3.3 浏览器安装包，请优先使用上方商店安装。如果之后提供经过核验的安装包，Chrome / Edge 的 ZIP 需要先解压，再在 `chrome://extensions` 或 `edge://extensions` 开启开发者模式并加载该目录。Firefox 需要已签名的 XPI。GitHub 自动生成的 **Source code** 源码压缩包不能直接作为扩展安装。
 
 从源码构建请遵循[工程指南](docs/engineering-entrypoints.md)中的固定环境与命令；[Edge 构建说明](docs/engineering-entrypoints.md#microsoft-edge-distribution)也在其中。
 
 ## 开发基线
 
-- Node.js：`.nvmrc` 固定为 `20.20.2`；package engines 允许 `>=20.19 <21`。
-- npm：当前验证版本为 `10.8.2`；package engines 允许 `>=10 <11`。
+- Node.js：`.nvmrc` 固定为 `24.21.0`；package engines 允许 `>=24.21 <25`。
+- npm：当前验证版本为 `11.19.0`；package engines 允许 `>=11.19 <12`。
 - `npm run test*` 与 `npm run visual*` 入口会先执行 `verify:runtime`。
 - 常用本地门禁：
   - `npm run quality`

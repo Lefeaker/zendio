@@ -49,6 +49,146 @@ async function expectUncoveredControls(
   }
 }
 
+test('vault practice connects through Options, writes a real note and survives reopening', async ({
+  browserName
+}, testInfo) => {
+  test.skip(browserName !== 'chromium', 'Installed Chromium extension test');
+  const profile = await mkdtemp(path.join(tmpdir(), 'zendio-first-vault-'));
+  const extensionPath = path.resolve(process.env.PLAYWRIGHT_DIST_DIR ?? 'build/dist');
+  const context = await chromium.launchPersistentContext(profile, {
+    headless: false,
+    args: [
+      '--headless=new',
+      '--disable-extensions-except=' + extensionPath,
+      '--load-extension=' + extensionPath
+    ]
+  });
+  try {
+    const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
+    const origin = 'chrome-extension://' + worker.url().split('/')[2];
+    await worker.evaluate(() => chrome.storage.sync.set({ language: 'en' }));
+    const guide = await context.newPage();
+    await guide.goto(origin + '/onboarding/index.html?source=options');
+    await guide.locator('#learningLibraryButton').click();
+    await guide.locator('[data-learning-course="vault"]').click();
+    await expect(guide.locator('#learningConfigure')).toBeVisible();
+    await expect(guide.locator('#learningStartPractice')).toBeVisible();
+    const settingsOpened = context.waitForEvent('page');
+    await guide.locator('#learningConfigure').click();
+    const settings = await settingsOpened;
+    // Only the native picker is replaced. The real folder handle, binding,
+    // form mutations, writer and persisted output remain in the production path.
+    await settings.evaluate(() => {
+      Object.defineProperty(window, 'showDirectoryPicker', {
+        configurable: true,
+        value: async () =>
+          (await navigator.storage.getDirectory()).getDirectoryHandle('First-vault-demo', {
+            create: true
+          })
+      });
+    });
+    const row = settings.locator('.storage-vault-table-scroll tbody tr').first();
+    await row.locator('.local-folder-trigger').click();
+    await expect(row.locator('.local-folder-trigger')).toContainText('First-vault-demo');
+    await row.locator('input[type="text"]').nth(1).fill('');
+    await row.locator('input[type="text"]').nth(2).fill('');
+    await row.locator('input[type="password"]').fill('');
+    await expect
+      .poll(() =>
+        worker.evaluate(async () => {
+          const { options } = await chrome.storage.sync.get<{ options?: CompleteOptions }>(
+            'options'
+          );
+          const vault = options?.vaultRouter?.vaults?.[0];
+          return Boolean(
+            vault && vault.httpsUrl === '' && vault.httpUrl === '' && vault.apiKey === ''
+          );
+        })
+      )
+      .toBe(true);
+    await settings.reload();
+    await expect(row.locator('.local-folder-trigger')).toContainText('First-vault-demo');
+    await settings.locator('[data-action-id="storage:testConnection"]').click();
+    await expect(settings.locator('[data-panel-id="storage"] .notice')).toHaveClass(/success/);
+    await settings.locator('#settingsTourNext').click();
+    const practiceOpened = context.waitForEvent('page');
+    await settings.locator('#settingsTourVerify').click();
+    const practice = await practiceOpened;
+    await expect(practice).toHaveURL(/lesson=vault/);
+    for (const language of ['zh-CN', 'de']) {
+      await worker.evaluate((value) => chrome.storage.sync.set({ language: value }), language);
+      await practice.setViewportSize({ width: 360, height: 800 });
+      await practice.reload();
+      await expect(practice.locator('html')).toHaveAttribute('lang', language);
+      await expect(practice.locator('[data-settings-guide="vault"]')).toBeVisible();
+      expect(
+        await practice.evaluate(() => document.documentElement.scrollWidth <= innerWidth)
+      ).toBe(true);
+      await practice.screenshot({
+        path: testInfo.outputPath('vault-setup-' + language + '.png'),
+        fullPage: true
+      });
+    }
+    await worker.evaluate(() => chrome.storage.sync.set({ language: 'en' }));
+    await practice.setViewportSize({ width: 1280, height: 720 });
+    await practice.reload();
+    for (const note of ['First vault note', 'After reopening']) {
+      if (note === 'After reopening') await practice.reload();
+      await selectPassage(practice, '#practiceFirst');
+      await practice.locator('.clipper-comment-textarea').fill(note);
+      if (note === 'After reopening') {
+        const mac = await practice.evaluate(() => navigator.platform.toLowerCase().includes('mac'));
+        await practice.locator('.clipper-comment-textarea').press(mac ? 'Meta+Enter' : 'Alt+Enter');
+      } else await practice.locator('[data-action-id="clip"]').click();
+      await expect(practice.locator('#practiceRoot')).toHaveAttribute(
+        'data-practice-phase',
+        'saved'
+      );
+      const overlay = practice.locator('#aiob-support-prompt .resource-modal-overlay');
+      await expect(overlay).toBeVisible();
+      await overlay.click({ position: { x: 4, y: 4 } });
+      await expect(overlay).toBeHidden();
+      await expect(practice.locator('#practiceRevealResult')).toBeVisible();
+      await expect(practice.locator('#practiceRevealResult')).toHaveText('Open in Obsidian');
+      const receipt = await worker.evaluate(async () => {
+        const state = await chrome.storage.local.get<{ 'learningProgress.v1': LearningProgress }>(
+          'learningProgress.v1'
+        );
+        const latest = state['learningProgress.v1'].latest;
+        if (!latest) throw new Error('Missing vault save receipt');
+        return latest;
+      });
+      expect(receipt.destination).toBe('vault');
+      const markdown = await practice.evaluate(async (filePath: string) => {
+        let directory = await (
+          await navigator.storage.getDirectory()
+        ).getDirectoryHandle('First-vault-demo');
+        const parts = filePath.split('/').filter(Boolean);
+        const name = parts.pop();
+        if (!name) throw new Error('Missing saved filename');
+        for (const part of parts) directory = await directory.getDirectoryHandle(part);
+        return (await (await directory.getFileHandle(name)).getFile()).text();
+      }, receipt.filePath);
+      expect(markdown).toContain(note);
+      expect(markdown).toContain('chrome-extension://');
+    }
+    await guide.reload();
+    await guide.locator('#learningLibraryButton').click();
+    await expect(guide.locator('[data-learning-course="vault"]')).toContainText('Completed');
+    await practice.setViewportSize({ width: 360, height: 800 });
+    expect(await practice.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true
+    );
+    await practice.screenshot({
+      path: testInfo.outputPath('first-vault-result-mobile.png'),
+      fullPage: true
+    });
+  } finally {
+    await context.close();
+    await rm(profile, { recursive: true, force: true });
+  }
+});
+
 test('bundled practice uses the real Shift selection dialog and reader', async ({
   browserName
 }, testInfo) => {
@@ -311,7 +451,7 @@ test('bundled practice uses the real Shift selection dialog and reader', async (
     await expect(practice.locator('.practice-confetti-bit')).toHaveCount(0);
     await practice.screenshot({ path: testInfo.outputPath('practice-popup-dark-zh.png') });
     await practice.locator('.practice-coach-exit').click();
-    await expect(practice).toHaveURL(/onboarding\/index.html$/);
+    await expect(practice).toHaveURL(/onboarding\/index.html\?source=options$/);
     await expect(practice.locator('#practiceCoach')).toHaveCount(0);
     expect((await readProgress())?.latest?.operationId).toBe(readerSaved.operationId);
   } finally {
@@ -811,7 +951,7 @@ test('settings topics stay in sync, remain readable in short windows and end wit
     await page.locator('#settingsTourNext').click();
     await expect(page.locator('#settingsTourTitle')).toHaveText('本项讲解结束');
     await expect(topics).toHaveValue('vault');
-    await expect(page.locator('#settingsTourVerify')).toHaveAttribute('href', /lesson=fragment/);
+    await expect(page.locator('#settingsTourVerify')).toHaveAttribute('href', /lesson=vault/);
     await expect(page.locator('.settings-tour-target')).toHaveCount(0);
     expect(await readOptions()).toEqual(initial);
     await topics.selectOption('__basics');
@@ -823,7 +963,7 @@ test('settings topics stay in sync, remain readable in short windows and end wit
     await expect(page.locator('#settingsTourVerify')).toBeVisible();
     await expect(page.locator('#settingsTourVerify')).toHaveAttribute(
       'href',
-      '../onboarding/index.html'
+      '../onboarding/index.html?source=options'
     );
     await topics.selectOption('reading');
     await page.locator('#settingsTourNext').click();
@@ -1051,7 +1191,9 @@ test('version upgrade invites all capture panels to tutorials and remembers dism
     const opened = context.waitForEvent('page');
     await german.locator('[data-role="learning-update-start"]').click();
     const tutorial = await opened;
-    await expect(tutorial).toHaveURL('chrome-extension://' + id + '/onboarding/index.html');
+    await expect(tutorial).toHaveURL(
+      'chrome-extension://' + id + '/onboarding/index.html?source=options'
+    );
     await expect(tutorial.locator('#learningStartPractice')).toBeVisible();
     await expect(german.locator('.learning-update-notice')).toBeHidden();
     await expect(german.locator('#obsidian-clipper-dialog')).toBeVisible();

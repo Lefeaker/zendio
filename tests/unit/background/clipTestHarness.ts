@@ -1,3 +1,6 @@
+import { createMemoryStorageArea } from '../../../src/platform/preview/memoryStorage';
+import { TOKENS } from '../../../src/shared/di/tokens';
+import type { DownloadsService } from '../../../src/platform/interfaces/downloads';
 import { expect, vi, type Mock } from 'vitest';
 import type { AppError } from '@shared/errors';
 import { ErrorSeverity } from '@shared/errors';
@@ -18,6 +21,7 @@ export type TrackUsageEventMock = (
 ) => Promise<void>;
 export type TrackUsageEventCall = Parameters<TrackUsageEventMock>;
 
+export const learningStorage = createMemoryStorageArea();
 export const getOptionsMock = vi.fn();
 export const selectVaultMock = vi.fn();
 export const classifyClipMock = vi.fn();
@@ -26,7 +30,11 @@ export const writeMarkdownMock = vi.fn();
 export const writeAttachmentMock = vi.fn();
 export const createWriteSessionMock = vi.fn();
 export const recordUsageMock = vi.fn();
-export const downloadMock = vi.fn();
+export const downloadMock = vi.fn<DownloadsService['download']>();
+export const inspectDownloadMock = vi.fn<NonNullable<DownloadsService['inspect']>>();
+export const onDownloadChangedMock = vi.fn<NonNullable<DownloadsService['onChanged']>>(
+  () => () => {}
+);
 export const trackUsageEventMock = vi.fn<TrackUsageEventMock>();
 export const trackActivationMilestoneIfNeededMock = vi.fn(() => Promise.resolve(undefined));
 export const notifySuccessMock = vi.fn();
@@ -38,8 +46,11 @@ export const suppressPromptMock = vi.fn();
 
 const getServiceMock = vi.hoisted(() =>
   vi.fn(() => ({
+    storage: { local: learningStorage },
     downloads: {
-      download: downloadMock
+      download: downloadMock,
+      inspect: inspectDownloadMock,
+      onChanged: onDownloadChangedMock
     }
   }))
 );
@@ -104,7 +115,8 @@ vi.mock('../../../src/background/services/analyticsEvents', () => ({
 }));
 
 vi.mock('../../../src/shared/di', () => ({
-  getService: getServiceMock
+  getService: getServiceMock,
+  TOKENS
 }));
 
 vi.mock('../../../src/background/services/notifications', () => ({
@@ -119,6 +131,7 @@ vi.mock('../../../src/background/services/localVaultPermissionPrompts', () => ({
 }));
 
 export function resetClipProcessorHarnessMocks(): void {
+  void learningStorage.clear();
   getOptionsMock.mockReset();
   selectVaultMock.mockReset();
   classifyClipMock.mockReset();
@@ -128,12 +141,24 @@ export function resetClipProcessorHarnessMocks(): void {
   createWriteSessionMock.mockReset();
   recordUsageMock.mockReset();
   downloadMock.mockReset();
+  inspectDownloadMock.mockReset();
+  inspectDownloadMock.mockImplementation(() =>
+    Promise.resolve({
+      state: 'complete',
+      filename: downloadMock.mock.lastCall?.[0]?.filename ?? 'note.md'
+    })
+  );
+  onDownloadChangedMock.mockReset();
+  onDownloadChangedMock.mockReturnValue(() => {});
   trackUsageEventMock.mockReset();
   trackActivationMilestoneIfNeededMock.mockReset();
   getServiceMock.mockReset();
   getServiceMock.mockReturnValue({
+    storage: { local: learningStorage },
     downloads: {
-      download: downloadMock
+      download: downloadMock,
+      inspect: inspectDownloadMock,
+      onChanged: onDownloadChangedMock
     }
   });
   createWriteSessionMock.mockResolvedValue({

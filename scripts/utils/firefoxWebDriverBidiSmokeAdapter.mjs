@@ -1,3 +1,4 @@
+import { runFirefoxSaveRetryScenario } from './firefoxWebDriverBidiSaveScenario.mjs';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
@@ -280,6 +281,7 @@ class BidiClient {
     this.deadline = deadline;
     this.nextId = 1;
     this.pending = new Map();
+    this.logEntries = [];
     this.socket.on('message', (payload) => this.onMessage(payload));
     this.socket.on('close', () => this.closePending('FIREFOX_SMOKE_BIDI_CLOSED'));
     this.socket.on('error', () => this.closePending('FIREFOX_SMOKE_BIDI_ERROR'));
@@ -312,6 +314,24 @@ class BidiClient {
       message = JSON.parse(Buffer.from(payload).toString('utf8'));
     } catch {
       this.closePending('FIREFOX_SMOKE_BIDI_PROTOCOL');
+      return;
+    }
+    if (message?.type === 'event' && message.method === 'log.entryAdded') {
+      const entry = message.params;
+      if (entry?.level === 'error' || entry?.level === 'warn') {
+        this.logEntries.push({
+          level: entry.level,
+          type: entry.type,
+          text: String(entry.text ?? '').slice(0, 2000),
+          callFrames: entry.stackTrace?.callFrames?.slice(0, 3).map((frame) => ({
+            url: String(frame.url ?? '').slice(0, 500),
+            functionName: String(frame.functionName ?? '').slice(0, 128),
+            lineNumber: frame.lineNumber,
+            columnNumber: frame.columnNumber
+          }))
+        });
+        if (this.logEntries.length > 16) this.logEntries.shift();
+      }
       return;
     }
     if (!Number.isSafeInteger(message?.id)) return;
@@ -511,6 +531,8 @@ export async function runVerifiedFirefoxXpiSmoke(options, dependencies = {}) {
     driverEnvironment,
     browserInput: initialBrowserInput
   } = options;
+  if (options.scenario !== undefined && options.scenario !== 'save-retry-v1')
+    fail('FIREFOX_SMOKE_SCENARIO');
   assertVerifiedFirefoxArtifactBinding(binding);
   if (binding.transportMode !== transportMode) fail('FIREFOX_SMOKE_TRANSPORT_MODE');
   if (
@@ -671,6 +693,19 @@ export async function runVerifiedFirefoxXpiSmoke(options, dependencies = {}) {
       closeObserver
     );
     if (typeof status?.ready !== 'boolean') fail('FIREFOX_SMOKE_SESSION_STATUS');
+    if (options.scenario === 'save-retry-v1') {
+      await runManagedOperation(
+        () =>
+          bidi.command(
+            'session.subscribe',
+            {
+              events: ['log.entryAdded']
+            },
+            FIREFOX_XPI_SMOKE_TIMEOUTS.sessionStatusMs
+          ),
+        closeObserver
+      );
+    }
     const first = await runManagedOperation(
       () =>
         bidi.command(
@@ -692,6 +727,42 @@ export async function runVerifiedFirefoxXpiSmoke(options, dependencies = {}) {
       sleepImpl,
       nowImpl
     });
+    let saveScenario;
+    if (options.scenario === 'save-retry-v1') {
+      const request = async (method, path, body) => {
+        const response = await runManagedOperation(
+          () =>
+            webdriverRequest(
+              fetchImpl,
+              deadline,
+              new URL(`session/${encodeURIComponent(sessionId)}/${path}`, driverUrl),
+              method,
+              body,
+              FIREFOX_XPI_SMOKE_TIMEOUTS.sessionStatusMs
+            ),
+          closeObserver
+        );
+        return response?.value;
+      };
+      await setFirefoxContext(fetchImpl, deadline, driverUrl, sessionId, 'chrome');
+      let extensionUrl;
+      try {
+        extensionUrl = await request('POST', 'execute/sync', {
+          script: 'return WebExtensionPolicy.getByID(arguments[0])?.getURL("/");',
+          args: [binding.geckoId]
+        });
+      } finally {
+        await setFirefoxContext(fetchImpl, deadline, driverUrl, sessionId, 'content');
+      }
+      if (typeof extensionUrl !== 'string' || !extensionUrl.startsWith('moz-extension://'))
+        fail('FIREFOX_SAVE_EXTENSION_URL');
+      saveScenario = await runFirefoxSaveRetryScenario({
+        request,
+        extensionUrl,
+        run: deadline.run,
+        sleep: sleepImpl
+      });
+    }
     await runManagedOperation(
       () =>
         bidi.command(
@@ -731,9 +802,13 @@ export async function runVerifiedFirefoxXpiSmoke(options, dependencies = {}) {
       bootstrapped: true,
       uninstalled: true,
       reinstalled: true,
-      rebootstrapped: true
+      rebootstrapped: true,
+      ...(saveScenario ? { saveScenario } : {})
     });
   } catch (error) {
+    if (options.scenario === 'save-retry-v1') {
+      console.error('[firefox-save] browser logs', JSON.stringify(bidi?.logEntries ?? []));
+    }
     if (closeObserver.hasClosed()) {
       const result = closeObserver.result();
       fail(

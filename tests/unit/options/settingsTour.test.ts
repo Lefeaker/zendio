@@ -87,7 +87,7 @@ describe('Options tour', () => {
     expect(new URL(location.href).searchParams.get('guide')).toBe('vault');
     expect(document.querySelector('.settings-tour-target')).toBeNull();
     expect(document.getElementById('settingsTourVerify')?.getAttribute('href')).toMatch(
-      /practice.html\?lesson=fragment&run=/
+      /practice.html\?lesson=vault&run=/
     );
     expect(root.querySelector('input')?.value).toBe('keep');
     tour?.dispose();
@@ -109,7 +109,7 @@ describe('Options tour', () => {
     }
     expect(document.getElementById('settingsTourVerify')?.hidden).toBe(false);
     expect(document.getElementById('settingsTourVerify')?.getAttribute('href')).toBe(
-      '../onboarding/index.html'
+      '../onboarding/index.html?source=options'
     );
     expect(tour?.navigateToPanel('output')).toBe(true);
     expect(select?.value).toBe('output');
@@ -127,7 +127,7 @@ describe('Options tour', () => {
     }
     document.getElementById('settingsTourNext')?.click();
     expect(document.getElementById('settingsTourVerify')?.getAttribute('href')).toBe(
-      '../onboarding/index.html'
+      '../onboarding/index.html?source=options'
     );
     tour?.dispose();
     expect(tour?.navigateToPanel('storage')).toBe(false);

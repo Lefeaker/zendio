@@ -258,14 +258,13 @@ export function registerRuntimeMessageListener(
       const parsedPayload = parseClipPayloadForBoundary(message.payload);
       if (!parsedPayload) {
         await safeNotifyExtraction(INVALID_CLIP_PAYLOAD_ERROR);
-        return;
+        return { success: false };
       }
-      await handleClipResult(
+      return handleClipResult(
         { ...message, payload: parsedPayload },
         sender.tabId,
         dependencies.clipPipeline
       );
-      return;
     }
 
     if (isOpenOptionsPageMessage(message)) {
