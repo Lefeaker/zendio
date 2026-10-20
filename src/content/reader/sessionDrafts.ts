@@ -1,3 +1,4 @@
+import { readSessionExportAttempt } from '../../shared/sessionDrafts/exportAttempt';
 import { z } from 'zod';
 import {
   createExportDestinationMetadata,
@@ -59,6 +60,7 @@ const ReaderDraftHighlightSchema = z.object({
 });
 
 const ReaderDraftPayloadSchema = z.object({
+  exportAttempt: z.unknown().optional(),
   mode: z.literal('reader'),
   url: z.string().url(),
   title: z.string(),
@@ -197,6 +199,9 @@ async function loadReaderDraftCandidate(
   const destinationSelection = parseExportDestinationMetadata(parsed.data.destination);
   const payload: ReaderSessionDraftPayloadV1 = {
     mode: 'reader',
+    ...(readSessionExportAttempt(parsed.data.exportAttempt)
+      ? { exportAttempt: readSessionExportAttempt(parsed.data.exportAttempt)! }
+      : {}),
     url: parsed.data.url,
     title: parsed.data.title,
     highlights: parsed.data.highlights,

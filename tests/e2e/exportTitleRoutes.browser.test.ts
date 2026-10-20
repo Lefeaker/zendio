@@ -184,7 +184,7 @@ platforms.forEach((platform) => {
   });
 });
 
-test('Reader keeps its real draft after REST failure and saves it on retry', async ({
+test('Reader keeps its real draft after an uncertain REST result and explicitly saves again', async ({
   context,
   extensionPage
 }, testInfo) => {
@@ -233,8 +233,12 @@ test('Reader keeps its real draft after REST failure and saves it on retry', asy
       .locator('#aiob-support-prompt .resource-modal-overlay')
       .click({ position: { x: 8, y: 8 } });
     await expect(page.locator('#aiob-support-prompt')).toHaveCount(0);
-    sink.setWriteStatus(200);
+    const attempts = sink.writeAttempts;
     await page.locator('[data-role="export-btn"]').click();
+    await expect(page.locator('[data-session-export-notice="reader"]')).toContainText('unknown');
+    expect(sink.writeAttempts).toBe(attempts);
+    sink.setWriteStatus(200);
+    await page.locator('[data-export-recovery="save-again"]').click();
     const markdown = await sink.read('Reading/reader-retry-boundary.md', true);
     expect(markdown).toContain(paragraph);
     await expect(highlight).toHaveCount(0);

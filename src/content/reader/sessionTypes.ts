@@ -32,6 +32,7 @@ import type {
 import type { SessionDraftLeaseOwnerRegistry } from '../sessionDrafts/sessionDraftLeaseOwnerRegistry';
 import type { RuntimeMessageSender } from '@platform/interfaces/runtime';
 import type { ReaderHighlightRecord } from './services/highlightManager';
+import type { SessionExportAttempt } from '../../shared/sessionDrafts/exportAttempt';
 
 export interface ReaderSessionDraftControllerOptions {
   doc: Document;
@@ -40,6 +41,7 @@ export interface ReaderSessionDraftControllerOptions {
   retentionPolicy?: SessionDraftStoragePolicy['retentionPolicy'];
   getPageTitle: () => string;
   getHighlights: () => ReaderHighlightRecord[];
+  getExportAttempt?: () => SessionExportAttempt | undefined;
   getCommentDrafts: () => SessionCommentDraftSnapshot;
   getDestinationMetadata: () => ExportDestinationMetadata | undefined;
   onPersistenceFailure: () => void;

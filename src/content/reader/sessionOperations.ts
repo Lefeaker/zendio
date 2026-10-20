@@ -1,3 +1,18 @@
+import {
+  createSessionExportAttempt,
+  sessionExportSnapshotId,
+  type SessionExportRecoveryAction
+} from '../../shared/sessionDrafts/exportAttempt';
+import {
+  ClipSaveError,
+  createClipSaveFailure,
+  preserveClipAttachmentProgress
+} from '../../shared/types/clipResult';
+import {
+  clearSessionExportNotice,
+  showSessionExportNotice
+} from '../shared/panels/sessionPanelRecovery';
+import { createReaderSessionDraftPayload } from './sessionDraftPayload';
 import { bucketCount } from '@shared/analytics/featureTimer';
 import type { ExportDestinationMetadata } from '@shared/exportDestination';
 import type { ClipPromptGateway } from '../clipper/application/clipPromptGateway';
@@ -34,7 +49,10 @@ interface ReaderSessionOperationContext {
   lifecycle: ReaderSessionLifecycle;
   dependencies: ReaderSessionDependencies;
   getExportDestinationMetadata?: () => ExportDestinationMetadata | undefined;
+  getExportTargetPreview?: () => { label: string; path: string } | undefined;
   persistDraftMutation?: () => Promise<void>;
+  persistExportAttempt?: () => Promise<void>;
+  resumeExport?: (action: SessionExportRecoveryAction) => void;
   disposeDraftPersistence?: () => Promise<void>;
   clearPersistedDraft?: () => Promise<void>;
   finalizeTerminalDraft?: (status: SessionDraftTerminalStatus) => Promise<boolean>;
@@ -278,6 +296,31 @@ export async function ingestExternalReaderHighlight(
   });
 }
 
+function readerExportSnapshotId(context: ReaderSessionOperationContext): string {
+  return sessionExportSnapshotId({
+    ...createReaderSessionDraftPayload({
+      highlights: context.state.highlights,
+      commentDrafts: context.panelCoordinator.snapshotCommentDrafts(),
+      retentionPolicy: { maxItemsPerPage: null }
+    }),
+    destination: context.getExportDestinationMetadata?.() ?? null,
+    title: context.doc.title,
+    url: context.url,
+    mode: context.state.readingConfig.exportMode
+  });
+}
+
+export function showReaderExportRecovery(context: ReaderSessionOperationContext): void {
+  showSessionExportNotice(
+    context.doc,
+    'reader',
+    'saveResultUnknown',
+    context.resumeExport,
+    context.state.exportAttempt,
+    Boolean(context.state.frozenExportPayload)
+  );
+}
+
 export async function finishReaderSession(
   context: ReaderSessionOperationContext,
   loadReadingConfig: () => Promise<
@@ -296,6 +339,46 @@ export async function finishReaderSession(
     return;
   }
 
+  const previousAttempt = context.state.exportAttempt;
+  const recoveryAction = context.state.exportRecoveryAction;
+  context.state.exportRecoveryAction = undefined;
+  if (previousAttempt && !context.state.exportDispatched) {
+    if (recoveryAction === 'continue') {
+      if (
+        !context.state.frozenExportPayload ||
+        !previousAttempt.attachmentProgress ||
+        previousAttempt.attachmentProgress.blocked ||
+        readerExportSnapshotId(context) !== previousAttempt.snapshotId
+      ) {
+        showSessionExportNotice(
+          context.doc,
+          'reader',
+          'saveContinuationUnavailable',
+          context.resumeExport,
+          previousAttempt
+        );
+        return;
+      }
+    } else if (recoveryAction === 'save-again') {
+      context.state.exportAttempt = undefined;
+      context.state.frozenExportPayload = undefined;
+    } else if (recoveryAction === 'confirm-saved' || previousAttempt.outcome === 'saved') {
+      if (readerExportSnapshotId(context) !== previousAttempt.snapshotId) {
+        context.state.exportAttempt = undefined;
+        context.state.frozenExportPayload = undefined;
+        await context.persistExportAttempt?.();
+        showSessionExportNotice(context.doc, 'reader', 'saveRecoveryChanged');
+        return;
+      }
+      context.state.exportDispatched = true;
+      context.state.frozenExportPayload = undefined;
+    } else {
+      showReaderExportRecovery(context);
+      return;
+    }
+  }
+  clearSessionExportNotice(context.doc, 'reader');
+  let writeRequested = false;
   context.state.exporting = true;
   context.panelCoordinator.applyHint('exporting', context.state.highlights.length);
   context.dependencies.showSupportProgress?.({
@@ -307,60 +390,95 @@ export async function finishReaderSession(
   });
 
   try {
-    const exportDestination = context.getExportDestinationMetadata?.();
+    let exportDestination = context.getExportDestinationMetadata?.();
     if (!context.state.exportDispatched) {
-      applyReadingConfig(await loadReadingConfig());
-      context.dependencies.showSupportProgress?.({
-        value: 24,
-        message: {
-          key: 'supportProgressReaderOrganizing',
-          fallback: 'Organizing highlights'
-        }
-      });
-      const highlights = context.dependencies.exporter.prepareHighlights(
-        context.state.highlights,
-        context.highlightManager
-      );
-      const pageTitle = context.doc.title || new URL(context.url).hostname;
-      const documentClone =
-        context.state.readingConfig.exportMode === 'full'
-          ? (context.doc.cloneNode(true) as Document)
+      let attempt = previousAttempt;
+      let payload = context.state.frozenExportPayload;
+      if (recoveryAction !== 'continue') {
+        applyReadingConfig(await loadReadingConfig());
+        exportDestination = context.getExportDestinationMetadata?.();
+        const targetPreview = context.getExportTargetPreview?.();
+        const exportTarget = targetPreview
+          ? { label: targetPreview.label, path: targetPreview.path }
           : undefined;
+        context.dependencies.showSupportProgress?.({
+          value: 24,
+          message: {
+            key: 'supportProgressReaderOrganizing',
+            fallback: 'Organizing highlights'
+          }
+        });
+        const highlights = context.dependencies.exporter.prepareHighlights(
+          context.state.highlights,
+          context.highlightManager
+        );
+        const snapshotId = readerExportSnapshotId(context);
+        const pageTitle = context.doc.title || new URL(context.url).hostname;
+        const documentClone =
+          context.state.readingConfig.exportMode === 'full'
+            ? (context.doc.cloneNode(true) as Document)
+            : undefined;
 
-      if (documentClone) {
-        context.dependencies.exporter.applyTokens(documentClone, highlights);
-      }
-
-      context.dependencies.showSupportProgress?.({
-        value: 32,
-        message: {
-          key: 'supportProgressReaderGenerating',
-          fallback: 'Generating reader note'
+        if (documentClone) {
+          context.dependencies.exporter.applyTokens(documentClone, highlights);
         }
-      });
-      const payload = await context.dependencies.exporter.buildMarkdown({
-        mode: context.state.readingConfig.exportMode,
-        pageTitle,
-        pageUrl: context.url,
-        highlights,
-        ...(documentClone !== undefined && { documentClone })
-      });
-      if (exportDestination) {
-        payload.meta = {
-          ...payload.meta,
-          exportDestination
-        };
-      }
 
-      context.dependencies.showSupportProgress?.({
-        value: 36,
-        message: {
-          key: 'supportProgressReaderSending',
-          fallback: 'Sending to Obsidian'
+        context.dependencies.showSupportProgress?.({
+          value: 32,
+          message: {
+            key: 'supportProgressReaderGenerating',
+            fallback: 'Generating reader note'
+          }
+        });
+        payload = await context.dependencies.exporter.buildMarkdown({
+          mode: context.state.readingConfig.exportMode,
+          pageTitle,
+          pageUrl: context.url,
+          highlights,
+          ...(documentClone !== undefined && { documentClone })
+        });
+        if (exportDestination) {
+          payload.meta = {
+            ...payload.meta,
+            exportDestination
+          };
         }
-      });
-      await context.dependencies.dispatchClipResult(payload);
+
+        context.dependencies.showSupportProgress?.({
+          value: 36,
+          message: {
+            key: 'supportProgressReaderSending',
+            fallback: 'Sending to Obsidian'
+          }
+        });
+        attempt = createSessionExportAttempt(snapshotId, exportTarget);
+        context.state.exportAttempt = attempt;
+        payload.meta = { ...payload.meta, operationId: attempt.operationId };
+        context.state.frozenExportPayload = payload;
+      }
+      if (!attempt || !payload) throw new Error('CLIP_EXPORT_SNAPSHOT_UNAVAILABLE');
+      await context.persistExportAttempt?.();
+      writeRequested = true;
+      await context.dependencies.dispatchClipResult(
+        recoveryAction === 'continue' && attempt.attachmentProgress
+          ? {
+              ...payload,
+              meta: { ...payload.meta, attachmentProgress: attempt.attachmentProgress }
+            }
+          : payload
+      );
+      if (readerExportSnapshotId(context) !== attempt.snapshotId) {
+        context.state.exportAttempt = undefined;
+        context.state.frozenExportPayload = undefined;
+        await context.persistExportAttempt?.();
+        showSessionExportNotice(context.doc, 'reader', 'saveRecoveryChanged');
+        context.state.exporting = false;
+        return;
+      }
       context.state.exportDispatched = true;
+      context.state.exportAttempt = { ...attempt, outcome: 'saved' };
+      await context.persistExportAttempt?.();
+      context.state.frozenExportPayload = undefined;
     }
     const terminalized = (await context.finalizeTerminalDraft?.('exported')) ?? true;
     if (!terminalized) {
@@ -381,6 +499,41 @@ export async function finishReaderSession(
     await context.disposeDraftPersistence?.();
   } catch (error) {
     console.error('[ReaderSession] Export failed:', error);
+    const failure = preserveClipAttachmentProgress(
+      error instanceof ClipSaveError
+        ? error.result
+        : createClipSaveFailure(
+            writeRequested ? 'unknown' : 'failed',
+            resolveReaderFailureCategory(error)
+          ),
+      recoveryAction === 'continue' ? previousAttempt?.attachmentProgress : undefined
+    );
+    if (failure.attachmentProgress && context.state.exportAttempt) {
+      context.state.exportAttempt = {
+        ...context.state.exportAttempt,
+        attachmentProgress: failure.attachmentProgress
+      };
+      if (failure.attachmentProgress.blocked) context.state.frozenExportPayload = undefined;
+      await context.persistExportAttempt?.().catch(() => undefined);
+    }
+    if (
+      !context.state.exportDispatched &&
+      failure.outcome === 'failed' &&
+      !failure.attachmentProgress
+    ) {
+      context.state.exportAttempt = undefined;
+      context.state.frozenExportPayload = undefined;
+      await context.persistExportAttempt?.().catch(() => undefined);
+    }
+    if (!context.state.exportDispatched)
+      showSessionExportNotice(
+        context.doc,
+        'reader',
+        failure.message.key,
+        failure.outcome === 'unknown' ? context.resumeExport : undefined,
+        context.state.exportAttempt,
+        Boolean(context.state.frozenExportPayload)
+      );
     void trackReaderUsageEvent(context, 'reader_export_failed', {
       destination: resolveReaderExportDestination(context.getExportDestinationMetadata?.()),
       failure_category: resolveReaderFailureCategory(error)
@@ -433,6 +586,9 @@ export function cleanupReaderSession(context: ReaderSessionOperationContext): vo
   clearReaderSession(context.session, context.doc);
   context.state.exporting = false;
   context.state.exportDispatched = false;
+  context.state.exportAttempt = undefined;
+  context.state.exportRecoveryAction = undefined;
+  context.state.frozenExportPayload = undefined;
   context.state.ending = false;
   context.state.saving = false;
   context.state.handlingSelection = false;

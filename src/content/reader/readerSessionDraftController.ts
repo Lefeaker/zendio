@@ -126,6 +126,9 @@ export class ReaderSessionDraftController {
       pageTitle: this.options.getPageTitle(),
       highlights: this.options.getHighlights(),
       commentDrafts: this.options.getCommentDrafts(),
+      ...(this.options.getExportAttempt?.()
+        ? { exportAttempt: this.options.getExportAttempt?.() }
+        : {}),
       status,
       ...(this.options.retentionPolicy ? { retentionPolicy: this.options.retentionPolicy } : {}),
       ...(destination ? { destination } : {})
@@ -145,6 +148,17 @@ export class ReaderSessionDraftController {
     }
 
     await this.persister.scheduleSave();
+  }
+
+  async persistExportAttempt(): Promise<void> {
+    const pending = this.persistMutation();
+    try {
+      await this.persister.flushNow();
+      await pending;
+    } catch (error) {
+      await pending.catch(() => undefined);
+      throw error;
+    }
   }
 
   queuePersistence(): void {

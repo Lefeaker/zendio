@@ -198,11 +198,9 @@ describe('Firefox exact-XPI smoke command wrapper', () => {
         'WEB_EXT_API_SECRET'
       );
       expect(process.env.WEB_EXT_API_SECRET).toBe('must-not-cross-smoke-boundary');
-      if (scenario)
-        expect(runVerifiedFirefoxXpiSmoke).toHaveBeenCalledWith(
-          expect.objectContaining({ scenario })
-        );
-      else expect(runVerifiedFirefoxXpiSmoke.mock.calls[0]?.[0]).not.toHaveProperty('scenario');
+      expect(runVerifiedFirefoxXpiSmoke).toHaveBeenCalledWith(
+        expect.objectContaining({ scenario: 'save-retry-v1' })
+      );
       expect(JSON.parse(await readFile(attempt.resultPath, 'utf8'))).toEqual(result);
       expect((await lstat(attempt.resultPath)).mode & 0o777).toBe(0o600);
     }
@@ -224,6 +222,39 @@ describe('Firefox exact-XPI smoke command wrapper', () => {
       ])
     ).rejects.toThrow('FIREFOX_SMOKE_ARGUMENT_CONTRACT');
   });
+
+  it.each([
+    'FIREFOX_SAVE_SCENARIO_TIMEOUT:CONTENT_RUNTIME',
+    'FIREFOX_SAVE_SCENARIO:RETRY_MARKDOWN'
+  ])(
+    'does not publish a successful smoke receipt when the default save check fails: %s',
+    async (failure) => {
+      const attempt = await createAttempt();
+      setAttemptEnvironment(attempt.root, attempt.browserRoot);
+      const runVerifiedFirefoxXpiSmoke = vi.fn().mockRejectedValue(new Error(failure));
+      await expect(
+        runFirefoxXpiSmoke(
+          [
+            '--manifest',
+            attempt.manifestPath,
+            '--transport-mode',
+            'local-private-v1',
+            '--result-json',
+            attempt.resultPath
+          ],
+          {
+            importPlaywrightImpl: () =>
+              Promise.resolve({ firefox: { executablePath: () => attempt.firefoxExecutable } }),
+            importAdapterImpl: () => Promise.resolve({ runVerifiedFirefoxXpiSmoke })
+          }
+        )
+      ).rejects.toThrow(failure);
+      expect(runVerifiedFirefoxXpiSmoke).toHaveBeenCalledWith(
+        expect.objectContaining({ scenario: 'save-retry-v1' })
+      );
+      await expect(lstat(attempt.resultPath)).rejects.toMatchObject({ code: 'ENOENT' });
+    }
+  );
 
   it('rejects a geckodriver that is not private and executable', async () => {
     const attempt = await createAttempt();

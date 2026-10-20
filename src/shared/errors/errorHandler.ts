@@ -1,5 +1,6 @@
 import { AppError, ErrorReporter, ErrorSeverity, HandleErrorOptions } from './types';
 import { toSerializableUserVisibleMessageDescriptor } from '../i18n/userVisibleMessageDescriptor';
+import { runBestEffortEffect } from './bestEffortEffect';
 
 type ErrorNotificationBridge = (error: AppError) => Promise<void> | void;
 
@@ -80,13 +81,10 @@ export class ErrorHandler {
       this.log(normalized);
     }
 
-    if (!options.suppressReporters) {
-      await this.dispatchToReporters(normalized);
-    }
-
-    if (!options.suppressNotifications) {
-      await this.dispatchToNotificationBridge(normalized);
-    }
+    await Promise.all([
+      options.suppressReporters ? undefined : this.dispatchToReporters(normalized),
+      options.suppressNotifications ? undefined : this.dispatchToNotificationBridge(normalized)
+    ]);
 
     if (options.rethrow) {
       this.rethrow(normalized);
@@ -96,19 +94,13 @@ export class ErrorHandler {
   private log(error: AppError): void {
     const method = SEVERITY_CONSOLE_METHOD[error.severity] ?? 'error';
     const prefix = `[${error.domain}] ${error.code}`;
-    const payload: Record<string, unknown> = {
+    const payload = {
       message: error.message,
-      recoverable: error.recoverable
+      recoverable: error.recoverable,
+      ...(error.context ? { context: error.context } : {}),
+      ...(error.cause ? { cause: error.cause } : {}),
+      ...(error.timestamp ? { timestamp: error.timestamp } : {})
     };
-    if (error.context) {
-      payload.context = error.context;
-    }
-    if (error.cause) {
-      payload.cause = error.cause;
-    }
-    if (error.timestamp) {
-      payload.timestamp = error.timestamp;
-    }
     // eslint-disable-next-line no-console
     console[method]('[ErrorHandler]', prefix, payload);
   }
@@ -118,14 +110,15 @@ export class ErrorHandler {
       return;
     }
     await Promise.all(
-      Array.from(this.reporters).map(async (reporter) => {
-        try {
-          await reporter.report(error);
-        } catch (reporterError) {
-          // eslint-disable-next-line no-console
-          console.warn('[ErrorHandler] Reporter failed', reporterError);
-        }
-      })
+      Array.from(this.reporters).map((reporter) =>
+        runBestEffortEffect(async () => {
+          try {
+            await reporter.report(error);
+          } catch (reporterError) {
+            console.warn('[ErrorHandler] Reporter failed', reporterError);
+          }
+        }, 'error.reporter')
+      )
     );
   }
 
@@ -133,12 +126,13 @@ export class ErrorHandler {
     if (!this.notificationBridge) {
       return;
     }
-    try {
-      await this.notificationBridge(error);
-    } catch (bridgeError) {
-      // eslint-disable-next-line no-console
-      console.warn('[ErrorHandler] Notification bridge failed', bridgeError);
-    }
+    await runBestEffortEffect(async () => {
+      try {
+        await this.notificationBridge?.(error);
+      } catch (bridgeError) {
+        console.warn('[ErrorHandler] Notification bridge failed', bridgeError);
+      }
+    }, 'error.notification');
   }
 
   private rethrow(error: AppError): never {

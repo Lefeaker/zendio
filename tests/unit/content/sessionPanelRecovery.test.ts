@@ -4,8 +4,13 @@ import { watchContentRuntimeConnection } from '../../../src/content/runtime/cont
 import {
   disposeSessionPanelRecovery,
   refreshSessionPanelRecovery,
-  setSessionPanelRecovery
+  setSessionPanelRecovery,
+  showSessionExportNotice
 } from '../../../src/content/shared/panels/sessionPanelRecovery';
+import * as contentI18n from '../../../src/content/i18n/context';
+import { createI18nResource } from '../../../src/i18n/resource';
+import type { Messages } from '../../../src/i18n';
+import { partialOf } from '../../utils/typeHelpers';
 
 function panel() {
   const host = document.createElement('div');
@@ -31,6 +36,47 @@ afterEach(() => {
 });
 
 describe('session panel recovery presentation', () => {
+  it('shows partial progress and a usable continue action with an older locale resource', () => {
+    const p = panel();
+    const body = document.createElement('div');
+    body.className = 'surface-window-body';
+    p.root.append(body);
+    const resource = vi.spyOn(contentI18n, 'getContentI18nResource').mockReturnValue(
+      createI18nResource({
+        language: 'en',
+        messages: partialOf<Messages>({ saveResultUnknown: 'Unknown result' }),
+        fallbackChain: []
+      })
+    );
+    const recover = vi.fn();
+    showSessionExportNotice(
+      document,
+      'reader',
+      'saveResultUnknown',
+      recover,
+      {
+        operationId: 'op_progress1',
+        snapshotId: 'a'.repeat(64),
+        outcome: 'unknown',
+        startedAt: 1,
+        attachmentProgress: {
+          operationId: 'op_progress1',
+          planId: 'b'.repeat(64),
+          storageTarget: 'downloads',
+          total: 2,
+          phase: 'attachments',
+          confirmed: [{ id: 'one', outputPath: 'one.jpg' }]
+        }
+      },
+      true
+    );
+    expect(body.textContent).toContain('Confirmed 1/2 attachments');
+    const button = body.querySelector<HTMLButtonElement>('[data-export-recovery="continue"]');
+    expect(button?.textContent).toContain('Checked, continue');
+    button?.click();
+    expect(recover).toHaveBeenCalledWith('continue');
+    resource.mockRestore();
+  });
   it('makes a disconnected panel readable and exposes a labelled reload action', () => {
     const p = panel();
     let valid = true;

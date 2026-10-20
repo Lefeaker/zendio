@@ -1,25 +1,95 @@
 import { createServer } from 'node:http';
+import { createHash } from 'node:crypto';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
-const PARAGRAPH =
-  'Firefox save evidence must survive a refused write and remain available for retry.';
+const ARTICLES = Object.freeze({
+  first: {
+    title: 'Firefox First Save',
+    paragraph: 'Firefox save evidence must survive a refused write and remain available for retry.'
+  },
+  second: {
+    title: 'Firefox Second Save',
+    paragraph:
+      'A fresh Firefox article must save its own distinct text after the first session ends.'
+  }
+});
 
 function fail(detail) {
   throw new Error(`FIREFOX_SAVE_SCENARIO:${detail}`);
 }
 
+/** Observe the actual active draft, never an index, receipt, or unrelated page. */
+export function findFirefoxReaderDraft(storage, pageUrl, paragraph, previous) {
+  const matches = Object.entries(storage ?? {}).filter(([key, record]) => {
+    if (!record || typeof record !== 'object') return false;
+    return (
+      record.schemaVersion === 2 &&
+      record.mode === 'reader' &&
+      record.status === 'active' &&
+      record.pageUrl === pageUrl &&
+      typeof record.pageKey === 'string' &&
+      typeof record.draftId === 'string' &&
+      record.draftId.length > 0 &&
+      key ===
+        `aiob.sessionDraft.v1.reader.${record.pageKey}.${encodeURIComponent(record.draftId)}` &&
+      Number.isInteger(record.revision) &&
+      record.revision >= 1 &&
+      Array.isArray(record.payload?.highlights) &&
+      record.payload.highlights.some((highlight) => highlight?.selectedText === paragraph)
+    );
+  });
+  if (matches.length !== 1) return undefined;
+  const [key, record] = matches[0];
+  if (
+    previous &&
+    (key !== previous.key ||
+      record.draftId !== previous.draftId ||
+      record.revision < previous.revision)
+  )
+    return undefined;
+  return {
+    key,
+    draftId: record.draftId,
+    revision: record.revision,
+    exportAttempt: record.payload.exportAttempt
+  };
+}
+
+export function waitForFirefoxSaveScenario(probe, label, { run, sleep }) {
+  const code = `FIREFOX_SAVE_SCENARIO_TIMEOUT:${label}`;
+  return run(
+    async () => {
+      // A short-circuiting probe may never make a WebDriver request. Keep its
+      // polling sleep under the same fence so a deadline cannot leave a live loop.
+      while (!(await probe())) await run(() => sleep(100), 30_000, code);
+    },
+    30_000,
+    code
+  );
+}
+
 /** Fixed DOM scenario, using the verified smoke owner's existing browser and deadline. */
-export async function runFirefoxSaveRetryScenario({ request, extensionUrl, run, sleep }) {
+export async function runFirefoxSaveRetryScenario({
+  request,
+  extensionUrl,
+  outputDirectory,
+  run,
+  sleep
+}) {
+  await mkdir(outputDirectory, { mode: 0o700 });
   let writeStatus = 500;
   let rejectedWrites = 0;
+  let acceptedWrites = 0;
   const files = new Map();
   const requests = [];
   const server = createServer((req, res) => {
     requests.push({ method: req.method, path: req.url });
     if (req.url?.startsWith('/article')) {
-      const title = req.url.includes('second') ? 'Firefox Second Save' : 'Firefox First Save';
+      const { title, paragraph } = req.url.includes('second') ? ARTICLES.second : ARTICLES.first;
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(
-        `<html><head><title>${title}</title></head><body><article><h1>${title}</h1><p id="selected">${PARAGRAPH}</p><p>${'Further research source text. '.repeat(50)}</p></article></body></html>`
+        `<html><head><title>${title}</title></head><body><article><h1>${title}</h1><p id="selected">${paragraph}</p><p>${'Further research source text. '.repeat(50)}</p></article></body></html>`
       );
       return;
     }
@@ -28,10 +98,21 @@ export async function runFirefoxSaveRetryScenario({ request, extensionUrl, run, 
     req.on('data', (chunk) => {
       body += chunk;
     });
-    req.on('end', () => {
+    req.on('end', async () => {
       if (req.method === 'PUT') {
         if (writeStatus >= 400) rejectedWrites += 1;
-        else files.set(decodeURIComponent(req.url ?? ''), body);
+        else {
+          acceptedWrites += 1;
+          const outputName = `save-${acceptedWrites}.md`;
+          try {
+            await writeFile(join(outputDirectory, outputName), body, { mode: 0o600, flag: 'wx' });
+            files.set(decodeURIComponent(req.url ?? ''), outputName);
+          } catch {
+            res.writeHead(500);
+            res.end('{}');
+            return;
+          }
+        }
       }
       res.writeHead(req.method === 'PUT' ? writeStatus : 200, {
         'Content-Type': 'application/json'
@@ -48,14 +129,7 @@ export async function runFirefoxSaveRetryScenario({ request, extensionUrl, run, 
   const endpoint = `http://127.0.0.1:${address.port}`;
   const execute = (script, args = []) => request('POST', 'execute/sync', { script, args });
   const executeAsync = (script, args = []) => request('POST', 'execute/async', { script, args });
-  const until = (probe, label) =>
-    run(
-      async () => {
-        while (!(await probe())) await sleep(100);
-      },
-      30_000,
-      `FIREFOX_SAVE_SCENARIO_TIMEOUT:${label}`
-    );
+  const until = (probe, label) => waitForFirefoxSaveScenario(probe, label, { run, sleep });
   const deepQuery = `function query(selector, root = document) {
     const direct = root.querySelector(selector); if (direct) return direct;
     for (const element of root.querySelectorAll('*')) {
@@ -70,11 +144,11 @@ export async function runFirefoxSaveRetryScenario({ request, extensionUrl, run, 
     );
     await execute(`${deepQuery}; query(arguments[0]).click();`, [selector]);
   };
-  const hasHighlight = () =>
+  const hasHighlight = (paragraph) =>
     execute(
       `${deepQuery}; return query('[data-role="highlight-item"]')?.textContent.includes(arguments[0]) ?? false;`,
       // The row renders an 80-character excerpt; storage and Markdown checks retain the full text.
-      [PARAGRAPH.slice(0, 60)]
+      [paragraph.slice(0, 60)]
     );
   const readStored = (key) =>
     executeAsync(
@@ -150,9 +224,21 @@ export async function runFirefoxSaveRetryScenario({ request, extensionUrl, run, 
         const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
         node.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0, clientX: 200, clientY: 130 }));`);
       await click('[data-action-id="reader"]');
-      await until(hasHighlight, 'READER_HIGHLIGHT');
+      await until(() => hasHighlight(ARTICLES[suffix].paragraph), 'READER_HIGHLIGHT');
     };
     await startReader('first');
+    await request('POST', 'window', { handle: optionsHandle });
+    const firstPageUrl = `${endpoint}/article-first`;
+    let initialDraft;
+    await until(async () => {
+      initialDraft = findFirefoxReaderDraft(
+        await readStored(null),
+        firstPageUrl,
+        ARTICLES.first.paragraph
+      );
+      return Boolean(initialDraft);
+    }, 'INITIAL_DURABLE_DRAFT');
+    await request('POST', 'window', { handle: article.handle });
     await click('[data-role="export-btn"]');
     await until(
       async () =>
@@ -160,36 +246,101 @@ export async function runFirefoxSaveRetryScenario({ request, extensionUrl, run, 
         (await execute(`${deepQuery}; return !query('[data-role="export-btn"]')?.disabled;`)),
       'REST_FAILURE'
     );
-    if (!(await hasHighlight()) || files.size !== 0) fail('FAILURE_DROPPED_CONTENT');
+    if (!(await hasHighlight(ARTICLES.first.paragraph)) || files.size !== 0)
+      fail('FAILURE_DROPPED_CONTENT');
     await request('POST', 'window', { handle: optionsHandle });
-    const storage = await readStored(null);
-    if (!JSON.stringify(storage).includes(PARAGRAPH)) fail('FAILURE_DROPPED_DRAFT');
+    const retainedDraft = findFirefoxReaderDraft(
+      await readStored(initialDraft.key),
+      firstPageUrl,
+      ARTICLES.first.paragraph,
+      initialDraft
+    );
+    if (!retainedDraft) fail('FAILURE_DROPPED_DRAFT');
+    const attempt = retainedDraft.exportAttempt;
+    if (
+      attempt?.outcome !== 'unknown' ||
+      !/^op_[a-z0-9]{6,24}$/u.test(attempt.operationId ?? '') ||
+      !/^[a-f0-9]{64}$/u.test(attempt.snapshotId ?? '') ||
+      !Number.isFinite(attempt.startedAt) ||
+      attempt.startedAt < 0
+    )
+      fail('FAILURE_DROPPED_UNKNOWN_ATTEMPT');
     await request('POST', 'window', { handle: article.handle });
     await until(
       () =>
         execute(
-          `${deepQuery}; return Boolean(query('#aiob-support-prompt')?.shadowRoot?.querySelector('.task-progress-track.is-failure'));`
+          `${deepQuery}; return Boolean(query('aside[data-session-export-notice="reader"]') && query('button[data-export-recovery="save-again"]'));`
         ),
-      'FAILURE_PROMPT'
+      'UNKNOWN_RECOVERY_NOTICE'
     );
+    // The support prompt is ancillary; business recovery must not depend on its delivery.
     await execute(
       `${deepQuery}; query('#aiob-support-prompt')?.shadowRoot?.querySelector('.resource-modal-overlay')?.click();`
     );
-    writeStatus = 200;
     await click('[data-role="export-btn"]');
-    await until(async () => files.size === 1 && !(await hasHighlight()), 'RETRY_COMPLETE');
-    if (![...files.values()][0]?.includes(PARAGRAPH)) fail('RETRY_MARKDOWN');
+    if (rejectedWrites !== 1 || acceptedWrites !== 0 || files.size !== 0)
+      fail('UNKNOWN_FINISH_RETRIED');
+    await request('POST', 'window', { handle: optionsHandle });
+    const afterFinish = findFirefoxReaderDraft(
+      await readStored(initialDraft.key),
+      firstPageUrl,
+      ARTICLES.first.paragraph,
+      retainedDraft
+    );
+    if (
+      afterFinish?.exportAttempt?.operationId !== attempt.operationId ||
+      afterFinish.exportAttempt.outcome !== 'unknown'
+    )
+      fail('UNKNOWN_FINISH_CHANGED_ATTEMPT');
+    console.log(
+      '[firefox-save] retained unknown draft',
+      JSON.stringify({
+        key: retainedDraft.key,
+        draftId: retainedDraft.draftId,
+        initialRevision: initialDraft.revision,
+        unknownRevision: retainedDraft.revision,
+        operationId: attempt.operationId,
+        snapshotId: attempt.snapshotId,
+        ordinaryFinishWrites: 0
+      })
+    );
+    await request('POST', 'window', { handle: article.handle });
+    writeStatus = 200;
+    await click('button[data-export-recovery="save-again"]');
+    await until(
+      async () => files.size === 1 && !(await hasHighlight(ARTICLES.first.paragraph)),
+      'RETRY_COMPLETE'
+    );
+    const firstMarkdown = await readFile(join(outputDirectory, 'save-1.md'), 'utf8');
+    if (!firstMarkdown.includes(ARTICLES.first.paragraph)) fail('RETRY_MARKDOWN');
     await startReader('second');
     await click('[data-role="export-btn"]');
-    await until(async () => files.size === 2 && !(await hasHighlight()), 'REOPEN_SAVE');
-    if (![...files.values()].every((value) => value.includes(PARAGRAPH))) fail('REOPEN_MARKDOWN');
+    await until(
+      async () => files.size === 2 && !(await hasHighlight(ARTICLES.second.paragraph)),
+      'REOPEN_SAVE'
+    );
+    const secondMarkdown = await readFile(join(outputDirectory, 'save-2.md'), 'utf8');
+    if (
+      !secondMarkdown.includes(ARTICLES.second.paragraph) ||
+      secondMarkdown.includes(ARTICLES.first.paragraph) ||
+      firstMarkdown.includes(ARTICLES.second.paragraph)
+    )
+      fail('REOPEN_MARKDOWN');
+    if (rejectedWrites !== 1 || acceptedWrites !== 2) fail('WRITE_COUNT');
     return Object.freeze({
       scenario: 'save-retry-v1',
+      destination: 'loopback-rest-fixture',
       rejectedWrites,
+      acceptedWrites,
       draftRetained: true,
       retrySaved: true,
       reopenedSaved: true,
-      savedFiles: files.size
+      savedFiles: files.size,
+      outputs: [firstMarkdown, secondMarkdown].map((markdown, index) => ({
+        file: `save-${index + 1}.md`,
+        bytes: Buffer.byteLength(markdown),
+        sha256: createHash('sha256').update(markdown).digest('hex')
+      }))
     });
   } finally {
     server.closeAllConnections();

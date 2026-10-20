@@ -214,7 +214,11 @@ describe.each(['chrome', 'firefox'])('%s application download completion owner',
     expect(notifySuccessMock).not.toHaveBeenCalled();
     expect(recordUsageMock).not.toHaveBeenCalled();
     native.complete(1);
-    await expect(pending).resolves.toEqual({ success: true, filePath: '/downloads/note (1).md' });
+    await expect(pending).resolves.toEqual({
+      success: true,
+      outcome: 'saved',
+      filePath: '/downloads/note (1).md'
+    });
     expect(native.revoke).toHaveBeenCalledExactlyOnceWith('blob:download-1');
   });
 
@@ -248,7 +252,14 @@ describe.each(['chrome', 'firefox'])('%s application download completion owner',
           undefined,
           { sendSupportPrompt: vi.fn().mockResolvedValue(undefined) }
         )
-      ).resolves.toEqual({ success: false });
+      ).resolves.toEqual({
+        success: false,
+        outcome: 'unknown',
+        code: 'CLIP_RESULT_UNKNOWN',
+        failureCategory: 'write',
+        stage: 'note',
+        message: { key: 'saveResultUnknown' }
+      });
       expect(notifySuccessMock).not.toHaveBeenCalled();
       expect(recordUsageMock).not.toHaveBeenCalled();
       expect(native.api.onChanged.addListener).not.toHaveBeenCalled();

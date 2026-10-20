@@ -58,7 +58,13 @@ export const chromeDownloadsService: DownloadsService = {
   async inspect(id) {
     const items = await chrome.downloads?.search({ id: Number(id) });
     const item = items?.[0];
-    return item ? { state: item.state, filename: item.filename } : undefined;
+    return item
+      ? {
+          state: item.state,
+          filename: item.filename,
+          ...(typeof item.exists === 'boolean' ? { exists: item.exists } : {})
+        }
+      : undefined;
   },
   onChanged(listener) {
     chrome.downloads?.onChanged.addListener(listener);

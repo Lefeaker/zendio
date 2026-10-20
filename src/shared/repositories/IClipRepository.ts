@@ -1,6 +1,8 @@
 import type { FragmentClipperOptions, TemplateOptions } from '../types/options';
 import type { ClipPayload } from '../types/clip';
 import type { FailureCategory } from '../types/analytics';
+import type { ClipSaveResult, ClipAttachmentProgress } from '../types/clipResult';
+import type { UserVisibleMessageDescriptor } from '../i18n/userVisibleMessageDescriptor';
 
 /**
  * Fragment 配置别名，便于在仓库接口中表达领域含义。
@@ -20,6 +22,10 @@ export interface ClipResult {
   filePath?: string;
   error?: string;
   failureCategory?: FailureCategory;
+  outcome?: ClipSaveResult['outcome'];
+  code?: string;
+  message?: UserVisibleMessageDescriptor;
+  attachmentProgress?: ClipAttachmentProgress;
 }
 
 /**

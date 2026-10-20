@@ -1,4 +1,5 @@
 import type { DownloadsService } from '../../platform/interfaces/downloads';
+import type { ClipAttachmentProgress } from '../../shared/types/clipResult';
 import { serializedAttachmentContentToBlob } from '../../shared/attachments/clipAttachmentBinary';
 import type {
   PreparedClipAttachments,
@@ -36,6 +37,7 @@ export async function downloadPreparedClip(input: {
   filePath: string;
   sourceMarkdown: string;
   prepared: PreparedClipAttachments;
+  attachmentProgress?: ClipAttachmentProgress;
   completeStage: <T>(stage: WriteStage, action: () => Promise<T>) => Promise<T>;
 }): Promise<{
   filePath: string;
@@ -45,9 +47,32 @@ export async function downloadPreparedClip(input: {
   const { downloads, prepared, completeStage } = input;
   const downloadIds: Array<number | string> = [];
   let markdown = input.sourceMarkdown;
+  const progress = input.attachmentProgress;
+  // Check every historically confirmed file before writing any remaining file.
+  for (const confirmed of progress?.confirmed ?? []) {
+    const download = confirmed.download;
+    const current = download ? await downloads.inspect?.(download.id) : undefined;
+    if (
+      !download ||
+      current?.state !== 'complete' ||
+      current.exists !== true ||
+      current.filename !== download.filename
+    ) {
+      if (progress) progress.blocked = true;
+      throw new Error('CLIP_CONFIRMED_ATTACHMENT_UNAVAILABLE');
+    }
+  }
   if (prepared.attachments.length) {
     await completeStage('write_attachments', async () => {
-      for (const attachment of prepared.attachments) {
+      for (const [index, attachment] of prepared.attachments.entries()) {
+        const confirmed = progress?.confirmed[index]?.download;
+        if (confirmed) {
+          downloadIds.push(confirmed.id);
+          markdown = markdown
+            .split(`aiob-attachment:${attachment.id}`)
+            .join(downloadedAttachmentUrl(attachment, confirmed.filename));
+          continue;
+        }
         const completed = await downloads.download({
           filename: attachment.outputPath,
           blob: serializedAttachmentContentToBlob(attachment.content, attachment.mimeType),
@@ -56,6 +81,11 @@ export async function downloadPreparedClip(input: {
         if (completed.state !== 'complete') {
           throw new Error('Download completion cannot be confirmed.');
         }
+        progress?.confirmed.push({
+          id: attachment.id,
+          outputPath: attachment.outputPath,
+          download: { id: completed.id, filename: completed.filename }
+        });
         downloadIds.push(completed.id);
         markdown = markdown
           .split(`aiob-attachment:${attachment.id}`)

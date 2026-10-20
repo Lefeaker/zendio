@@ -181,7 +181,8 @@ describe('canonical test suite descriptors', () => {
     expect(PLAYWRIGHT_CONFIG_PATHS).toEqual([
       'playwright.config.ts',
       'playwright.reader.config.ts',
-      configPath
+      configPath,
+      'tests/e2e/performance/playwright.config.ts'
     ]);
     expect(
       parsePlaywrightConfig(
@@ -205,6 +206,41 @@ describe('canonical test suite descriptors', () => {
       ],
       testIgnore: []
     });
+  });
+
+  it('resolves nested Playwright directories before checking collection and containment', () => {
+    const configPath = 'tests/e2e/performance/playwright.config.ts';
+    const target = 'tests/e2e/workload.browser.test.ts';
+    const sibling = 'tests/e2e/other.browser.test.ts';
+    for (const expression of ["'..'", "path.join(__dirname, '..')"]) {
+      const config = parsePlaywrightConfig(
+        `export default defineConfig({ testDir: ${expression}, testMatch: ['**/workload.browser.test.ts'] });`,
+        configPath
+      );
+      expect(config.testDir).toBe('tests/e2e');
+      const report = buildFixtureReport(
+        new Map(
+          [target, sibling].map((file) => [
+            file,
+            "import { test } from '@playwright/test'; test('works', async () => undefined);"
+          ])
+        ),
+        {
+          packageScripts: {
+            performance: `node scripts/run-playwright.mjs test --config=${configPath}`
+          },
+          playwrightConfigs: new Map([[configPath, config]])
+        }
+      );
+      expect(report.zeroOwner).toEqual([sibling]);
+      expect(report.owners.find((row) => row.file === target)?.owners).toHaveLength(1);
+      expect(report.invalidDescriptors).toEqual([]);
+    }
+    for (const testDir of ['../../../../', '/outside-repository']) {
+      expect(() =>
+        parsePlaywrightConfig(`export default defineConfig({ testDir: '${testDir}' });`, configPath)
+      ).toThrow('Repository path escapes the root');
+    }
   });
 
   it('returns fresh exact browser shard suites without process or logging access', async () => {
@@ -1522,6 +1558,7 @@ function buildFixtureReport(
     e2eShards?: TestShardDescriptor[];
     browserSuites?: Record<string, Array<{ id: string; args: string[] }>>;
     packageScripts?: Record<string, string>;
+    playwrightConfigs?: Map<string, PlaywrightCollectionConfig>;
   } = {}
 ): OwnershipReport {
   const emptyPlaywrightConfig: PlaywrightCollectionConfig = {
@@ -1543,7 +1580,8 @@ function buildFixtureReport(
         exclude: ['tests/e2e/**/*.browser.test.ts']
       }
     },
-    playwrightConfigs: new Map([['playwright.config.ts', emptyPlaywrightConfig]])
+    playwrightConfigs:
+      overrides.playwrightConfigs ?? new Map([['playwright.config.ts', emptyPlaywrightConfig]])
   });
 }
 

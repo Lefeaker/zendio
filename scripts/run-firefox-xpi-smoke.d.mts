@@ -1,4 +1,5 @@
 import type { FirefoxReleaseTransportMode } from './utils/firefoxReleaseArtifactManifest.mjs';
+import type { FirefoxSaveScenarioResult } from './utils/firefoxWebDriverBidiSaveScenario.mjs';
 
 export function createFirefoxSmokeEnvironment(options: {
   attemptRoot: string;
@@ -19,5 +20,6 @@ export function runFirefoxXpiSmoke(
     reinstalled: true;
     rebootstrapped: true;
     transportMode?: FirefoxReleaseTransportMode;
+    saveScenario: FirefoxSaveScenarioResult;
   }>
 >;

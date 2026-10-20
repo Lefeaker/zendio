@@ -13,6 +13,7 @@ import {
 } from '@content/reader/services/highlightManager';
 import {
   FREE_SESSION_DRAFT_MAX_ITEMS_PER_PAGE,
+  createSessionDraftStorageKey,
   normalizeSessionDraftStoredValue
 } from '@shared/sessionDrafts';
 import { createSessionDraftRepository } from '@content/sessionDrafts';
@@ -87,6 +88,44 @@ function createHighlightRecord(
 }
 
 describe('readerSessionDrafts', () => {
+  it.each<'unknown' | 'saved'>(['unknown', 'saved'])(
+    'loads the Reader content and %s marker despite corrupt optional progress',
+    async (outcome) => {
+      const storage = createDraftFixture();
+      const repository = createSessionDraftRepository(storage);
+      const marker = {
+        operationId: 'op_corrupt1',
+        snapshotId: 'a'.repeat(64),
+        outcome,
+        startedAt: 1
+      };
+      const envelope = buildReaderSessionDraftEnvelope({
+        draftId: 'reader-progress',
+        createdAt: Date.now(),
+        now: Date.now(),
+        pageUrl: 'https://example.com/article',
+        pageTitle: 'Preserved',
+        highlights: [createHighlightRecord({ comment: 'Keep this note' })],
+        commentDrafts: {},
+        status: 'restorable',
+        exportAttempt: marker
+      });
+      if (!envelope) throw new Error('Missing Reader envelope');
+      const saved = await repository.save(envelope);
+      const key = createSessionDraftStorageKey(saved);
+      await storage.set(key, {
+        ...saved,
+        payload: {
+          ...saved.payload,
+          exportAttempt: { ...marker, attachmentProgress: { total: 51 } }
+        }
+      });
+      const loaded = await loadLatestReaderSessionDraft(repository, 'https://example.com/article');
+      expect(loaded?.payload.exportAttempt).toEqual(marker);
+      expect(loaded?.payload.highlights[0]?.comment).toBe('Keep this note');
+      expect(loaded?.storageKey).toBe(key);
+    }
+  );
   afterEach(() => configureSessionDraftRuntimeMessenger(null));
 
   it('builds and loads a persisted reader draft with destination and comment drafts', async () => {

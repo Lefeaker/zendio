@@ -18,6 +18,24 @@ function createUrlConstructor(
 }
 
 describe('chrome downloads adapter', () => {
+  it.each([true, false])(
+    'exposes actual file existence %s for continuation checks',
+    async (exists) => {
+      vi.stubGlobal('chrome', {
+        downloads: {
+          search: vi
+            .fn()
+            .mockResolvedValue([{ state: 'complete', filename: '/downloads/one.jpg', exists }])
+        }
+      });
+      const { chromeDownloadsService } = await import('../../../../src/platform/chrome/downloads');
+      await expect(chromeDownloadsService.inspect?.(1)).resolves.toEqual({
+        state: 'complete',
+        filename: '/downloads/one.jpg',
+        exists
+      });
+    }
+  );
   beforeEach(() => {
     vi.resetModules();
     vi.useFakeTimers();

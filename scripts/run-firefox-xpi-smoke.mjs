@@ -131,7 +131,7 @@ export async function runFirefoxXpiSmoke(argv = process.argv.slice(2), dependenc
     transportMode,
     driverEnvironment,
     browserInput,
-    ...(args.has('--scenario') ? { scenario: args.get('--scenario') } : {})
+    scenario: 'save-retry-v1'
   });
   const bytes = Buffer.from(canonicalArtifactJson(result), 'utf8');
   if (bytes.length > 64 * 1024) fail('FIREFOX_SMOKE_RESULT_LIMIT');

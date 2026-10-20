@@ -80,15 +80,18 @@ describe('clipProcessor analytics', () => {
       })
     );
 
-    expect(trackUsageEventMock.mock.calls.map(([eventName]) => eventName)).toEqual([
-      'ai_chat_detected',
-      'background_stage_completed',
-      'background_stage_completed',
-      'background_stage_completed',
-      'background_stage_completed',
-      'clip_save_completed',
-      'ai_chat_exported'
-    ]);
+    await vi.waitFor(() => expect(trackUsageEventMock.mock.calls).toHaveLength(7));
+    expect(trackUsageEventMock.mock.calls.map(([eventName]) => eventName).sort()).toEqual(
+      [
+        'ai_chat_detected',
+        'background_stage_completed',
+        'background_stage_completed',
+        'background_stage_completed',
+        'background_stage_completed',
+        'clip_save_completed',
+        'ai_chat_exported'
+      ].sort()
+    );
 
     expectAnalyticsEvent(
       trackUsageEventMock.mock.calls[0],
@@ -146,7 +149,7 @@ describe('clipProcessor analytics', () => {
     );
 
     expectAnalyticsEvent(
-      trackUsageEventMock.mock.calls[5],
+      trackUsageEventMock.mock.calls.find(([name]) => name === 'clip_save_completed'),
       'clip_save_completed',
       {
         operation_id: 'op_abc123def',
@@ -158,7 +161,7 @@ describe('clipProcessor analytics', () => {
     );
     expect(trackActivationMilestoneIfNeededMock).toHaveBeenCalledWith('first_clip_saved');
     expectAnalyticsEvent(
-      trackUsageEventMock.mock.calls[6],
+      trackUsageEventMock.mock.calls.find(([name]) => name === 'ai_chat_exported'),
       'ai_chat_exported',
       {
         platform: 'other',
@@ -228,14 +231,17 @@ describe('clipProcessor analytics', () => {
 
     await expectDownloadedBlob(0, 'frame-1.jpg', 'image/jpeg', 'aaa');
 
-    expect(trackUsageEventMock.mock.calls.map(([eventName]) => eventName)).toEqual([
-      'background_stage_completed',
-      'background_stage_completed',
-      'background_stage_completed',
-      'background_stage_completed',
-      'background_stage_completed',
-      'clip_save_completed'
-    ]);
+    await vi.waitFor(() => expect(trackUsageEventMock.mock.calls).toHaveLength(6));
+    expect(trackUsageEventMock.mock.calls.map(([eventName]) => eventName).sort()).toEqual(
+      [
+        'background_stage_completed',
+        'background_stage_completed',
+        'background_stage_completed',
+        'background_stage_completed',
+        'background_stage_completed',
+        'clip_save_completed'
+      ].sort()
+    );
 
     const stageCalls = trackUsageEventMock.mock.calls.filter(
       ([eventName]) => eventName === 'background_stage_completed'
@@ -252,7 +258,7 @@ describe('clipProcessor analytics', () => {
       ['duration_bucket', 'operation_id', 'stage']
     );
     expectAnalyticsEvent(
-      trackUsageEventMock.mock.calls[5],
+      trackUsageEventMock.mock.calls.find(([name]) => name === 'clip_save_completed'),
       'clip_save_completed',
       {
         operation_id: 'op_download7',
@@ -323,14 +329,17 @@ describe('clipProcessor analytics', () => {
     );
 
     expect(writeAttachmentMock).toHaveBeenCalledTimes(1);
-    expect(trackUsageEventMock.mock.calls.map(([eventName]) => eventName)).toEqual([
-      'background_stage_completed',
-      'background_stage_completed',
-      'background_stage_completed',
-      'background_stage_completed',
-      'background_stage_completed',
-      'clip_save_completed'
-    ]);
+    await vi.waitFor(() => expect(trackUsageEventMock.mock.calls).toHaveLength(6));
+    expect(trackUsageEventMock.mock.calls.map(([eventName]) => eventName).sort()).toEqual(
+      [
+        'background_stage_completed',
+        'background_stage_completed',
+        'background_stage_completed',
+        'background_stage_completed',
+        'background_stage_completed',
+        'clip_save_completed'
+      ].sort()
+    );
 
     const stageCalls = trackUsageEventMock.mock.calls.filter(
       ([eventName]) => eventName === 'background_stage_completed'
@@ -347,7 +356,7 @@ describe('clipProcessor analytics', () => {
       ['duration_bucket', 'operation_id', 'stage']
     );
     expectAnalyticsEvent(
-      trackUsageEventMock.mock.calls[5],
+      trackUsageEventMock.mock.calls.find(([name]) => name === 'clip_save_completed'),
       'clip_save_completed',
       {
         operation_id: 'op_vault777',

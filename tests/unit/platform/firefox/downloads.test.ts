@@ -18,6 +18,25 @@ function createUrlConstructor(
 }
 
 describe('firefox downloads adapter', () => {
+  it.each([true, false])(
+    'exposes actual file existence %s for continuation checks',
+    async (exists) => {
+      vi.stubGlobal('browser', {
+        downloads: {
+          search: vi
+            .fn()
+            .mockResolvedValue([{ state: 'complete', filename: '/downloads/one.jpg', exists }])
+        }
+      });
+      const { firefoxDownloadsService } =
+        await import('../../../../src/platform/firefox/downloads');
+      await expect(firefoxDownloadsService.inspect?.(1)).resolves.toEqual({
+        state: 'complete',
+        filename: '/downloads/one.jpg',
+        exists
+      });
+    }
+  );
   beforeEach(() => {
     vi.resetModules();
     vi.useFakeTimers();

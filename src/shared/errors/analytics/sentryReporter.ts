@@ -106,6 +106,8 @@ export class SentryErrorReporter implements ErrorReporter {
       return;
     }
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2_000);
     try {
       const sanitized = sanitizeErrorForAnalytics(error);
       const event = this.buildEventPayload(sanitized);
@@ -116,7 +118,8 @@ export class SentryErrorReporter implements ErrorReporter {
         headers: {
           'Content-Type': 'text/plain;charset=UTF-8'
         },
-        body: envelope
+        body: envelope,
+        signal: controller.signal
       });
 
       if (!response.ok) {
@@ -124,6 +127,8 @@ export class SentryErrorReporter implements ErrorReporter {
       }
     } catch (reportingError) {
       console.warn('[Sentry Reporter] Failed to report error:', reportingError);
+    } finally {
+      clearTimeout(timeout);
     }
   }
 

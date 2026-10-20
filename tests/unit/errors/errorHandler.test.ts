@@ -16,6 +16,39 @@ describe('ErrorHandler', () => {
     errorHandler = createErrorHandler();
   });
 
+  it('does not hold notifications behind a stalled reporter and observes late rejection', async () => {
+    vi.useFakeTimers();
+    let reject!: (error: Error) => void;
+    const bridge = vi.fn().mockResolvedValue(undefined);
+    errorHandler.addReporter({
+      report: () =>
+        new Promise<void>((_resolve, fail) => {
+          reject = fail;
+        })
+    });
+    errorHandler.setNotificationBridge(bridge);
+    try {
+      const pending = errorHandler.handle(
+        {
+          code: 'TEST_ERROR',
+          domain: 'content',
+          message: 'test',
+          severity: ErrorSeverity.ERROR,
+          recoverable: true
+        },
+        { suppressConsole: true }
+      );
+      await vi.advanceTimersByTimeAsync(0);
+      expect(bridge).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(2_000);
+      await expect(pending).resolves.toBeUndefined();
+      reject(new Error('late reporter rejection'));
+      await vi.advanceTimersByTimeAsync(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('handles basic error', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 

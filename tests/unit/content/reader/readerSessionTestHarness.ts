@@ -111,6 +111,9 @@ export type ReaderSessionTestHarness = {
   draftCreatedAt: number | null;
   draftStorageKey: string | null;
   state: {
+    exportAttempt?: import('@shared/sessionDrafts/exportAttempt').SessionExportAttempt;
+    frozenExportPayload?: import('@shared/types/clip').ClipPayload;
+    exportRecoveryAction?: import('@shared/sessionDrafts/exportAttempt').SessionExportRecoveryAction;
     saving?: boolean;
   };
 };
@@ -407,7 +410,9 @@ export function createSessionContext(
     })),
     stop: vi.fn()
   };
-  const dispatchClipResult = vi.fn().mockResolvedValue(undefined);
+  const dispatchClipResult = vi
+    .fn<ReaderSessionDependencies['dispatchClipResult']>()
+    .mockResolvedValue(undefined);
   const showSupportProgress = vi.fn();
   const messaging = {
     send: vi.fn().mockResolvedValue(undefined)

@@ -194,13 +194,16 @@ async function postAnalyticsPayload(
   transportMode: ProxyBackedAnalyticsTransportMode,
   requestFetch: AnalyticsTransportFetch
 ): Promise<AnalyticsTransportResult> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2_000);
   try {
     const response = await requestFetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: controller.signal
     });
 
     const responseStatus = response.status || (response.ok ? 200 : 0);
@@ -227,6 +230,8 @@ async function postAnalyticsPayload(
       transportMode,
       error: error instanceof Error ? error.message : String(error)
     };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

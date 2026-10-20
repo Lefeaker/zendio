@@ -1538,13 +1538,21 @@ function assertFirefoxExecutionPreconditions(spec) {
       ? spec.env.CI === 'true'
         ? join(realpathSync(runnerTemp), `zendio-firefox-${runId}-${runAttempt}`)
         : spec.env.ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT
-      : context.firefoxExecutionClass === 'ordinary-ci'
+      : ['ordinary-ci', 'acceptance-ci'].includes(context.firefoxExecutionClass)
         ? join(realpathSync(runnerTemp), `zendio-ci-node-${runId}-${runAttempt}-${job}`)
         : context.firefoxExecutionClass === 'protected-verifier'
           ? join(realpathSync(runnerTemp), `zendio-firefox-submit-${runId}-${runAttempt}`)
           : null;
   if (expectedAttemptRoot !== context.attemptRoot)
     throw new Error('PLAYWRIGHT_PHASE_ATTEMPT_ROOT_INVALID');
+  if (
+    context.firefoxExecutionClass === 'acceptance-ci' &&
+    (spec.env.CI !== 'true' ||
+      spec.env.GITHUB_ACTIONS !== 'true' ||
+      spec.env.GITHUB_JOB !== 'browser-firefox' ||
+      spec.env.ZENDIO_JOB_CLASS !== 'browser-v1')
+  )
+    throw new Error('FIREFOX_ACCEPTANCE_CONTEXT_INVALID');
   releaseDirectoryIdentity(context.attemptRoot);
   releaseDirectoryIdentity(join(context.attemptRoot, 'install'));
   if (
@@ -1595,12 +1603,14 @@ function assertFirefoxExecutionPreconditions(spec) {
   }
   const expectedBrowserRoot = join(
     context.attemptRoot,
-    context.firefoxExecutionClass === 'release' ? 'playwright-browsers' : 'browsers'
+    ['release', 'acceptance-ci'].includes(context.firefoxExecutionClass)
+      ? 'playwright-browsers'
+      : 'browsers'
   );
   if (
     context.browsersPath !== expectedBrowserRoot ||
     spec.env.PLAYWRIGHT_BROWSERS_PATH !== context.browsersPath ||
-    (context.firefoxExecutionClass === 'release'
+    (['release', 'acceptance-ci'].includes(context.firefoxExecutionClass)
       ? spec.env.ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT !== context.attemptRoot
       : spec.env.ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT !== undefined)
   )
