@@ -16,7 +16,7 @@ Options 当前以 Stitch 为正式样式链路。验证重点不是继续维护 
 
 ```bash
 npm run report:options-legacy
-node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"
+node scripts/run-bounded-command.mjs --profile css-selector-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"
 npm run audit:options-mainline:report
 npm run audit:ui-architecture:report
 npm run build:dev
@@ -71,3 +71,9 @@ npm run visual:stitch
 - `src/options/bootstrap.ts`
 
 如果确需研究旧实现，应从 `docs/archive`、`reference-fixtures` 或 Git 历史追溯，不要在正式源码树中恢复兼容副本。
+
+## CSS selector dependency boundary
+
+`lint:css` uses the fixed `css-selector-v1` owner in `tools/check-css-selectors.mjs`. It parses CSS with PostCSS and class selectors with `postcss-selector-parser`, preserving the previous `^(?!aob-)[a-z0-9_-]+$` rule and interpolated nested-selector resolution. Options, onboarding and neutral UI CSS remain covered; the retired Options Tailwind file remains excluded. A missing selection, CSS syntax error, selector parse error or invalid decoded class name fails the command. The naming rule has no automatic fix, so the Options pre-commit hook runs the same check without rewriting CSS.
+
+Stylelint's glob dependencies were the only consumers of the unpatched `braces` chain. The replacement removes those packages rather than renaming or suppressing the advisory. `tests/fixtures/css-selector-gate.json` preserves the positive/negative corpus compared against Stylelint 16.26.1, including escapes, nesting, lists, pseudo classes, keyframes and malformed syntax. The maintained gate is for this repository's CSS naming policy; adding a new lint rule requires implementing and testing that rule explicitly.

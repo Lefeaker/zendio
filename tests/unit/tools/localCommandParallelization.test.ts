@@ -445,7 +445,7 @@ describe('local command parallelization contract', () => {
     expect(taskById.get('lint-css')).toEqual({
       id: 'lint-css',
       name: 'Options/onboarding/UI CSS 命名校验',
-      profile: 'stylelint-v1',
+      profile: 'css-selector-v1',
       args: ['src/options/**/*.css', 'src/onboarding/**/*.css', 'src/ui/**/*.css'],
       dependsOn: ['verify-runtime']
     });

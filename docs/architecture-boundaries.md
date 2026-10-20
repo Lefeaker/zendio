@@ -2,7 +2,7 @@
 
 日期：2026-08-28
 
-当前技术栈：TypeScript、esbuild、Vitest、Playwright、ESLint、Prettier、Stylelint、Zod、Stitch runtime CSS、WebExtension APIs。正式计划与规格文档归属外层 workspace `docs/codex-superpowers/*`。
+当前技术栈：TypeScript、esbuild、Vitest、Playwright、ESLint、Prettier、CSS selector gate、Zod、Stitch runtime CSS、WebExtension APIs。正式计划与规格文档归属外层 workspace `docs/codex-superpowers/*`。
 
 ## 1. Composition Root 与平台调用边界
 

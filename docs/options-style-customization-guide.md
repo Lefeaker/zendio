@@ -30,7 +30,7 @@ Options 页面当前只使用 Stitch 样式链路：
 ```bash
 npm run build:dev
 npm run audit:options-mainline:report
-node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"
+node scripts/run-bounded-command.mjs --profile css-selector-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"
 ```
 
 ### 2. 调整 Options Stitch 样式
@@ -73,7 +73,7 @@ npm run lint -- --quiet
 npm run build:dev
 npm run audit:options-mainline:report
 npm run report:options-legacy
-node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"
+node scripts/run-bounded-command.mjs --profile css-selector-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"
 ```
 
 涉及 Stitch 视觉或 preview 时追加：

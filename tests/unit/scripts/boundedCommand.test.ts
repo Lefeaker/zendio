@@ -91,7 +91,7 @@ const ATTEMPT_CONFIG_PROPAGATION_CASES: Array<[CommandBoundaryProfileId, string[
   ['npm-script-quick-v1', ['audit:ci-workflow:check']],
   ['npm-script-standard-v1', ['typecheck:strict']],
   ['prettier-v1', ['--check', 'tests/unit/scripts/boundedCommand.test.ts']],
-  ['stylelint-v1', ['src/options/**/*.css']],
+  ['css-selector-v1', ['src/options/**/*.css']],
   [
     'vitest-v1',
     ['run', '--config', 'vitest.unit.config.ts', 'tests/unit/scripts/boundedCommand.test.ts']
@@ -2201,7 +2201,7 @@ describe('bounded command ownership', () => {
 
   it('retains the local user-agent projection with exact CI=1 notifier suppression', () => {
     const environment = verifiedNpmLifecycleEnvironment({ extra: { CI: '1' } });
-    const spec = resolveCommandProfile('stylelint-v1', ['src/options/**/*.css'], {
+    const spec = resolveCommandProfile('css-selector-v1', ['src/options/**/*.css'], {
       environment
     });
 
@@ -2356,7 +2356,7 @@ describe('bounded command ownership', () => {
       const environment = verifiedNpmLifecycleEnvironment({ githubActions });
       mutate(environment);
       expect(() =>
-        resolveCommandProfile('stylelint-v1', ['src/options/**/*.css'], {
+        resolveCommandProfile('css-selector-v1', ['src/options/**/*.css'], {
           environment
         })
       ).toThrow('NPM_CONFIG_AUTHORITY_INVALID');
@@ -4682,12 +4682,11 @@ describe('bounded command ownership', () => {
     ).resolves.toMatchObject({ ok: true });
   });
 
-  it('binds the five governed package bins to the accepted lock identities', () => {
+  it('binds the four governed package bins to the accepted lock identities', () => {
     const environment = cleanEnvironment();
     const cases: Array<[CommandBoundaryProfileId, string[]]> = [
       ['vitest-v1', ['run']],
       ['prettier-v1', ['--check', 'package.json']],
-      ['stylelint-v1', ['--print-config', 'src/options/stitch/styles/runtime/responsive.css']],
       ['lint-staged-hook-v1', []],
       ['husky-provision-v1', []]
     ];

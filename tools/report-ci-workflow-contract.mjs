@@ -112,8 +112,8 @@ const G02_STATIC_PREFLIGHT_SUFFIX = Object.freeze({
   run: 'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:github-actions-supply-chain:check'
 });
 
-const G01_STYLELINT_RUN =
-  'node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"';
+const G01_CSS_SELECTOR_RUN =
+  'node scripts/run-bounded-command.mjs --profile css-selector-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"';
 
 const EXPECTED_RUNS = Object.freeze({
   'static-preflight': [
@@ -135,7 +135,7 @@ const EXPECTED_RUNS = Object.freeze({
   'static-style-and-locale': [
     'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:locales:report',
     'node scripts/run-bounded-command.mjs --profile npm-script-quick-v1 -- report:options-legacy',
-    G01_STYLELINT_RUN,
+    G01_CSS_SELECTOR_RUN,
     'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- lint:hardcoded',
     'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- lint:warnings-guard'
   ],
@@ -359,19 +359,19 @@ function staticG02GateContract(job) {
   }
 }
 
-function staticStylelintStepContract(job) {
+function staticCssSelectorStepContract(job) {
   const matches = job.steps.filter(
-    (step) => step.name === 'Lint Options CSS' || step.run === G01_STYLELINT_RUN
+    (step) => step.name === 'Lint Options CSS' || step.run === G01_CSS_SELECTOR_RUN
   );
-  if (matches.length !== 1) throw new Error('Static style Stylelint step is not unique');
+  if (matches.length !== 1) throw new Error('Static style CSS selector step is not unique');
   const [step] = matches;
   if (
     step.name !== 'Lint Options CSS' ||
-    step.run !== G01_STYLELINT_RUN ||
+    step.run !== G01_CSS_SELECTOR_RUN ||
     step.if !== undefined ||
     step.continueOnError !== undefined
   ) {
-    throw new Error('Static style Stylelint command changed or became masked');
+    throw new Error('Static style CSS selector command changed or became masked');
   }
 }
 
@@ -548,7 +548,7 @@ export function checkCiWorkflowContract({
         staticG01GateContract(job);
         staticG02GateContract(job);
       }
-      if (jobId === 'static-style-and-locale') staticStylelintStepContract(job);
+      if (jobId === 'static-style-and-locale') staticCssSelectorStepContract(job);
     });
   }
 
