@@ -390,6 +390,87 @@ describe('audit-i18n-uncatalogued-user-copy', () => {
     });
   });
 
+  it.each(['\n', '\r\n'])(
+    'preserves source coordinates and snippets with %j line endings',
+    async (newline) => {
+      const firstLine = `  label: 'Save this page now',`;
+      const secondLine = `  title: 'Choose another folder'`;
+      const result = await scanProject({
+        'src/content/prompt.ts': ['export const prompt = {', firstLine, '', secondLine, '};'].join(
+          newline
+        ),
+        'src/content/other.ts': `export const other = { label: 'Open the saved note' };${newline}`
+      });
+
+      expect(result.findings).toHaveLength(3);
+      expect(result.findings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            file: 'src/content/prompt.ts',
+            line: 2,
+            column: 10,
+            literal: 'Save this page now',
+            snippet: firstLine.trim()
+          }),
+          expect.objectContaining({
+            file: 'src/content/prompt.ts',
+            line: 4,
+            column: 10,
+            literal: 'Choose another folder',
+            snippet: secondLine.trim()
+          }),
+          expect.objectContaining({
+            file: 'src/content/other.ts',
+            line: 1,
+            column: 31,
+            literal: 'Open the saved note',
+            snippet: `export const other = { label: 'Open the saved note' };`
+          })
+        ])
+      );
+    }
+  );
+
+  it('reads fresh snippets and allowlist matches after the same file changes', async () => {
+    const file = 'src/content/prompt.ts';
+    const root = await createProject({
+      [file]: `export const prompt = { label: 'Save this page now' }; // retained-copy\n`
+    });
+    const { scanI18nUncataloguedUserCopy } = await loadAuditModule();
+    const options = {
+      root,
+      allowlist: {
+        rules: [
+          {
+            id: 'retained-copy',
+            path: file,
+            pattern: 'retained-copy',
+            category: 'retained-copy',
+            reason: 'Exercise snippet matching',
+            ownerPlan: 'test',
+            revisit: 'test fixture'
+          }
+        ]
+      }
+    };
+    const before = await scanI18nUncataloguedUserCopy(options);
+    expect(before.ok).toBe(true);
+    expect(before.findings[0]).toMatchObject({ line: 1, classification: 'allowlisted' });
+
+    const changedLine = `export const prompt = { label: 'Choose another folder' };`;
+    await writeFile(join(root, file), `\n${changedLine}\n`, 'utf8');
+    const after = await scanI18nUncataloguedUserCopy(options);
+    expect(after.ok).toBe(false);
+    expect(after.unexpectedFindings).toHaveLength(1);
+    expect(after.unexpectedFindings[0]).toMatchObject({
+      line: 2,
+      column: 32,
+      snippet: changedLine,
+      literal: 'Choose another folder'
+    });
+    expect(after.staleAllowlistEntries).toHaveLength(1);
+  });
+
   it('produces explainable current-tree output', async () => {
     await execFileAsync(
       'node',
