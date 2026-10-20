@@ -1,5 +1,27 @@
 # Chrome Web Store Listing
 
+## v0.3.4 Release Notes
+
+Hello to everyone who's new here.
+
+- Practice a real save when connecting your first vault and see the saved file path. Chromium browsers can use a bound local folder without a REST address or API key.
+- Reader and Video keep drafts when saving fails or the result is uncertain. After reopening, check the destination and choose a recovery action; continuing a partial save keeps attachments already confirmed.
+- Validate attachments before saving to prevent incomplete exports from missing or invalid data. Attachment examples in ordinary links, titles, reference definitions and code stay literal, while special filenames and browser renaming are handled correctly.
+- Destination previews match actual routing. Connection tests check the service and authentication, stop waiting at the deadline and discard old results after settings change.
+- Diagnostics hide secrets and private configuration. Explicitly exported full backups still retain all settings.
+- Fix Firefox page-feature startup and saving. Batch attachments use asynchronous validation and fewer duplicate download-completion checks.
+
+### 中文更新说明
+
+新来的朋友你们好啊。
+
+- 首次连接仓库时可完成一次真实保存练习，并查看保存结果与文件路径；Chromium 浏览器仅绑定本地目录即可使用，无需填写 REST 地址或密钥。
+- 阅读与视频保存失败或结果不确定时保留草稿，重新打开后可核对目标再选择恢复操作；部分保存失败后继续保存时保留已完成的附件。
+- 保存前统一检查附件，避免缺失或无效附件造成不完整导出；普通链接、标题、引用定义与代码中的附件示例保持原文，并正确处理特殊文件名和浏览器重命名。
+- 保存目标预览与实际路由保持一致；连接测试更准确地检查服务与认证，超时会结束等待，修改设置后的旧结果不再覆盖新状态。
+- 诊断信息隐藏密钥与私密配置；手动导出的完整备份仍保留全部设置。
+- 修复 Firefox 页面功能启动与保存问题；批量附件使用异步校验，并减少重复的下载完成检查。
+
 ## Basic Info
 
 - **Name**: Zendio

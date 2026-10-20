@@ -14,14 +14,18 @@
 | Mozilla Firefox | [Install from Firefox Add-ons](https://addons.mozilla.org/firefox/addon/zendio/)                                                   | v0.3.3 available.  |
 | Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | See store listing. |
 
-Store status checked on **October 11, 2026**. Chrome and Firefox offer **v0.3.3**. Check the Edge listing for its current version; each store reviews independently. The source version is **v0.3.3**.
+Store status checked on **October 11, 2026**. Chrome and Firefox offer **v0.3.3**. Check the Edge listing for its current version; each store reviews independently. The source version is **v0.3.4**. Store reviews run independently; v0.3.4 availability is determined by each listing.
 
-## What's New in v0.3.3
+## What's New in v0.3.4
 
-- Practice selecting text, saving Markdown, navigating reading excerpts and video timestamps with hands-on tutorials.
-- Explore four basic settings steps and 20 optional topics, with links back to practice.
-- Follow guidance for local folder access, Obsidian Local REST API and browser-specific vault limitations.
-- Generate settings in your own AI chat, preview the changes before applying them, and undo if needed. Folder access, secrets and connection tests remain manual.
+Hello to everyone who's new here.
+
+- Practice a real save when connecting your first vault and see the saved file path. Chromium browsers can use a bound local folder without a REST address or API key.
+- Reader and Video keep drafts when saving fails or the result is uncertain. After reopening, check the destination and choose a recovery action; continuing a partial save keeps attachments already confirmed.
+- Validate attachments before saving to prevent incomplete exports from missing or invalid data. Attachment examples in ordinary links, titles, reference definitions and code stay literal, while special filenames and browser renaming are handled correctly.
+- Destination previews match actual routing. Connection tests check the service and authentication, stop waiting at the deadline and discard old results after settings change.
+- Diagnostics hide secrets and private configuration. Explicitly exported full backups still retain all settings.
+- Fix Firefox page-feature startup and saving. Batch attachments use asynchronous validation and fewer duplicate download-completion checks.
 
 ## Introduction
 
@@ -104,7 +108,7 @@ Store status checked on **October 11, 2026**. Chrome and Firefox offer **v0.3.3*
    - **Download:** save Markdown without connecting Obsidian or a vault.
 3. **Make it yours**: choose your language and theme, then configure vault routing, note paths, YAML fields, screenshot attachments and optional providers. Review the optional usage-statistics and error-diagnostics switches.
 
-No browser-specific v0.3.3 package is currently attached to a public GitHub Release. Install from the stores above. If a verified package is published later, extract a Chrome or Edge ZIP and load its folder from `chrome://extensions` or `edge://extensions` with Developer mode enabled. Firefox requires a signed XPI. GitHub's automatically generated **Source code** archives are not installable extension packages.
+For browser packages, check [GitHub Releases](https://github.com/Lefeaker/zendio/releases) and the attached version-specific assets. Extract a verified Chrome or Edge ZIP and load its folder from `chrome://extensions` or `edge://extensions` with Developer mode enabled. Firefox requires a signed XPI. GitHub’s automatically generated **Source code** archives are not installable extension packages.
 
 To build from source, follow the pinned environment and bounded commands in [the engineering guide](docs/engineering-entrypoints.md), including its [Edge instructions](docs/engineering-entrypoints.md#microsoft-edge-distribution).
 
