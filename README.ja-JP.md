@@ -11,10 +11,10 @@
 | ブラウザ        | ストア                                                                                                                             | 公開状況          |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
 | Google Chrome   | [Chrome ウェブストアからインストール](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)                   | v0.3.3 を公開中。 |
-| Mozilla Firefox | [Firefox Add-ons からインストール](https://addons.mozilla.org/firefox/addon/zendio/)                                               | v0.3.3 を公開中。 |
+| Mozilla Firefox | [Firefox Add-ons からインストール](https://addons.mozilla.org/firefox/addon/zendio/)                                               | v0.3.4 を公開中。 |
 | Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | ストアで確認。    |
 
-公開状況は **2026 年 10 月 11 日**に確認しました。Chrome と Firefox では **v0.3.3** を利用できます。Edge の現在のバージョンはストアで確認してください。審査はストアごとに行われます。現在のソースバージョンは **v0.3.4** です。0.3.4 の公開状況は各ストアで確認してください。
+公開状況は **2026 年 10 月 20 日**に確認しました。Firefox では **v0.3.4** を利用できます。Chrome は **v0.3.3** を公開中で、**v0.3.4 は審査待ち**です。Edge の現在のバージョンはストアで確認してください。ソースバージョンは **v0.3.4** です。検証済みの Chromium ZIP と Firefox 署名済み XPI は [GitHub Release v0.3.4](https://github.com/Lefeaker/zendio/releases/tag/v0.3.4) からダウンロードできます。
 
 ## v0.3.4 の変更点
 

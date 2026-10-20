@@ -11,10 +11,10 @@
 | 浏览器          | 商店入口                                                                                                                           | 上架状态         |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
 | Google Chrome   | [从 Chrome 应用商店安装](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)                                | v0.3.3 已上架。  |
-| Mozilla Firefox | [从 Firefox 附加组件商店安装](https://addons.mozilla.org/firefox/addon/zendio/)                                                    | v0.3.3 已上架。  |
+| Mozilla Firefox | [从 Firefox 附加组件商店安装](https://addons.mozilla.org/firefox/addon/zendio/)                                                    | v0.3.4 已上架。  |
 | Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | 以商店页面为准。 |
 
-商店状态核对于 **2026 年 10 月 11 日**：Chrome 与 Firefox 已公开 **v0.3.3**。Edge 当前版本请以商店页面为准，各商店独立审核。当前源码版本为 **v0.3.4**。0.3.4 的商店可用状态以各自页面为准。
+商店状态核对于 **2026 年 10 月 20 日**：Firefox 已公开 **v0.3.4**；Chrome 当前公开 **v0.3.3**，**v0.3.4 等待审核**。Edge 当前版本请以商店页面为准。当前源码版本为 **v0.3.4**；经过核验的 Chromium ZIP 和 Firefox 签名 XPI 可从 [GitHub Release v0.3.4](https://github.com/Lefeaker/zendio/releases/tag/v0.3.4) 下载。
 
 ## v0.3.4 更新
 
