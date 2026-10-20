@@ -1,3 +1,5 @@
+import type { RequestDeadlineOptions } from '../utils/requestDeadline';
+
 /**
  * REST 连接配置接口
  * 定义连接到 Obsidian REST API 所需的配置信息
@@ -10,7 +12,10 @@ export interface RestConnection {
   apiKey: string;
 }
 
-export interface RestWriteFileOptions {
+/** Leaves 30 seconds for the existing 150-second content reply fallback. */
+export const REST_WRITE_TIMEOUT_MS = 120_000;
+
+export interface RestWriteFileOptions extends RequestDeadlineOptions {
   contentType?: string;
 }
 
@@ -30,12 +35,13 @@ export interface RestClient {
    * 实现应该：
    * - 自动处理 HTTPS/HTTP 协议遍历
    * - 统一错误聚合和映射
-   * - 支持多个候选 URL 的重试
+   * - 支持多个候选 URL 的重试；取消或截止后不再发送候选请求
    *
    * @param config REST 连接配置
    * @param filePath 目标文件路径（相对于 vault）
    * @param content 文件内容
-   * @throws {AppError} 当所有重试都失败时抛出聚合错误
+   * @param options 可选的进程内取消信号、共享绝对截止时间及内容类型
+   * @throws {AppError | RequestInterruptedError} 失败或取消不证明远端未写入
    */
   writeFile(
     config: RestConnection,

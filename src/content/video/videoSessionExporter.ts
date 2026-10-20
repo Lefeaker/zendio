@@ -33,6 +33,7 @@ export interface ExportPayload {
 export interface BuildPayloadContext {
   onPrepared?: (payload: VideoClipData) => void;
   operationId?: string;
+  exportStartedAt?: number;
   captures: VideoCapture[];
   videoTitle: string;
   canonicalUrl: string;
@@ -176,6 +177,7 @@ export class VideoSessionExporter {
       videoUrl: ctx.videoUrl ?? '',
       timestamp: Date.now(),
       ...(ctx.operationId ? { operationId: ctx.operationId } : {}),
+      ...(ctx.exportStartedAt !== undefined ? { exportStartedAt: ctx.exportStartedAt } : {}),
       timestampCount: payload.meta.timestampCount,
       platform: this.mapPlatform(ctx.platform),
       ...(payload.meta.attachments ? { attachments: payload.meta.attachments } : {}),

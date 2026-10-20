@@ -1,6 +1,7 @@
 /* @vitest-environment jsdom */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
+import * as diagnosticsModule from '@options/components/diagnostics';
 import * as taskOwnerModule from '@options/app/productionStitchActionTaskOwner';
 import * as sectionInvalidationModule from '@ui/stitch-runtime/render/sectionInvalidation';
 
@@ -176,7 +177,13 @@ describe('mountProductionStitchShell actions', () => {
     expect(document.body.textContent).not.toContain('domainMappings');
     await runningDiagnosis;
     expect(document.body.textContent).toContain('Running diagnostics');
-    await vi.waitFor(() => expect(document.body.textContent).toContain('domainMappings'));
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Diagnostics complete'));
+    const report = queryRequired<HTMLElement>('.settings-diagnostics-card').textContent;
+    expect(report).toContain('Configuration checks');
+    expect(report).toContain('This report omits credentials');
+    expect(report).not.toContain('domainMappings');
+    expect(report).not.toContain('REST_SECRET_TOKEN');
+    expect(report).not.toContain('Before Vault');
     expect(copyButton.getAttribute('aria-busy')).toBe('true');
     clipboard.resolve();
     await completion.waitForIdle();
@@ -1792,6 +1799,10 @@ describe('mountProductionStitchShell actions', () => {
   });
 
   it('repairs configuration using the existing production repair rules', async () => {
+    const diagnostics = vi.spyOn(diagnosticsModule, 'buildDiagnosticsReport');
+    onTestFinished(() => {
+      diagnostics.mockRestore();
+    });
     let durableTemplate = 'Clippings/Before.md';
     const saveSnapshot = vi.fn((snapshot: { reason: 'manual'; draft: CompleteOptions }) => {
       durableTemplate = snapshot.draft.templates.article;
@@ -1846,11 +1857,18 @@ describe('mountProductionStitchShell actions', () => {
 
     findButton('Diagnose Configuration').click();
     expect(mounted.collectDraft().templates.article).toBe('Articles/Before.md');
-    await vi.waitFor(() => expect(document.body.textContent).toContain('Articles/Before.md'));
-    expect(document.body.textContent).not.toContain('Clippings/Before.md');
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Diagnostics complete'));
+    const report = queryRequired<HTMLElement>('.settings-diagnostics-card').textContent;
+    expect(diagnostics.mock.calls.at(-1)?.[0]?.templates?.article).toBe('Articles/Before.md');
+    expect(report).not.toContain('Articles/Before.md');
+    expect(report).not.toContain('Clippings/Before.md');
   });
 
   it('restores repair-owned state when saving the repaired snapshot fails', async () => {
+    const diagnostics = vi.spyOn(diagnosticsModule, 'buildDiagnosticsReport');
+    onTestFinished(() => {
+      diagnostics.mockRestore();
+    });
     const pendingSave = deferred<void>();
     let durableTemplate = 'Clippings/Before.md';
     const saveSnapshot = vi.fn(async (snapshot: { reason: 'manual'; draft: CompleteOptions }) => {
@@ -1906,7 +1924,10 @@ describe('mountProductionStitchShell actions', () => {
 
     findButton('Diagnose Configuration').click();
     expect(mounted.collectDraft().templates.article).toBe('Clippings/Before.md');
-    await vi.waitFor(() => expect(document.body.textContent).toContain('Clippings/Before.md'));
-    expect(document.body.textContent).not.toContain('Articles/Before.md');
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Diagnostics complete'));
+    const report = queryRequired<HTMLElement>('.settings-diagnostics-card').textContent;
+    expect(diagnostics.mock.calls.at(-1)?.[0]?.templates?.article).toBe('Clippings/Before.md');
+    expect(report).not.toContain('Clippings/Before.md');
+    expect(report).not.toContain('Articles/Before.md');
   });
 });

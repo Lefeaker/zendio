@@ -1,3 +1,5 @@
+import { REST_WRITE_TIMEOUT_MS } from '../../shared/interfaces/restClient';
+import { withRequestDeadline } from '../../shared/utils/requestDeadline';
 import { downloadPreparedClip } from './downloadClip';
 import { runBestEffortEffect } from '../../shared/errors/bestEffortEffect';
 import {
@@ -61,6 +63,8 @@ export interface ClipProcessingProgress {
 }
 
 export interface ClipProcessingHooks {
+  /** Cancels outbound network requests; local filesystem and Downloads have their own owners. */
+  signal?: AbortSignal;
   onProgress?: (progress: ClipProcessingProgress) => void;
   requestLocalVaultPermission?: (
     request: LocalVaultPermissionPromptRequest
@@ -179,6 +183,10 @@ export async function processClipPayload(
 ): Promise<ClipProcessingResult> {
   const operationId = resolveBackgroundOperationId(payload);
   const startedAt = Date.now();
+  const requestOptions = {
+    deadlineAt: startedAt + REST_WRITE_TIMEOUT_MS,
+    ...(hooks.signal ? { signal: hooks.signal } : {})
+  };
   const aiChatTelemetry = resolveAiChatTelemetry(payload);
   let storageTarget: StorageTarget = 'unknown';
   let currentStage: BackgroundStage | null = null;
@@ -215,7 +223,9 @@ export async function processClipPayload(
       message: createClipProgressMessage('supportProgressReadingSettings')
     });
     const options = await getOptions();
-    const classification = await completeStage('classify', () => classifyClip(options, payload));
+    const classification = await completeStage('classify', () =>
+      classifyClip(options, payload, requestOptions)
+    );
 
     const routed = await completeStage('route', async () => {
       hooks.onProgress?.({
@@ -223,6 +233,7 @@ export async function processClipPayload(
         message: createClipProgressMessage('supportProgressSelectingVault')
       });
       return resolveClipRoute({
+        ...requestOptions,
         options,
         payload,
         classification,
@@ -234,9 +245,12 @@ export async function processClipPayload(
     storageTarget = toRouteStorageTarget(routed);
     if (routed.prepared.attachments.length || attachmentProgress) {
       // One plan per explicit dispatch, never per attachment progress callback.
-      const planId = await clipAttachmentPlanId(payload, routed);
+      const planId = await withRequestDeadline(REST_WRITE_TIMEOUT_MS, requestOptions, (request) =>
+        clipAttachmentPlanId(payload, routed, () => request.check())
+      );
       const target =
         routed.destination === 'downloads' ? 'downloads' : routed.writeSession.target.storageTarget;
+      const previousPlanId = attachmentProgress?.planId ?? planId;
       if (
         attachmentProgress &&
         (attachmentProgress.blocked ||
@@ -248,8 +262,12 @@ export async function processClipPayload(
               item.id !== routed.prepared.attachments[index]?.id ||
               item.outputPath !== routed.prepared.attachments[index]?.outputPath
           ) ||
-          (attachmentProgress.planId !== planId &&
-            !(await matchesLegacyClipAttachmentPlanId(payload, routed, attachmentProgress.planId))))
+          (previousPlanId !== planId &&
+            !(await withRequestDeadline(REST_WRITE_TIMEOUT_MS, requestOptions, (request) =>
+              matchesLegacyClipAttachmentPlanId(payload, routed, previousPlanId, () =>
+                request.check()
+              )
+            ))))
       ) {
         attachmentProgress.blocked = true;
         throw new Error('CLIP_ATTACHMENT_PLAN_CHANGED');

@@ -98,9 +98,9 @@ describe('bounded task graph runner', () => {
     expect(result.beforeDrain).toBe(false);
     expect(result.events).toEqual(['start:a', 'start:b', 'cancel:b:nonzero']);
     expect(result.graph.ok).toBe(false);
-    expect(result.graph.cancelled).toEqual(['late-wave']);
+    expect(result.graph.cancelled).toEqual(['late-wave', 'b']);
     expect(result.graph.failed[0]).toMatchObject({ id: 'a', code: 7 });
-    expect(result.graph.failed[1]).toMatchObject({ id: 'b', terminalReason: 'cancelled' });
+    expect(result.graph.failed).toHaveLength(1);
   });
 
   it('propagates first failure into real active composite siblings and waits for drain', () => {
@@ -160,7 +160,7 @@ describe('bounded task graph runner', () => {
     );
 
     expect(result.ok).toBe(false);
-    expect(result.cancelled).toEqual(['late-wave']);
+    expect(result.cancelled).toEqual(['late-wave', 'sibling']);
     expect(result.failed).toMatchObject({ terminalReason: 'nonzero', exitCode: 7 });
     expect(result.sibling).toMatchObject({
       ok: false,
@@ -234,7 +234,7 @@ describe('bounded task graph runner', () => {
       );
 
       expect(result.ok).toBe(false);
-      expect(result.cancelled).toEqual(['late-wave']);
+      expect(result.cancelled).toEqual(['late-wave', 'active']);
       expect(result.active).toMatchObject({
         ok: false,
         terminalReason,
@@ -243,6 +243,66 @@ describe('bounded task graph runner', () => {
         pipeDrainObserved: true
       });
       expect(['SIGTERM', 'SIGKILL']).toContain(result.active.signal);
+    }
+  );
+
+  it.each(['quality', 'preflight'])('reports actionable %s root failure output', (owner) => {
+    const report = runModuleScenario(
+      `
+      import { runQualityChecks } from './scripts/quality-check.mjs';
+      import { runPreflight } from './scripts/verify-preflight.mjs';
+      const messages = [];
+      console.error = (message) => messages.push(String(message));
+      const run = ${JSON.stringify(owner)} === 'quality' ? runQualityChecks : runPreflight;
+      const result = await run({ startCommand() { return {
+        cancel() { return true; },
+        completion: Promise.resolve({
+          ok: false, terminalReason: 'nonzero', exitCode: 7, signal: null,
+          output: { stdout: { text: 'runtime mismatch: expected Node 24' },
+            stderr: { text: 'x'.repeat(20000) + '\\nREPAIR: install pinned runtime' } }
+        })
+      }; } });
+      process.stdout.write(JSON.stringify({ messages, code: result.failed[0]?.code }));
+      `,
+      z.object({ messages: z.array(z.string()), code: z.number() })
+    );
+    const text = report.messages.join('\n');
+    expect(report.code).toBe(7);
+    expect(text).toContain('verify-runtime');
+    expect(text).toContain('npm-script-quick-v1');
+    expect(text).toContain('verify:runtime');
+    expect(text).toContain('nonzero');
+    expect(text).toContain('exit=7');
+    expect(text).toContain('runtime mismatch: expected Node 24');
+    expect(text).toContain('REPAIR: install pinned runtime');
+    expect(text).toContain('truncated');
+    expect(text).toContain('Cancelled');
+    expect(Buffer.byteLength(text)).toBeLessThan(18000);
+  });
+
+  it.each(['spawn-error', 'late-rejection', 'timeout'])(
+    'reports %s even without captured output',
+    (reason) => {
+      const report = runModuleScenario(
+        `
+        import { runTaskGraph, formatTaskGraphFailure } from './scripts/utils/taskGraphRunner.mjs';
+        const reason = ${JSON.stringify(reason)};
+        const tasks = [{ id: 'broken', profile: 'fixture-v1', args: ['success'], dependsOn: [] }];
+        const result = await runTaskGraph(tasks, { policyId: 'quality-v1', startCommand() {
+          if (reason === 'spawn-error') throw new Error('spawn detail');
+          return { cancel() { return true; }, completion: reason === 'late-rejection'
+            ? Promise.reject(new Error('rejection detail'))
+            : Promise.resolve({ ok: false, terminalReason: 'timeout', exitCode: null, signal: 'SIGKILL' }) };
+        }});
+        process.stdout.write(JSON.stringify(formatTaskGraphFailure(result, tasks)));
+        `,
+        z.string()
+      );
+      expect(report).toContain('Root failure: broken [broken]');
+      expect(report).toContain(`reason=${reason}`);
+      expect(report).toContain('profile=fixture-v1');
+      if (reason === 'timeout') expect(report).toContain('signal=SIGKILL');
+      else expect(report).toContain(reason === 'spawn-error' ? 'spawn detail' : 'rejection detail');
     }
   );
 
@@ -329,6 +389,6 @@ describe('bounded task graph runner', () => {
 
     expect(result.events).toEqual(['cancel:root-deadline']);
     expect(result.graph.ok).toBe(false);
-    expect(result.graph.cancelled).toEqual(['b']);
+    expect(result.graph.cancelled).toEqual(['b', 'a']);
   });
 });

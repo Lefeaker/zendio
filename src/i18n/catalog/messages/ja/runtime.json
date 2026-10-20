@@ -607,7 +607,7 @@
   "localVaultWriteReauthorizationRequired": "ローカルフォルダーの再認可が必要です。設定ページで「{folderName}」を再認可してください。",
   "localVaultWriteFailed": "ローカルフォルダーへの書き込みに失敗しました: {folderName}",
   "diagnosticsRunning": "診断を実行中...",
-  "diagnosticsRunFailed": "診断に失敗しました: {reason}",
+  "diagnosticsRunFailed": "診断に失敗しました",
   "diagnosticsSectionCurrentConfigTitle": "現在の設定",
   "diagnosticsSectionConfigChecksTitle": "設定チェック",
   "diagnosticsConfigNotFound": "設定が見つかりません",
@@ -631,7 +631,7 @@
   "diagnosticsSectionAiChatTitle": "AI チャットクリップ設定",
   "diagnosticsAiChatConfigMissing": "AI チャットクリップ設定 が設定されていません",
   "diagnosticsAiChatUserNameMissing": "ユーザー名が空です。わかりやすい表示名を設定してください",
-  "diagnosticsAiChatUserNameValue": "ユーザー名: {userName}",
+  "diagnosticsAiChatUserNameValue": "ユーザー名は設定済みです",
   "diagnosticsSectionFragmentClipperTitle": "フラグメントクリップ設定",
   "diagnosticsFragmentClipperConfigMissing": "フラグメントクリップ設定 が設定されていません",
   "diagnosticsFragmentFootnoteEnabled": "脚注形式が有効で、Sidebar Highlights と互換があります",
@@ -647,10 +647,10 @@
   "diagnosticsFragmentSelectionTriggerDirect": "修飾キーなしのテキスト選択で起動します",
   "diagnosticsSectionReadingModeTitle": "読書モード",
   "diagnosticsReadingConfigMissing": "読書モード が設定されていません",
-  "diagnosticsReadingUnknownExportMode": "不明なエクスポートモード: {mode}",
+  "diagnosticsReadingUnknownExportMode": "不明なエクスポートモード",
   "diagnosticsReadingExportFull": "全文を保存しハイライトを残す",
   "diagnosticsReadingExportHighlights": "ハイライトのみ保存",
-  "diagnosticsReadingUnknownTheme": "不明なハイライトテーマ: {theme}。既定のテーマに戻します",
+  "diagnosticsReadingUnknownTheme": "不明なハイライトテーマです。既定のテーマを使用します",
   "diagnosticsReadingThemeValue": "ハイライトカラー: {theme}",
   "diagnosticsSectionVideoModeTitle": "動画モード",
   "diagnosticsVideoConfigMissing": "動画モード が設定されていません",
@@ -900,5 +900,6 @@
   "savePhaseNote": "本文",
   "savePhaseAttachments": "添付ファイル",
   "saveContinue": "確認済み、残りの保存を続行",
-  "saveContinuationUnavailable": "元の書き出し内容または保存先が利用できないか変更されています。内容は保持されています。既存ファイルを確認してから新たに書き出してください。"
+  "saveContinuationUnavailable": "元の書き出し内容または保存先が利用できないか変更されています。内容は保持されています。既存ファイルを確認してから新たに書き出してください。",
+  "diagnosticsPrivacyNotice": "このレポートには認証情報、個人の識別情報、パス、カスタムテキストは含まれません。設定のコピーでは、秘密情報を含む完全なバックアップが作成されます。"
 }

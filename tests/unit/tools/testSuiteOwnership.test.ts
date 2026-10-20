@@ -33,6 +33,7 @@ import {
 
 const temporaryRoots: string[] = [];
 const G00_STATE_BROWSER_FILES = [
+  'tests/e2e/clipSaveDeadlines.browser.test.ts',
   'tests/e2e/sessionDraftConcurrency.browser.test.ts',
   'tests/e2e/optionsCrossContextMutation.browser.test.ts',
   'tests/e2e/videoScreenshotCacheMigration.browser.test.ts'

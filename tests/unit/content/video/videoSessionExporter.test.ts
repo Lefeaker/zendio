@@ -82,12 +82,14 @@ describe('VideoSessionExporter', () => {
       messages: DEFAULT_SESSION_MESSAGES,
       storageKey: null,
       operationId: 'op_frozen1',
+      exportStartedAt: 1_792_089_599_000,
       onPrepared: (payload) => {
         prepared = payload;
       }
     });
     if (!prepared) throw new Error('Prepared payload was not exposed');
     const first = prepared;
+    expect(first.exportStartedAt).toBe(1_792_089_599_000);
     const rebuild = vi.spyOn(exporter, 'buildPayload');
     capture.comment = 'Newer live edit';
     capture.screenshot = createScreenshot('one', 'bbb');

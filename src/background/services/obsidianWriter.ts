@@ -1,4 +1,9 @@
 import type { Options } from '../store';
+import {
+  RequestInterruptedError,
+  type RequestDeadlineOptions
+} from '../../shared/utils/requestDeadline';
+import { runBestEffortEffect } from '../../shared/errors/bestEffortEffect';
 import type { RestClient, RestConnection } from '../../shared/interfaces/restClient';
 import { getService } from '../../shared/di';
 import { TOKENS } from '../../shared/di/tokens';
@@ -47,7 +52,7 @@ export interface LocalVaultPermissionPromptResult {
   errorMessage?: string;
 }
 
-export interface VaultWriteSessionOptions {
+export interface VaultWriteSessionOptions extends RequestDeadlineOptions {
   requestLocalVaultPermission?: (
     request: LocalVaultPermissionPromptRequest
   ) => Promise<LocalVaultPermissionPromptResult>;
@@ -66,9 +71,10 @@ function resolvePlatformServicesFromDi(): PlatformServices {
 export async function writeMarkdownToVault(
   rest: Options['rest'],
   filePath: string,
-  markdown: string
+  markdown: string,
+  options: VaultWriteSessionOptions = {}
 ): Promise<void> {
-  const session = await createVaultWriteSession(rest);
+  const session = await createVaultWriteSession(rest, options);
   await session.writeMarkdown(filePath, markdown);
 }
 
@@ -76,9 +82,10 @@ export async function writeAttachmentToVault(
   rest: Options['rest'],
   filePath: string,
   content: BodyInit | Blob,
-  mimeType: string
+  mimeType: string,
+  options: VaultWriteSessionOptions = {}
 ): Promise<void> {
-  const session = await createVaultWriteSession(rest);
+  const session = await createVaultWriteSession(rest, options);
   await session.writeAttachment(filePath, content, mimeType);
 }
 
@@ -91,7 +98,7 @@ export async function createVaultWriteSession(
   const connection = toRestConnection(rest);
 
   if (!rest.localFolderId) {
-    return createRestWriteSession(restClient, connection, { storageTarget: 'rest-api' });
+    return createRestWriteSession(restClient, connection, options, { storageTarget: 'rest-api' });
   }
 
   try {
@@ -124,7 +131,7 @@ export async function createVaultWriteSession(
           '[obsidianWriter] Local vault reauthorization did not verify as granted; using REST:',
           verified
         );
-        return createRestWriteSession(restClient, connection, {
+        return createRestWriteSession(restClient, connection, options, {
           storageTarget: 'rest-api',
           ...(rest.localFolderName ? { localFolderName: rest.localFolderName } : {}),
           fallbackReason: mapPermissionFallbackReason(verified)
@@ -139,7 +146,7 @@ export async function createVaultWriteSession(
         '[obsidianWriter] Local vault reauthorization was not granted; using REST:',
         fallbackPermission
       );
-      return createRestWriteSession(restClient, connection, {
+      return createRestWriteSession(restClient, connection, options, {
         storageTarget: 'rest-api',
         ...(rest.localFolderName ? { localFolderName: rest.localFolderName } : {}),
         fallbackReason: mapPermissionFallbackReason(fallbackPermission)
@@ -150,14 +157,14 @@ export async function createVaultWriteSession(
       '[obsidianWriter] Local vault unavailable before writing; using REST:',
       permission
     );
-    return createRestWriteSession(restClient, connection, {
+    return createRestWriteSession(restClient, connection, options, {
       storageTarget: 'rest-api',
       ...(rest.localFolderName ? { localFolderName: rest.localFolderName } : {}),
       fallbackReason: mapPermissionFallbackReason(permission)
     });
   } catch (error) {
     console.warn('[obsidianWriter] Local vault permission preflight failed; using REST:', error);
-    return createRestWriteSession(restClient, connection, {
+    return createRestWriteSession(restClient, connection, options, {
       storageTarget: 'rest-api',
       ...(rest.localFolderName ? { localFolderName: rest.localFolderName } : {}),
       fallbackReason: 'write-preflight-failed'
@@ -213,6 +220,7 @@ function createLocalWriteSession(
 function createRestWriteSession(
   restClient: RestClient,
   connection: RestConnection,
+  options: RequestDeadlineOptions,
   target: VaultWriteTargetInfo
 ): VaultWriteSession {
   return {
@@ -224,11 +232,12 @@ function createRestWriteSession(
         target,
         filePath,
         markdown,
-        'text/markdown; charset=utf-8'
+        'text/markdown; charset=utf-8',
+        options
       );
     },
     writeAttachment(filePath: string, content: BodyInit | Blob, mimeType: string): Promise<void> {
-      return writeVaultFile(restClient, connection, target, filePath, content, mimeType);
+      return writeVaultFile(restClient, connection, target, filePath, content, mimeType, options);
     }
   };
 }
@@ -239,30 +248,40 @@ async function writeVaultFile(
   target: VaultWriteTargetInfo,
   filePath: string,
   content: BodyInit,
-  contentType: string
+  contentType: string,
+  options: RequestDeadlineOptions
 ): Promise<void> {
   const startedAt = Date.now();
   const targetFilePath = target.fallbackReason
     ? normalizeLocalFolderWritePath(filePath, { selectedVaultName: connection.vault }).path
     : filePath;
   try {
-    await restClient.writeFile(connection, targetFilePath, content, { contentType });
+    await restClient.writeFile(connection, targetFilePath, content, {
+      contentType,
+      ...(options.signal ? { signal: options.signal } : {}),
+      ...(options.deadlineAt !== undefined ? { deadlineAt: options.deadlineAt } : {})
+    });
     trackVaultWriteCompleted(target, startedAt);
   } catch (error) {
     trackVaultWriteFailed(target, 'connection');
-    await handleError(
-      restErrors.requestFailed(
-        `Failed to write file to vault: ${targetFilePath}`,
-        {
-          endpoint: connection.baseUrl,
-          vault: connection.vault,
-          method: 'PUT',
-          filePath: targetFilePath
-        },
-        { cause: error }
-      ),
-      { suppressNotifications: true }
+    void runBestEffortEffect(
+      () =>
+        handleError(
+          restErrors.requestFailed(
+            `Failed to write file to vault: ${targetFilePath}`,
+            {
+              endpoint: connection.baseUrl,
+              vault: connection.vault,
+              method: 'PUT',
+              filePath: targetFilePath
+            },
+            { cause: error }
+          ),
+          { suppressNotifications: true }
+        ),
+      'vault.rest.failure'
     );
+    if (error instanceof RequestInterruptedError) throw error;
     if (target.fallbackReason) {
       throw createLocalFallbackRestFailedError(connection, target, targetFilePath, error);
     }

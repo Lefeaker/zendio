@@ -607,7 +607,7 @@
   "localVaultWriteReauthorizationRequired": "本地目录需要重新授权，请到设置页重新授权“{folderName}”。",
   "localVaultWriteFailed": "本地目录写入失败：{folderName}",
   "diagnosticsRunning": "正在诊断...",
-  "diagnosticsRunFailed": "诊断失败：{reason}",
+  "diagnosticsRunFailed": "诊断失败",
   "diagnosticsSectionCurrentConfigTitle": "当前配置",
   "diagnosticsSectionConfigChecksTitle": "检查配置",
   "diagnosticsConfigNotFound": "未找到配置",
@@ -631,7 +631,7 @@
   "diagnosticsSectionAiChatTitle": "AI 对话剪藏配置",
   "diagnosticsAiChatConfigMissing": "AI 对话剪藏配置未配置",
   "diagnosticsAiChatUserNameMissing": "用户名称为空，建议设置一个明确的称呼",
-  "diagnosticsAiChatUserNameValue": "用户名称: {userName}",
+  "diagnosticsAiChatUserNameValue": "已配置用户名称",
   "diagnosticsSectionFragmentClipperTitle": "片段剪藏配置",
   "diagnosticsFragmentClipperConfigMissing": "片段剪藏配置未配置",
   "diagnosticsFragmentFootnoteEnabled": "已启用脚注格式，兼容 Sidebar Highlights",
@@ -647,10 +647,10 @@
   "diagnosticsFragmentSelectionTriggerDirect": "划词无需辅助键即可触发",
   "diagnosticsSectionReadingModeTitle": "阅读模式",
   "diagnosticsReadingConfigMissing": "阅读模式未配置",
-  "diagnosticsReadingUnknownExportMode": "未知导出模式: {mode}",
+  "diagnosticsReadingUnknownExportMode": "未知的导出模式",
   "diagnosticsReadingExportFull": "保存全文并标注高亮",
   "diagnosticsReadingExportHighlights": "仅保存高亮片段",
-  "diagnosticsReadingUnknownTheme": "未知的高亮主题: {theme}，将回退到默认主题",
+  "diagnosticsReadingUnknownTheme": "未知的高亮主题，将使用默认主题",
   "diagnosticsReadingThemeValue": "高亮颜色: {theme}",
   "diagnosticsSectionVideoModeTitle": "视频模式",
   "diagnosticsVideoConfigMissing": "视频模式未配置",
@@ -900,5 +900,6 @@
   "savePhaseNote": "正文",
   "savePhaseAttachments": "附件",
   "saveContinue": "已核对，继续剩余保存",
-  "saveContinuationUnavailable": "原导出快照或保存位置不可用或已改变。内容已保留。请先检查已有文件，再发起新导出。"
+  "saveContinuationUnavailable": "原导出快照或保存位置不可用或已改变。内容已保留。请先检查已有文件，再发起新导出。",
+  "diagnosticsPrivacyNotice": "此报告不包含凭据、私人标识、路径和自定义文本。复制配置会生成包含密钥的完整备份。"
 }

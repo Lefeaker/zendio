@@ -76,7 +76,56 @@ describe('asynchronous attachment plan preflight', () => {
       Promise.resolve({ state: 'complete', id: 1, filename })
     );
   });
-  afterEach(restoreClipProcessorHarnessMocks);
+  afterEach(() => {
+    vi.useRealTimers();
+    restoreClipProcessorHarnessMocks();
+  });
+
+  it.each([false, true])(
+    'interrupts legacy verification without upgrading history: timeout=%s',
+    async (timeout) => {
+      vi.useFakeTimers();
+      const payload = attachmentPayload();
+      const progress = legacyProgress(payload);
+      const original = structuredClone(progress);
+      payload.meta = { ...payload.meta, attachmentProgress: progress };
+      const nativeDigest = crypto.subtle.digest.bind(crypto.subtle);
+      let finish = (_result: ArrayBuffer) => {};
+      let calls = 0;
+      const digest = vi.spyOn(crypto.subtle, 'digest').mockImplementation((...args) => {
+        calls++;
+        return calls === 3
+          ? new Promise<ArrayBuffer>((resolve) => {
+              finish = resolve;
+            })
+          : nativeDigest(...args);
+      });
+      const { processClipPayload, clipProcessingFailureResult } =
+        await import('../../../src/background/application/clipProcessor');
+      const controller = new AbortController();
+      const pending = processClipPayload(payload, { signal: controller.signal }).catch(
+        clipProcessingFailureResult
+      );
+      await vi.waitFor(() => expect(digest).toHaveBeenCalledTimes(3));
+      if (timeout) await vi.advanceTimersByTimeAsync(120_000);
+      else controller.abort();
+      const failure = await pending;
+      expect(failure).toMatchObject({
+        outcome: 'unknown',
+        stage: 'prepare',
+        failureCategory: timeout ? 'timeout' : 'connection',
+        attachmentProgress: original
+      });
+      finish(new ArrayBuffer(32));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(progress).toEqual(original);
+      expect(failure).toMatchObject({ attachmentProgress: original });
+      expect(digest).toHaveBeenCalledTimes(3);
+      expect(downloadMock).not.toHaveBeenCalled();
+      expect(writeAttachmentMock).not.toHaveBeenCalled();
+      expect(writeMarkdownMock).not.toHaveBeenCalled();
+    }
+  );
 
   it('waits for native digest completion before any attachment or note write', async () => {
     const nativeDigest = crypto.subtle.digest.bind(crypto.subtle);

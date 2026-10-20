@@ -607,7 +607,7 @@
   "localVaultWriteReauthorizationRequired": "Локальной папке нужно выдать разрешение заново. Повторно разрешите «{folderName}» в настройках.",
   "localVaultWriteFailed": "Не удалось записать в локальную папку: {folderName}",
   "diagnosticsRunning": "Выполняется диагностика...",
-  "diagnosticsRunFailed": "Диагностика не удалась: {reason}",
+  "diagnosticsRunFailed": "Диагностика не удалась",
   "diagnosticsSectionCurrentConfigTitle": "Текущая конфигурация",
   "diagnosticsSectionConfigChecksTitle": "Проверки конфигурации",
   "diagnosticsConfigNotFound": "Конфигурация не найдена",
@@ -631,7 +631,7 @@
   "diagnosticsSectionAiChatTitle": "Настройка сохранения ИИ-чата",
   "diagnosticsAiChatConfigMissing": "Не настроено: Настройка сохранения ИИ-чата",
   "diagnosticsAiChatUserNameMissing": "Имя пользователя пустое. Укажите понятное отображаемое имя.",
-  "diagnosticsAiChatUserNameValue": "Имя пользователя: {userName}",
+  "diagnosticsAiChatUserNameValue": "Имя пользователя настроено",
   "diagnosticsSectionFragmentClipperTitle": "Настройка сохранения фрагментов",
   "diagnosticsFragmentClipperConfigMissing": "Не настроено: Настройка сохранения фрагментов",
   "diagnosticsFragmentFootnoteEnabled": "Формат сносок включён и совместим с Sidebar Highlights",
@@ -647,10 +647,10 @@
   "diagnosticsFragmentSelectionTriggerDirect": "Выделение текста запускает захват без клавиши-модификатора",
   "diagnosticsSectionReadingModeTitle": "Режим чтения",
   "diagnosticsReadingConfigMissing": "Не настроено: Режим чтения",
-  "diagnosticsReadingUnknownExportMode": "Неизвестный режим экспорта: {mode}",
+  "diagnosticsReadingUnknownExportMode": "Неизвестный режим экспорта",
   "diagnosticsReadingExportFull": "Полная статья с выделениями",
   "diagnosticsReadingExportHighlights": "Только выделенные отрывки",
-  "diagnosticsReadingUnknownTheme": "Неизвестная тема подсветки: {theme}. Будет использована тема по умолчанию",
+  "diagnosticsReadingUnknownTheme": "Неизвестная тема выделения. Будет использована тема по умолчанию",
   "diagnosticsReadingThemeValue": "Цвет выделения: {theme}",
   "diagnosticsSectionVideoModeTitle": "Режим видео",
   "diagnosticsVideoConfigMissing": "Не настроено: Режим видео",
@@ -900,5 +900,6 @@
   "savePhaseNote": "заметка",
   "savePhaseAttachments": "вложение",
   "saveContinue": "Проверено, продолжить сохранение",
-  "saveContinuationUnavailable": "Исходное содержимое экспорта или место сохранения недоступно либо изменилось. Содержимое сохранено. Проверьте существующие файлы перед новым экспортом."
+  "saveContinuationUnavailable": "Исходное содержимое экспорта или место сохранения недоступно либо изменилось. Содержимое сохранено. Проверьте существующие файлы перед новым экспортом.",
+  "diagnosticsPrivacyNotice": "Этот отчёт не содержит учётных данных, личных идентификаторов, путей и пользовательского текста. Копирование настроек создаёт полную резервную копию с секретными данными."
 }

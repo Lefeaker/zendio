@@ -180,6 +180,7 @@ export const GENERATED_MESSAGE_KEYS = [
   'diagnosticsFragmentSelectionTriggerDisabled',
   'diagnosticsMultiVaultNotConfigured',
   'diagnosticsPortConfigHealthy',
+  'diagnosticsPrivacyNotice',
   'diagnosticsReadingConfigMissing',
   'diagnosticsReadingExportFull',
   'diagnosticsReadingExportHighlights',

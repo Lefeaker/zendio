@@ -51,7 +51,13 @@ node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e
 
 Reader / Video 共用 `sessionEndingCoordinator` 关闭新编辑入口、等待已接收的编辑落盘，并串行执行完成或取消。终止过程由 `sessionDraftTerminalState` 保留原始 finalize/remove 请求身份；响应丢失后重试延续同一操作。导出成功与草稿清理是两个阶段，同一挂载会话的收尾重试不会再次导出。不能把这种保证扩展为浏览器崩溃跨进程的导出 exactly-once 保证。
 
-Reader 的 `CLIP_RESULT` 与 Video repository 出口共同使用保存结果契约：保留兼容字段 `success`，并区分 `outcome=saved|failed|unknown`。只有写入前已确定失败才返回 `failed`；附件或正文写入过程中出现 HTTP 500、消息断开、无法确认的异常均为 `unknown`，不能据此认定文件不存在。失败字段只有受限的 category、code、stage 与本地化 descriptor；不传原始异常、响应正文、堆栈或错误上下文。旧成功 ACK 仍可识别，旧的单独 `success:false` 和无效/缺失回复按未知处理。新内容端等待回复最多 150 秒，超时不取消外部写入，也不自动重试；迟到的结果不能修改当前会话。
+Reader 的 `CLIP_RESULT` 与 Video repository 出口共同使用保存结果契约：保留兼容字段 `success`，并区分 `outcome=saved|failed|unknown`。只有写入前已确定失败才返回 `failed`；附件或正文写入过程中出现 HTTP 500、消息断开、无法确认的异常均为 `unknown`，不能据此认定文件不存在。失败字段只有受限的 category、code、stage 与本地化 descriptor；不传原始异常、响应正文、堆栈或错误上下文。旧成功 ACK 仍可识别，旧的单独 `success:false` 和无效/缺失回复按未知处理。内容端等待消息回复最多 150 秒，这个等待超时本身不能跨失联消息通道取消写入，也不自动重试；迟到结果不能修改当前会话。REST 请求自身的取消边界见下文。
+
+后台 REST 保存从 processor 入口开始共用 120 秒绝对截止时间，前置分类/路由耗时也计入；顺序附件、最终 Markdown 和协议候选只获得剩余时间。独立 REST 写入同样最多 120 秒，并可接受更早截止时间或进程内 AbortSignal。原 fetch owner 会中止网络请求，错误响应体读取也在期限内；等待同时有界，即便 transport 忽略 abort、迟到返回，也不会继续下一附件或协议候选。成功 PUT 的响应头仍是既有确认边界，未使用的响应体会取消读取，不等待它结束，也不撤销已确认结果。
+
+分类 fetch 与响应 JSON/错误体使用同一配置时限（正常配置 15 秒，缺失/无效配置回落 2 秒），并服从保存操作更早的截止时间。每个请求独立持有 controller；超时仍返回 timeout fallback，显式取消按 transport error 处理。错误上报沿用 best-effort owner，不能拖住保存结果。取消不证明远端没有写入，原 unknown、已确认附件进度、持久草稿和新编辑保护保持有效，不做自动重试或补偿删除。
+
+`networkDeadlines.http.test.ts` 通过真实 loopback 检查挂起响应体在截止后断开，以及成功 PUT 确认后释放未使用的响应体。`clipSaveDeadlines.browser.test.ts` 由 CI Browser state flow 收集，验证已安装扩展的真实 PUT、断开、unknown、重载草稿和新编辑保留。浏览器用测试内捕获的生产截止回调注入超时，不增加测试时限；120 秒准确边界由 fake-clock unit 另行验证，不将该浏览器用例称为真实等待 120 秒的测试。
 
 Reader / Video 在发送前通过现有 draft controller 持久化 `exportAttempt`。保存记录包含操作身份、完整 live 内容与保存选择的摘要，以及当时的目标预览；摘要不应用草稿的条目保留上限，真实草稿仍遵守原保留策略。这一步失败时不发送写入。确认保存后先持久化 saved 标记，再进入原 finalize/remove；标记保存失败不会清理草稿。未知结果保留编辑能力，普通“完成”不会再次写入。用户先核对目标，再明确选择重新保存（当前内容、新操作身份）或确认原文件已保存（仅完成清理）。原保存之后有新编辑或目标变化时，确认旧文件不会清除新内容。重载恢复未知标记，继续采用相同规则；旧版本已打开的 content context 需刷新后才有新恢复界面。
 
@@ -82,6 +88,8 @@ Reader 初始化与编辑共用现有 mutation runner：本次划选先更新列
 附件部分成功沿用上述结果契约：后台只在原 writer 确认完成后追加小型确认记录，失败结果通过同一消息返回，Reader / Video 再由现有 draft controller 持久化 `exportAttempt.attachmentProgress`。记录上限与既有输入附件上限相同（50）；不保存截图 bytes，不增加逐附件草稿写入或后台任务队列。每次显式导出或继续仅对冻结输入和解析后的目标计划计算一次摘要，包含附件内容、顺序、输出路径、Markdown 引用、storageTarget 和目标身份；进度事件不重复序列化或 hash 全量内容。
 
 用户核对目标后可明确继续同一导出，复用本次最终 payload 与 operationId，跳过已确认的附件。Downloads 在续写任何文件前逐一复核已确认 ID 仍为 complete、exists=true 且实际文件名未变；Markdown 复用该实际文件名，保留浏览器自动重命名。REST / 本地目录的确认仅证明此前写入完成，不能证明外部文件此刻仍有相同 bytes；Downloads 的存在检查同样不验证用户后来修改的内容。未确认的当前附件或正文可能已存在，因此继续仍要求用户检查，不提供多文件 exactly-once。
+
+Reader / Video 首次导出将既有 `exportAttempt.startedAt` 作为可选 `exportStartedAt` 随 operationId 写入冻结 payload，Video 经原 repository 消息 adapter 传入 ClipMeta。pathResolver 用该时间展开日期与时分秒 token，显式续存保持原路径，新选择再次保存则创建新的操作身份和时间。每次实际发送仍获得本次网络请求预算，不能把冻结的文件命名时间当成网络截止时间。缺少时间字段的旧消息仍以当前 dispatch 时间解析，不迁移旧部分进度；存在但无效的时间字段在 ClipMeta 边界拒绝。草稿保留额度和清理语义未变。
 
 原内容、目标或解析计划改变、确认的下载已不存在时拒绝续存并保留进度与内容。冻结最终 payload 仅在当前会话内持有，保存已确认、用户选择新导出或计划被拒绝后释放；重载不持久复制完整 payload，缺少该快照时仅恢复历史进度并要求明确新导出。普通“完成”、恢复草稿和迟到 ACK 都不会自动续写，旧确认不能清除新的编辑。
 

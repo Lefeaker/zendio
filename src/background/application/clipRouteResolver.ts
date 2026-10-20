@@ -1,4 +1,5 @@
 import { resolvePath } from '../pathResolver';
+import type { RequestDeadlineOptions } from '../../shared/utils/requestDeadline';
 import { createVaultWriteSession, type VaultWriteSession } from '../services/obsidianWriter';
 import type {
   LocalVaultPermissionPromptRequest,
@@ -36,7 +37,7 @@ export type ResolvedClipRoute =
       writeSession: VaultWriteSession;
     };
 
-export interface ResolveClipRouteParams {
+export interface ResolveClipRouteParams extends RequestDeadlineOptions {
   options: Options;
   payload: ClipPayload;
   classification: ClassificationResult;
@@ -49,6 +50,8 @@ export async function resolveClipRoute({
   options,
   payload,
   classification,
+  signal,
+  deadlineAt,
   requestLocalVaultPermission
 }: ResolveClipRouteParams): Promise<ResolvedClipRoute> {
   const filePath = resolvePath(options.templates, payload, classification, options.domainMappings);
@@ -73,6 +76,8 @@ export async function resolveClipRoute({
       : {})
   });
   const writeSession = await createVaultWriteSession(restConfig, {
+    ...(signal ? { signal } : {}),
+    ...(deadlineAt !== undefined ? { deadlineAt } : {}),
     ...(requestLocalVaultPermission ? { requestLocalVaultPermission } : {})
   });
 
