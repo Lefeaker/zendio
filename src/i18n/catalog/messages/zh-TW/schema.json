@@ -450,5 +450,12 @@
   "schemaResourceChangelogV033Bullet1": "全新實作教學：從按住 Shift 選取文字開始，以箭頭提示與完成彩花帶你練習儲存、閱讀模式的摘錄數字定位，以及影片時間戳記跳轉與截圖選擇；精簡首次設定首頁，移除舊版重複精靈。 升級後，剪藏、閱讀與影片面板會顯示可關閉的教學入口，關閉或進入教學後不再重複提示。",
   "schemaResourceChangelogV033Bullet2": "設定導覽提供 4 步基礎入門與 20 個可選主題，涵蓋輔助鍵、外觀、隱私、附件、範本、YAML 與診斷。講解隨側欄切換，支援定位控制項、收合、小視窗捲動與返回練習驗證。",
   "schemaResourceChangelogV033Bullet3": "練習後可連接預設儲存庫：說明未設定時儲存至下載資料夾、Chromium 本機目錄授權、Obsidian Local REST API、Firefox 限制，以及 Obsidian 高亮與附件外掛的相容設定。",
-  "schemaResourceChangelogV033Bullet4": "新增 AI 輔助快速設定：複製格式說明至自己的 AI 對話，依需求產生文字後貼回設定頁；透過「修改項／修改前／修改後」表格預覽，套用後生效並可復原。未提及的設定保持原樣；目錄授權、金鑰與連線測試仍需手動完成。"
+  "schemaResourceChangelogV033Bullet4": "新增 AI 輔助快速設定：複製格式說明至自己的 AI 對話，依需求產生文字後貼回設定頁；透過「修改項／修改前／修改後」表格預覽，套用後生效並可復原。未提及的設定保持原樣；目錄授權、金鑰與連線測試仍需手動完成。",
+  "schemaResourceChangelogV034Summary": "新來的朋友你們好啊。",
+  "schemaResourceChangelogV034Bullet1": "首次連接儲存庫時可練習實際儲存，並查看結果與檔案路徑；Chromium 瀏覽器僅綁定本機目錄即可使用，無須填寫 REST 位址或金鑰。",
+  "schemaResourceChangelogV034Bullet2": "閱讀與影片儲存失敗或結果不確定時保留草稿，重新開啟後可核對目的地再選擇復原操作；部分儲存失敗後繼續儲存時保留已完成的附件。",
+  "schemaResourceChangelogV034Bullet3": "儲存前統一檢查附件，避免遺失或無效附件造成不完整匯出；一般連結、標題、參照定義與程式碼中的附件範例保持原文，並正確處理特殊檔名與瀏覽器重新命名。",
+  "schemaResourceChangelogV034Bullet4": "儲存目的地預覽與實際路由保持一致；連線測試更準確地檢查服務與驗證，逾時會結束等待，設定變更後的舊結果不再覆蓋新狀態。",
+  "schemaResourceChangelogV034Bullet5": "診斷資訊隱藏金鑰與私密設定；手動匯出的完整備份仍保留全部設定。",
+  "schemaResourceChangelogV034Bullet6": "修復 Firefox 頁面功能啟動與儲存問題；批次附件採用非同步驗證，並減少重複的下載完成檢查。"
 }

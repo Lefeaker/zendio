@@ -14,14 +14,18 @@
 | Mozilla Firefox | [从 Firefox 附加组件商店安装](https://addons.mozilla.org/firefox/addon/zendio/)                                                    | v0.3.3 已上架。  |
 | Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | 以商店页面为准。 |
 
-商店状态核对于 **2026 年 10 月 11 日**：Chrome 与 Firefox 已公开 **v0.3.3**。Edge 当前版本请以商店页面为准，各商店独立审核。当前源码版本为 **v0.3.3**。
+商店状态核对于 **2026 年 10 月 11 日**：Chrome 与 Firefox 已公开 **v0.3.3**。Edge 当前版本请以商店页面为准，各商店独立审核。当前源码版本为 **v0.3.4**。0.3.4 的商店可用状态以各自页面为准。
 
-## v0.3.3 更新
+## v0.3.4 更新
 
-- 新增实操教程，练习选中文字、保存 Markdown、定位阅读摘抄和跳转视频时间戳。
-- 设置导览提供 4 步基础入门和 20 个可选专题，可返回练习验证。
-- 引导连接本地仓库目录或 Obsidian Local REST API，并说明各浏览器的限制。
-- 新增 AI 辅助配置：在自己的 AI 对话中生成设置，预览修改后应用，支持撤销。目录授权、密钥和连接测试仍需手动完成。
+新来的朋友你们好啊。
+
+- 首次连接仓库时可完成一次真实保存练习，并查看保存结果与文件路径；Chromium 浏览器仅绑定本地目录即可使用，无需填写 REST 地址或密钥。
+- 阅读与视频保存失败或结果不确定时保留草稿，重新打开后可核对目标再选择恢复操作；部分保存失败后继续保存时保留已完成的附件。
+- 保存前统一检查附件，避免缺失或无效附件造成不完整导出；普通链接、标题、引用定义与代码中的附件示例保持原文，并正确处理特殊文件名和浏览器重命名。
+- 保存目标预览与实际路由保持一致；连接测试更准确地检查服务与认证，超时会结束等待，修改设置后的旧结果不再覆盖新状态。
+- 诊断信息隐藏密钥与私密配置；手动导出的完整备份仍保留全部设置。
+- 修复 Firefox 页面功能启动与保存问题；批量附件使用异步校验，并减少重复的下载完成检查。
 
 ## 简介
 
@@ -104,7 +108,7 @@
    - **下载**：无需连接 Obsidian 或配置仓库，即可保存 Markdown。
 3. **完成个性化设置**：选择语言和主题，再按需配置仓库路由、文件路径、YAML 字段、截图附件和模型提供方；检查可选的使用统计与错误诊断开关。
 
-目前公开的 GitHub Release 尚未提供 v0.3.3 浏览器安装包，请优先使用上方商店安装。如果之后提供经过核验的安装包，Chrome / Edge 的 ZIP 需要先解压，再在 `chrome://extensions` 或 `edge://extensions` 开启开发者模式并加载该目录。Firefox 需要已签名的 XPI。GitHub 自动生成的 **Source code** 源码压缩包不能直接作为扩展安装。
+浏览器安装包请查看 [GitHub Releases](https://github.com/Lefeaker/zendio/releases) 中对应版本的附件。经过核验的 Chrome / Edge ZIP 需要先解压，再在 `chrome://extensions` 或 `edge://extensions` 开启开发者模式并加载该目录。Firefox 需要已签名的 XPI。GitHub 自动生成的 **Source code** 源码压缩包不能直接作为扩展安装。
 
 从源码构建请遵循[工程指南](docs/engineering-entrypoints.md)中的固定环境与命令；[Edge 构建说明](docs/engineering-entrypoints.md#microsoft-edge-distribution)也在其中。
 
