@@ -23,7 +23,7 @@
     "audit:i18n-hardcoded-user-copy:check": "node tools/report-production-build-graph.mjs --write-json build/reports/production-build-graph.json >/dev/null && node scripts/audit-i18n-hardcoded-user-copy.mjs --check",
     "audit:i18n-uncatalogued-user-copy": "node tools/report-production-build-graph.mjs --write-json build/reports/production-build-graph.json >/dev/null && node scripts/audit-i18n-uncatalogued-user-copy.mjs",
     "audit:i18n-uncatalogued-user-copy:check": "node tools/report-production-build-graph.mjs --write-json build/reports/production-build-graph.json >/dev/null && node scripts/audit-i18n-uncatalogued-user-copy.mjs --check",
-    "lint:css": "node scripts/run-bounded-command.mjs --profile stylelint-v1 -- \"src/options/**/*.css\" \"src/onboarding/**/*.css\" \"src/ui/**/*.css\"",
+    "lint:css": "node scripts/run-bounded-command.mjs --profile css-selector-v1 -- \"src/options/**/*.css\" \"src/onboarding/**/*.css\" \"src/ui/**/*.css\"",
     "lint:warnings-report": "node scripts/lint-warnings-report.mjs",
     "lint:warnings-guard": "node scripts/lint-warnings-guard.mjs",
     "audit:deps:report": "node tools/report-dependency-cruiser-coverage.mjs",
@@ -199,9 +199,11 @@
     "image-size": "file:tools/addons-linter-image-metadata-adapter",
     "jsdom": "^27.4.0",
     "lint-staged": "^16.4.0",
+    "postcss": "8.5.23",
+    "postcss-resolve-nested-selector": "0.1.6",
+    "postcss-selector-parser": "7.1.6",
     "prettier": "^3.8.3",
     "rimraf": "^6.1.3",
-    "stylelint": "^16.26.1",
     "tsx": "^4.22.3",
     "typescript": "^5.5.4",
     "vitest": "4.1.11",
@@ -215,27 +217,18 @@
     },
     "ajv@<6.14.0": "6.15.0",
     "ajv@>=7.0.0-alpha.0 <8.18.0": "8.20.0",
-    "brace-expansion@<1.1.18": "1.1.18",
-    "brace-expansion@>=2.0.0 <2.1.4": "2.1.4",
     "eslint@^8.57.1": {
       ".": "$eslint",
       "ajv": "6.15.0"
     },
-    "fast-uri@>=3.0.0 <3.1.6": "3.1.6",
-    "colord@<2.9.4": "2.9.4",
     "js-yaml@>=4.0.0 <4.3.2": "4.3.2",
     "lodash@<=4.17.23": "4.18.1",
-    "minimatch@9.0.9": {
-      "brace-expansion": "2.1.4"
-    },
     "minimatch@<=3.1.3": "3.1.5",
     "minimatch@>=5.0.0 <5.1.8": "5.1.9",
     "node-forge@<=1.3.3": "1.4.0",
     "nanoid@<3.3.18": "3.3.18",
     "picomatch@<=2.3.1": "2.3.2",
     "postcss@<=8.5.22": "8.5.23",
-    "postcss-selector-parser@>=7.1.0 <7.1.3": "7.1.3",
-    "undici@>=7.0.0 <7.29.0": "7.29.0",
     "ws@>=8.0.0 <8.20.1": "8.21.0"
   },
   "lint-staged": {
@@ -244,7 +237,7 @@
       "prettier --write"
     ],
     "src/options/**/*.css": [
-      "stylelint --fix",
+      "node tools/check-css-selectors.mjs",
       "npm run report:options-legacy"
     ],
     "*.{json,md}": [

@@ -378,7 +378,7 @@ jobs:
         env:
           NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
           NPM_CONFIG_GLOBALCONFIG: ${{ steps.node.outputs.npm-globalconfig }}
-        run: node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"
+        run: node scripts/run-bounded-command.mjs --profile css-selector-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"
 
       - name: Enforce hardcoded config guard
         env:

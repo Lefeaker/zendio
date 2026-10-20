@@ -222,13 +222,6 @@ const LOCKED_PACKAGES = deepFreeze({
     packageSha256: '223e6230f29d5537f6448db55339355c08c2125afe92977a1492a569cbfd413d',
     binSha256: 'ac5523cd57e7e9d8eac71caef7e022a8a8489bcdc19ca8a778b7e728ec103b93'
   },
-  stylelint: {
-    rootSpec: '^16.26.1',
-    version: '16.26.1',
-    binName: 'stylelint',
-    packageSha256: 'eaeb825454198489518207184a9928212e54e3147a91a7e6522c16942601773a',
-    binSha256: 'fff129a9fdd70eea1aaa609c42277622bf5bbbac228e54d22858d3324eada025'
-  },
   'lint-staged': {
     rootSpec: '^16.4.0',
     version: '16.4.0',
@@ -401,7 +394,7 @@ export const PROFILE_IDS = deepFreeze([
   'release-state-check-v1',
   'release-state-init-v1',
   'stitch-secondary-v1',
-  'stylelint-v1',
+  'css-selector-v1',
   'vitest-v1'
 ]);
 
@@ -753,16 +746,12 @@ function validatePrettierArgs(args) {
   return args;
 }
 
-function validateStylelintArgs(args) {
-  if (args[0] === '--print-config') {
-    if (args.length !== 2) invalid('STYLELINT_ARGUMENTS_INVALID');
-    const item = boundedToken(args[1], { path: true });
-    if (!item.startsWith('src/options/') && !item.startsWith('src/ui/'))
-      invalid('STYLELINT_ARGUMENTS_INVALID');
-    return args;
+function validateCssSelectorArgs(args) {
+  if (args.length < 1 || args.length > 256) invalid('CSS_SELECTOR_ARGUMENTS_INVALID');
+  for (const token of args) {
+    if (token.startsWith('-')) invalid('CSS_SELECTOR_ARGUMENTS_INVALID');
+    boundedToken(token, { path: true, glob: true });
   }
-  if (args.length < 1 || args.length > 256) invalid('STYLELINT_ARGUMENTS_INVALID');
-  for (const token of args) boundedToken(token, { path: true, glob: true });
   return args;
 }
 
@@ -797,7 +786,7 @@ export function validateProfileArguments(profileId, args) {
   if (profileId === 'firefox-addons-lint-v1') return validateFirefoxAddonsLintArgs(args);
   if (profileId === 'vitest-v1') return validateVitestArgs(args);
   if (profileId === 'prettier-v1') return validatePrettierArgs(args);
-  if (profileId === 'stylelint-v1') return validateStylelintArgs(args);
+  if (profileId === 'css-selector-v1') return validateCssSelectorArgs(args);
   if (
     [
       'lint-staged-hook-v1',
@@ -2333,7 +2322,7 @@ const ATTEMPT_CONFIG_PROPAGATION_PROFILES = new Set([
   'npm-script-quick-v1',
   'npm-script-standard-v1',
   'prettier-v1',
-  'stylelint-v1',
+  'css-selector-v1',
   'vitest-v1'
 ]);
 
@@ -2371,10 +2360,10 @@ export function resolveCommandProfile(
       argv: [resolveLockedBin('prettier'), ...args],
       limits: COMMAND_LIMITS.standard
     };
-  else if (profileId === 'stylelint-v1')
+  else if (profileId === 'css-selector-v1')
     command = {
       executable: process.execPath,
-      argv: [resolveLockedBin('stylelint'), ...args],
+      argv: [fixedFileOperation('tools/check-css-selectors.mjs'), ...args],
       limits: COMMAND_LIMITS.quick
     };
   else if (profileId === 'lint-staged-hook-v1' || profileId === 'lint-staged-prepare-v1')

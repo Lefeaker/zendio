@@ -91,7 +91,7 @@ test 添加 masking。
 
 每个 repository `run:` step 必须是 direct root coordinator 或
 `node scripts/run-bounded-command.mjs --profile ...`。不得使用 raw
-`npm`、`npx`、`pnpx`、bare Vitest/Prettier/Stylelint/Playwright、
+`npm`、`npx`、`pnpx`、bare Vitest/Prettier/CSS selector gate/Playwright、
 shell chain、caller-selected cwd/env/timeout/concurrency 或共享 browser
 output。
 
