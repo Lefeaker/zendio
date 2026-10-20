@@ -369,13 +369,13 @@ describe('bounded CI workflow contract', () => {
     const styleSteps = parsed.jobs
       .get('static-style-and-locale')
       ?.steps.filter(
-        (step) => step.name === 'Lint Options CSS' || step.run?.includes('stylelint-v1')
+        (step) => step.name === 'Lint Options CSS' || step.run?.includes('css-selector-v1')
       );
     expect(styleSteps).toEqual([
       {
         name: 'Lint Options CSS',
         env: '',
-        run: 'node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"'
+        run: 'node scripts/run-bounded-command.mjs --profile css-selector-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"'
       }
     ]);
   });
@@ -486,8 +486,8 @@ describe('bounded CI workflow contract', () => {
       },
       {
         workflow: workflow.replace(
-          'node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"',
-          'node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/ui/**/*.css"'
+          'node scripts/run-bounded-command.mjs --profile css-selector-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"',
+          'node scripts/run-bounded-command.mjs --profile css-selector-v1 -- "src/options/**/*.css" "src/ui/**/*.css"'
         )
       }
     ];

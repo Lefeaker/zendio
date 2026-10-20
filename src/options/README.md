@@ -18,7 +18,7 @@
 - `audit:non-production-source:report` 是 inventory evidence，完成态必须退出 0；若出现 report blocker，必须逐 exact path 迁移、六证据删除或显式 retained-contract 分类。`audit:non-production-source:check` 是可接入 `quality` 的 hard gate。
 - `src/options/app/changelogContent.ts` 当前仍按 Options changelog content compatibility module 保留；只有在 Options public behavior 移除 changelog content 且六项 owner proof 为空时，才能进入后续删除批次。
 - Options 验收除通用 `quality` / `verify:preflight` 外，必须追加 `npm run verify:stitch-secondary`。
-- 当前技术栈为 TypeScript、esbuild、Vitest、Playwright、ESLint、Prettier、Stylelint、Zod、Stitch runtime CSS 与 WebExtension APIs；formal specs/plans 归属外层 workspace `docs/codex-superpowers/*`。
+- 当前技术栈为 TypeScript、esbuild、Vitest、Playwright、ESLint、Prettier、CSS selector gate、Zod、Stitch runtime CSS 与 WebExtension APIs；formal specs/plans 归属外层 workspace `docs/codex-superpowers/*`。
 
 ### 0.1 目录与入口
 
@@ -40,8 +40,8 @@
 ### 0.3 必跑命令
 
 ```bash
-npm run lint                 # Typescript + ESLint/Stylelint 基线
-node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"     # 限定 Options CSS 的 Stylelint
+npm run lint                 # TypeScript 的 ESLint 检查
+node scripts/run-bounded-command.mjs --profile css-selector-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"     # Options/onboarding/UI CSS 类名检查
 npm run report:options-legacy # 确保无 `.aob-*` 遗留
 npm run test:unit            # Stitch shell / controller 的最小回归
 npm run verify:stitch-secondary # Stitch Secondary 主链回归
@@ -209,7 +209,7 @@ src/options/
 - **开发流程建议**：
   1. 修改 DOM → 使用统一 helper 输出 `.aobx-*` 类。
   2. 在 Stitch schema / renderer / `stitch/styles/entries/options.css` 中补齐对应规则。
-  3. 执行 `npm run report:options-legacy && node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"`，确认没有 `.aob-*` 残留且命名符合 `.aobx-*` 规范；如命令输出命中需立刻处理。
+  3. 执行 `npm run report:options-legacy && node scripts/run-bounded-command.mjs --profile css-selector-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"`，确认没有 `.aob-*` 残留且命名符合 `.aobx-*` 规范；如命令输出命中需立刻处理。
   4. 运行 `npm run test:unit` 或必要的 UI 回归（可配合 `npm run build:dev` + `chrome://extensions` 刷新）。
   5. 若需要对照 Legacy → `.aobx-*` 的映射，可参见 `docs/options-css-naming-map.md`。
 - **通用 Utility/组件清单**（与 §0.4 对应）：
@@ -224,7 +224,7 @@ src/options/
 - **验证命令示例**：
   ```bash
   npm run report:options-legacy   # 需返回 “No legacy .aob-* classes detected”
-  node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"        # 限定在 Options CSS 的 Stylelint 校验
+  node scripts/run-bounded-command.mjs --profile css-selector-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"        # Options/onboarding/UI CSS 类名检查
   npm run test:unit               # 基本回归
   rg -n "aob-" src/options        # 手动确认未引入旧命名
   ```
@@ -260,7 +260,7 @@ src/options/
 ## 7. 维护流程与历史参考
 
 - **文档更新责任**：凡是改动 Options DOM、样式、运行时或命令的 PR，作者必须同步更新本 README / 相关指南，并在 PR 模板勾选“文档已更新或无需更新”条目。
-- **校验流程**：在提交 PR 前务必运行 `npm run lint`、`node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"`、`npm run report:options-legacy`；必要时附上 `npm run test:unit` 结果截图或日志。
+- **校验流程**：在提交 PR 前务必运行 `npm run lint`、`node scripts/run-bounded-command.mjs --profile css-selector-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"`、`npm run report:options-legacy`；必要时附上 `npm run test:unit` 结果截图或日志。
 - **定期复查**：Options 模块维护人（默认由当期版本负责人承担）需在每季度迭代结束后检查 README 是否覆盖最新规范，并同步核对 `docs/README.md` 与 `docs/engineering-entrypoints.md`。
 - **历史资料**：有关 Batch1/Batch2/Legacy Removal 的阶段总结均已迁移至 `trash/options-css/`，若需追溯决策过程，请参阅 `docs/options-css-full-cleanup-guide.md` 与相关归档文档。
 - **沟通渠道**：若发现 README 与实际实现不一致，请在 Issue/看板中 @Options 维护人，并把修复纳入后续文档刷新日志。

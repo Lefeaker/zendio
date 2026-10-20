@@ -39,7 +39,7 @@ export type CommandBoundaryProfileId =
   | 'release-state-check-v1'
   | 'release-state-init-v1'
   | 'stitch-secondary-v1'
-  | 'stylelint-v1'
+  | 'css-selector-v1'
   | 'vitest-v1';
 
 export interface CommandLimits {

@@ -7,7 +7,8 @@ const PackageSchema = z.object({
   scripts: z.record(z.string()),
   dependencies: z.record(z.string()),
   devDependencies: z.record(z.string()),
-  overrides: z.record(z.unknown())
+  overrides: z.record(z.unknown()),
+  'lint-staged': z.record(z.array(z.string()))
 });
 const LockSchema = z.object({
   packages: z.record(
@@ -46,7 +47,7 @@ const exactTransitions = {
   'format:check':
     'node scripts/run-bounded-command.mjs --profile prettier-v1 -- --check "{src,tests,docs}/**/*.{ts,tsx,js,jsx,json,md}"',
   'lint:css':
-    'node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"'
+    'node scripts/run-bounded-command.mjs --profile css-selector-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"'
 };
 
 function readPackage() {
@@ -72,6 +73,13 @@ function findForbiddenRoutes(scripts: Record<string, string>): string[] {
 }
 
 describe('package command-boundary routes', () => {
+  it('runs the fixed CSS owner within the existing bounded lint-staged hook', () => {
+    expect(readPackage()['lint-staged']['src/options/**/*.css']).toEqual([
+      'node tools/check-css-selectors.mjs',
+      'npm run report:options-legacy'
+    ]);
+  });
+
   it('freezes the exact eighteen script-value transitions', () => {
     const { scripts } = readPackage();
 

@@ -6,7 +6,7 @@
 
 - 目标项目：`Zendio`（当前本地仓库目录仍为 `AiiinOB`）
 - 项目形态：浏览器扩展，主要面向 Obsidian 工作流，包含网页剪藏、AI 聊天导出、阅读模式、视频模式、多语言与多仓库配置能力。
-- 技术栈：TypeScript、esbuild、Vitest、Playwright、ESLint、Prettier、Stylelint、Zod、Stitch runtime CSS、WebExtension APIs。
+- 技术栈：TypeScript、esbuild、Vitest、Playwright、ESLint、Prettier、PostCSS selector gate、Zod、Stitch runtime CSS、WebExtension APIs。
 - 关键目录：
   - `src/`：扩展源码
   - `tests/`：单元、E2E、视觉与浏览器相关测试
@@ -190,7 +190,7 @@ git status --short
 - 当前检查至少覆盖：
   - `eslint --fix`
   - `prettier --write`
-  - `stylelint --fix`
+  - `css-selector-v1`（类名规则不可自动修复）
   - `npm run report:options-legacy`
 
 如需手动预跑，可在仓库根目录执行与真实 hook 相同的 locked owner：

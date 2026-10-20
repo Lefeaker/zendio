@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import stylelint from 'stylelint';
+import { lintCssFiles, lintCssSource } from '../../../tools/check-css-selectors.mjs';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   CONTENT_CSS_PACKS,
@@ -50,29 +50,17 @@ describe('content CSS packs', () => {
     );
   });
 
-  it('applies the same real selector rule to retained Options and neutral UI CSS', async () => {
-    const optionsConfig = await stylelint.resolveConfig(
-      'src/options/stitch/styles/runtime/responsive.css'
-    );
-    const neutralConfig = await stylelint.resolveConfig(
-      'src/ui/stitch-runtime/styles/runtime/theme-tokens.css'
-    );
-    expect(optionsConfig?.rules?.['selector-class-pattern']).toEqual(
-      neutralConfig?.rules?.['selector-class-pattern']
-    );
-    expect(optionsConfig?.rules?.['selector-class-pattern']).toBeTruthy();
-
-    const actual = await stylelint.lint({
-      files: ['src/options/**/*.css', 'src/onboarding/**/*.css', 'src/ui/**/*.css']
-    });
-    expect(actual.errored).toBe(false);
-    expect(actual.results.flatMap(({ warnings }) => warnings)).toEqual([]);
-
-    const invalid = await stylelint.lint({
-      code: '.aob-forbidden { color: red; }',
-      codeFilename: 'src/ui/stitch-runtime/styles/runtime/invalid.css'
-    });
-    expect(invalid.errored).toBe(true);
-    expect(invalid.results[0]?.warnings[0]?.rule).toBe('selector-class-pattern');
+  it('applies the same real selector rule to retained Options and neutral UI CSS', () => {
+    const actual = lintCssFiles();
+    expect(actual.issues).toEqual([]);
+    for (const directory of ['options', 'onboarding', 'ui']) {
+      expect(actual.files.some((file) => file.startsWith(`src/${directory}/`))).toBe(true);
+      const invalid = lintCssSource(
+        '.aob-forbidden { color: red; }',
+        `src/${directory}/invalid.css`
+      );
+      expect(invalid).toHaveLength(1);
+      expect(invalid[0]?.rule).toBe('selector-class-pattern');
+    }
   });
 });

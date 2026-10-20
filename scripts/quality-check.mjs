@@ -60,7 +60,7 @@ export function createQualityTaskGraph() {
         'audit:options-mainline:report'
       ),
       quick('report-options-legacy', 'Options 旧前缀扫描', 'report:options-legacy'),
-      task('lint-css', 'Options/onboarding/UI CSS 命名校验', 'stylelint-v1', [
+      task('lint-css', 'Options/onboarding/UI CSS 命名校验', 'css-selector-v1', [
         'src/options/**/*.css',
         'src/onboarding/**/*.css',
         'src/ui/**/*.css'
