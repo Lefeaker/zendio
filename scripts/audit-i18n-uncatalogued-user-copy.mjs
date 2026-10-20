@@ -440,9 +440,18 @@ function isPotentialUserCopy(value) {
   return hasEnglishWords(trimmed) && !isProbablyTechnicalLiteral(trimmed);
 }
 
-function createFinding({ sourceFile, relativePath, node, literal, kind, category, message }) {
+function createFinding({
+  sourceFile,
+  sourceLines,
+  relativePath,
+  node,
+  literal,
+  kind,
+  category,
+  message
+}) {
   const { line, column } = lineAndColumn(sourceFile, node.getStart(sourceFile));
-  const snippet = sourceFile.text.split(/\r?\n/)[line - 1]?.trim() ?? '';
+  const snippet = sourceLines[line - 1]?.trim() ?? '';
   return {
     file: relativePath,
     line,
@@ -484,20 +493,20 @@ function detectTypeScriptFindings({ content, relativePath, filePath }) {
     true,
     scriptKind
   );
+  const sourceLines = content.split(/\r?\n/);
   const findings = [];
 
   function visit(node) {
     const literal = getLiteralText(node);
     if (literal && !isModuleSpecifier(node)) {
       const snippet =
-        sourceFile.text
-          .split(/\r?\n/)
-          [lineAndColumn(sourceFile, node.getStart(sourceFile)).line - 1]?.trim() ?? '';
+        sourceLines[lineAndColumn(sourceFile, node.getStart(sourceFile)).line - 1]?.trim() ?? '';
 
       if (isTranslationFallbackLiteral(node, sourceFile) && isPotentialUserCopy(literal)) {
         findings.push(
           createFinding({
             sourceFile,
+            sourceLines,
             relativePath,
             node,
             literal,
@@ -513,6 +522,7 @@ function detectTypeScriptFindings({ content, relativePath, filePath }) {
         findings.push(
           createFinding({
             sourceFile,
+            sourceLines,
             relativePath,
             node,
             literal,
@@ -525,6 +535,7 @@ function detectTypeScriptFindings({ content, relativePath, filePath }) {
         findings.push(
           createFinding({
             sourceFile,
+            sourceLines,
             relativePath,
             node,
             literal,
@@ -548,6 +559,7 @@ function detectTypeScriptFindings({ content, relativePath, filePath }) {
             findings.push(
               createFinding({
                 sourceFile,
+                sourceLines,
                 relativePath,
                 node,
                 literal,
@@ -560,6 +572,7 @@ function detectTypeScriptFindings({ content, relativePath, filePath }) {
             findings.push(
               createFinding({
                 sourceFile,
+                sourceLines,
                 relativePath,
                 node,
                 literal,
