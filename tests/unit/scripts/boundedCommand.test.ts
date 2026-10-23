@@ -2157,7 +2157,7 @@ describe('bounded command ownership', () => {
       });
 
     expect(resolveProfile().commandContext).toMatchObject({ attemptConfigAuthority: true });
-    environment.npm_config_user_agent = 'forged-after-first-resolution';
+    environment.npm_lifecycle_script = 'forged-after-first-resolution';
     expect(resolveProfile).toThrow('NPM_CONFIG_AUTHORITY_INVALID');
   });
 
