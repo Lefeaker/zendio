@@ -116,6 +116,39 @@ describe('chatHtmlToMarkdown - code fences', () => {
   });
 });
 
+it.each(['You said:', '您说：', 'ChatGPT said:', 'ChatGPT 说：'])(
+  'preserves the standalone role-label literal %s during shared Markdown conversion',
+  (label) => {
+    expect(chatHtmlToMarkdown(`<p>${label}</p>`)).toBe(label);
+    expect(chatHtmlToMarkdown(`<blockquote>${label}</blockquote>`)).toBe(`> ${label}`);
+    expect(chatHtmlToMarkdown(`<pre><code>${label}</code></pre>`)).toBe(`\`\`\`\n${label}\n\`\`\``);
+    expect(chatHtmlToMarkdown(`<a href="https://example.com/">${label}</a>`)).toBe(
+      `[${label}](https://example.com/)`
+    );
+    expect(chatHtmlToMarkdown(`<h5>${label}</h5>`)).toBe(`## ${label}`);
+  }
+);
+
+it.each(['您说：', '你好', '：', '123'])(
+  'preserves uncased prose %s before a code block instead of treating it as uppercase',
+  (text) => {
+    const markdown = chatHtmlToMarkdown(`<p>${text}</p><pre><code>example()</code></pre>`);
+    expect(markdown).toBe(`${text}\n\n\`\`\`\nexample()\n\`\`\``);
+  }
+);
+
+it('keeps uppercase and explicit language chips when inferring code fence languages', () => {
+  expect(chatHtmlToMarkdown('<div>CUSTOMLANG</div><pre><code>example()</code></pre>')).toBe(
+    '```customlang\nexample()\n```'
+  );
+  expect(
+    chatHtmlToMarkdown('<div class="language-chip">伪代码</div><pre><code>example()</code></pre>')
+  ).toBe('```伪代码\nexample()\n```');
+  expect(
+    chatHtmlToMarkdown('<div data-language="custom">自定义</div><pre><code>example()</code></pre>')
+  ).toBe('```custom\nexample()\n```');
+});
+
 describe('chatHtmlToMarkdown - mixed structures', () => {
   it('converts nested lists, blockquotes, and ordered list start offsets', () => {
     const html = `
