@@ -54,6 +54,147 @@ describe('ai chat platform parsers', () => {
     expect(result.messages.some((message) => /您说|ChatGPT 说/.test(message.md ?? ''))).toBe(false);
   });
 
+  it.each(['user', 'assistant'] as const)(
+    'preserves role-label literals throughout the ChatGPT %s message body',
+    (role) => {
+      const doc = new DOMParser().parseFromString(
+        `<article data-message-author-role="${role}">
+          <h5>${role === 'user' ? 'You said:' : 'ChatGPT said:'}</h5>
+          <div class="markdown prose">
+            <p>You said: keep this sentence. Earlier 您说：也要保留。</p>
+            <blockquote><p>ChatGPT said: quoted reply.</p></blockquote>
+            <pre><code>const label = "您说：";\nYou said: literal line</code></pre>
+            <p><a href="https://example.com/">ChatGPT 说：链接文字</a></p>
+            <h5>You said: section title</h5>
+          </div>
+        </article>`,
+        'text/html'
+      );
+      const sourceHtml = doc.body.innerHTML;
+      const result = parseChatDOM('chatgpt', doc);
+
+      expect(result.messages).toHaveLength(1);
+      expect(result.messages[0].role).toBe(role);
+      expect(result.messages[0].md).toContain(
+        'You said: keep this sentence. Earlier 您说：也要保留。'
+      );
+      expect(result.messages[0].md).toContain('> ChatGPT said: quoted reply.');
+      expect(result.messages[0].md).toContain('const label = "您说：";\nYou said: literal line');
+      expect(result.messages[0].md).toContain('[ChatGPT 说：链接文字](https://example.com/)');
+      expect(result.messages[0].md).toContain('## You said: section title');
+      expect(doc.body.innerHTML).toBe(sourceHtml);
+    }
+  );
+
+  it.each(['markdown prose', 'whitespace-pre-wrap', 'unrecognized-message-body'])(
+    'preserves standalone ChatGPT role words inside %s',
+    (className) => {
+      const doc = new DOMParser().parseFromString(
+        `<article data-message-author-role="assistant">
+          <h5>ChatGPT said:</h5>
+          <div class="${className}">
+            <h5>You said:</h5><p>您说：</p><blockquote>ChatGPT said:</blockquote>
+            <pre><code>ChatGPT 说：</code></pre>
+            <a href="https://example.com/">You said:</a>
+          </div>
+        </article>`,
+        'text/html'
+      );
+      const result = parseChatDOM('chatgpt', doc);
+
+      expect(result.messages).toHaveLength(1);
+      expect(result.messages[0].role).toBe('assistant');
+      expect(result.messages[0].md).toContain('## You said:');
+      expect(result.messages[0].md).toContain('您说：');
+      expect(result.messages[0].md).toContain('> ChatGPT said:');
+      expect(result.messages[0].md).toContain('```\nChatGPT 说：\n```');
+      expect(result.messages[0].md).toContain('[You said:](https://example.com/)');
+    }
+  );
+
+  it.each([
+    ['You said:', 'user'],
+    ['You', 'user'],
+    ['您说：', 'user'],
+    ['您', 'user'],
+    ['ChatGPT said:', 'assistant'],
+    ['ChatGPT 说：', 'assistant']
+  ])('removes the separate ChatGPT role header %s in fallback content', (label, role) => {
+    const doc = new DOMParser().parseFromString(
+      `<article><h5>${label}</h5><p>Message body</p><button>Copy</button></article>`,
+      'text/html'
+    );
+    const result = parseChatDOM('chatgpt', doc);
+
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0]).toMatchObject({
+      role,
+      md: 'Message body',
+      html: '<p>Message body</p>'
+    });
+  });
+
+  it('uses accessibility role chrome outside message content while honoring explicit roles', () => {
+    const doc = new DOMParser().parseFromString(
+      `<article><div class="sr-only">You said:</div><p>Prompt body</p></article>
+       <article data-message-author-role="assistant">
+         <h6 class="sr-only">ChatGPT said:</h6><p>Answer body</p>
+       </article>
+       <article data-message-author-role="assistant"><h5>You said:</h5><p>Explicit role wins</p></article>
+       <article><div class="markdown"><h5>You said:</h5><p>Body heading is not role chrome</p></div></article>`,
+      'text/html'
+    );
+    const result = parseChatDOM('chatgpt', doc);
+
+    expect(result.messages.map((message) => message.role)).toEqual([
+      'user',
+      'assistant',
+      'assistant',
+      'assistant'
+    ]);
+    expect(result.messages.map((message) => message.md)).toEqual([
+      'Prompt body',
+      'Answer body',
+      'Explicit role wins',
+      '## You said:\n\nBody heading is not role chrome'
+    ]);
+  });
+
+  it('preserves unmarked ChatGPT prose and body-only headings in fallback content', () => {
+    const doc = new DOMParser().parseFromString(
+      `<article><div>You said:</div><p>Plain body</p></article>
+       <article><h5>You said:</h5></article>
+       <article><div><h5>You said:</h5><p>Nested body</p></div></article>`,
+      'text/html'
+    );
+    const result = parseChatDOM('chatgpt', doc);
+
+    expect(result.messages.map((message) => message.role)).toEqual([
+      'assistant',
+      'assistant',
+      'assistant'
+    ]);
+    expect(result.messages.map((message) => message.md)).toEqual([
+      'You said:Plain body',
+      '## You said:',
+      '## You said:\n\nNested body'
+    ]);
+  });
+
+  it('keeps a body heading when the role-marked ChatGPT root is itself the content container', () => {
+    const doc = new DOMParser().parseFromString(
+      '<div data-message-author-role="assistant" class="markdown"><h5>You said:</h5><p>Body text</p></div>',
+      'text/html'
+    );
+    const result = parseChatDOM('chatgpt', doc);
+
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0]).toMatchObject({
+      role: 'assistant',
+      md: '## You said:\n\nBody text'
+    });
+  });
+
   it('parses Claude conversations with model metadata', () => {
     const doc = loadFixture('claude.html');
     const result = parseChatDOM('claude', doc);
@@ -403,7 +544,7 @@ describe('ai chat platform parsers', () => {
         <body>
           <div>Model: GPT-4.1</div>
           <article><h5>You said:</h5><p>Hello</p></article>
-          <article><div>ChatGPT said: Hi there</div></article>
+          <article><h5>ChatGPT said:</h5><div>ChatGPT said: Hi there</div></article>
         </body>
       </html>
     `);
@@ -412,7 +553,10 @@ describe('ai chat platform parsers', () => {
     expect(bodyModelResult.model).toBe('GPT-4.1');
     expect(bodyModelResult.messages).toHaveLength(2);
     expect(bodyModelResult.messages[0]).toMatchObject({ role: 'user', md: 'Hello' });
-    expect(bodyModelResult.messages[1]).toMatchObject({ role: 'assistant', md: 'Hi there' });
+    expect(bodyModelResult.messages[1]).toMatchObject({
+      role: 'assistant',
+      md: 'ChatGPT said: Hi there'
+    });
   });
 
   it('uses selected model option and skips empty ChatGPT articles', () => {

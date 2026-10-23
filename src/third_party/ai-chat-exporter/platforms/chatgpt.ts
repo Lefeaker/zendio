@@ -3,7 +3,7 @@ import { chatElementToMarkdown } from '../shared/markdown';
 import type { ChatPlatformParser, ParsedMessage, ParsedResult } from '../types';
 
 const CHATGPT_ARTICLE_SELECTOR = 'article';
-const CHATGPT_HEADER_SELECTOR = 'h5';
+const CHATGPT_HEADER_SELECTOR = 'h5, .sr-only';
 const CHATGPT_TITLE_REPLACE_TEXT = ' - ChatGPT';
 const CHATGPT_MESSAGE_ROOT_SELECTOR = `${CHATGPT_ARTICLE_SELECTOR}, [data-message-author-role]`;
 const CHATGPT_CONTENT_SELECTORS = [
@@ -26,10 +26,11 @@ const CHATGPT_CHROME_SELECTOR = [
 // Native role labels rendered by ChatGPT's own DOM. These are source-site parser tokens.
 const CHATGPT_NATIVE_USER_ROLE_LABELS = ['You said', 'You', '您说', '您'] as const;
 const CHATGPT_NATIVE_ASSISTANT_ROLE_LABELS = ['ChatGPT said', 'ChatGPT 说'] as const;
-const CHATGPT_NATIVE_ROLE_LABELS = [
-  ...CHATGPT_NATIVE_USER_ROLE_LABELS,
-  ...CHATGPT_NATIVE_ASSISTANT_ROLE_LABELS
-] as const;
+const CHATGPT_NATIVE_ROLE_LOOKUP = new Set(
+  [...CHATGPT_NATIVE_USER_ROLE_LABELS, ...CHATGPT_NATIVE_ASSISTANT_ROLE_LABELS].map((label) =>
+    normalizeHeaderLabel(label)
+  )
+);
 const CHATGPT_NATIVE_USER_ROLE_LOOKUP = new Set(
   CHATGPT_NATIVE_USER_ROLE_LABELS.map((label) => normalizeHeaderLabel(label))
 );
@@ -38,18 +39,6 @@ function normalizeHeaderLabel(text: string): string {
   return text
     .toLowerCase()
     .replace(/[：:]\s*$/u, '')
-    .trim();
-}
-
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function stripNativeRoleLabels(markdown: string): string {
-  const labelPattern = CHATGPT_NATIVE_ROLE_LABELS.map(escapeRegExp).join('|');
-  return markdown
-    .replace(new RegExp(`^(${labelPattern})[：:]\\s*`, 'gimu'), '')
-    .replace(new RegExp(`(${labelPattern})[：:]\\s*`, 'giu'), '')
     .trim();
 }
 
@@ -77,6 +66,30 @@ function pickChatGPTContent(root: HTMLElement): HTMLElement {
   }
 
   return root;
+}
+
+function findChatGPTRoleHeader(root: HTMLElement, content: HTMLElement): HTMLElement | null {
+  if (content === root && CHATGPT_CONTENT_SELECTORS.some((selector) => root.matches(selector))) {
+    return null;
+  }
+
+  for (const header of Array.from(root.querySelectorAll<HTMLElement>(CHATGPT_HEADER_SELECTOR))) {
+    if (!CHATGPT_NATIVE_ROLE_LOOKUP.has(normalizeHeaderLabel(header.textContent || ''))) continue;
+
+    if (content !== root) {
+      if (!content.contains(header)) return header;
+    } else if (
+      header === root.firstElementChild &&
+      Array.from(root.children).some(
+        (sibling) => sibling !== header && !sibling.matches(CHATGPT_CHROME_SELECTOR)
+      )
+    ) {
+      // Legacy articles put a separate role heading before the unmarked body.
+      return header;
+    }
+  }
+
+  return null;
 }
 
 function removeChatGPTChrome(fragment: HTMLElement): void {
@@ -175,22 +188,19 @@ function extractChatGPTChatData(doc: Document): ParsedResult {
   }
 
   for (const messageRoot of messageRoots) {
-    const header = messageRoot.querySelector(CHATGPT_HEADER_SELECTOR)?.textContent?.trim() || '';
     const content = pickChatGPTContent(messageRoot);
+    const header = findChatGPTRoleHeader(messageRoot, content);
     const fragment = content.cloneNode(true) as HTMLElement;
+    if (content === messageRoot && header) fragment.firstElementChild?.remove();
     removeChatGPTChrome(fragment);
 
-    let markdown = chatElementToMarkdown(fragment);
-
-    if (!markdown.trim()) continue;
-
-    markdown = stripNativeRoleLabels(markdown);
+    const markdown = chatElementToMarkdown(fragment);
     if (!markdown.trim()) continue;
 
     const html = fragment.innerHTML;
     messages.push({
       id: `msg-${chatIndex++}`,
-      role: resolveChatGPTRole(messageRoot, header),
+      role: resolveChatGPTRole(messageRoot, header?.textContent || ''),
       html,
       md: markdown,
       text: markdown
