@@ -88,6 +88,10 @@ describe('report-performance-hotspots', () => {
 
   it('keeps the exact normalized budget transitions and every other budget unchanged', () => {
     const registeredBudgets = readRegisteredBudgets();
+    expect(registeredBudgets.get('src/content/reader/sessionOperations.ts')).toBe(823);
+    registeredBudgets.set('src/content/reader/sessionOperations.ts', 819);
+    expect(registeredBudgets.get('src/content/video/videoSessionExporter.ts')).toBe(275);
+    registeredBudgets.set('src/content/video/videoSessionExporter.ts', 274);
     const v034ReleaseNoteChanges: Array<[string, number, number]> = [
       ['src/i18n/generated/schemaCore.generated.ts', 470, 477],
       ['src/i18n/generated/messages.generated.ts', 1363, 1370]

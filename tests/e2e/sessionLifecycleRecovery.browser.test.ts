@@ -1,7 +1,8 @@
+import type { VideoSessionDraftPayloadShape } from '../../src/content/video/sessionDrafts';
 import { readSessionExportAttempt } from '../../src/shared/sessionDrafts/exportAttempt';
 import { LEARNING_PROGRESS_KEY } from '../../src/shared/learningProgress';
 import { expect, type BrowserContext, type Page } from '@playwright/test';
-import { readFile, mkdir } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import {
@@ -30,11 +31,9 @@ import {
   releaseRecoveryReply
 } from './utils/sessionRecoveryHarness';
 
-test.beforeEach(async ({ extensionPage, context }, testInfo) => {
-  const downloads = testInfo.outputPath('downloads');
-  await mkdir(downloads, { recursive: true });
+test.beforeEach(async ({ extensionPage, context }) => {
   const cdp = await context.newCDPSession(extensionPage);
-  await cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: downloads });
+  await cdp.send('Browser.setDownloadBehavior', { behavior: 'default' });
   await cdp.detach();
   await seedOptions(
     extensionPage,
@@ -726,6 +725,10 @@ for (const scenario of [
   'destination-plan',
   'missing-file',
   'reload',
+  'reopen',
+  'reload-legacy',
+  'reload-missing-cache',
+  'reload-destination-plan',
   'clock-boundary',
   'lost-continuation-ack'
 ] as const) {
@@ -740,12 +743,14 @@ for (const scenario of [
     );
     const faultAt = scenario === 'note' ? 3 : 2;
     const exportStartedAt = new Date(2026, 9, 15, 23, 59, 59).getTime();
-    const { page, tabId, url } = await openTwoAttachmentRecoveryVideo(
+    const originalPage = await openTwoAttachmentRecoveryVideo(
       context,
       extensionPage,
       faultAt,
       scenario === 'clock-boundary' ? exportStartedAt : undefined
     );
+    let { page, tabId } = originalPage;
+    const { url } = originalPage;
     if (scenario === 'clock-boundary') {
       await extensionPage.evaluate((options) => chrome.storage.sync.set({ options }), {
         ...createOptionsFixture(),
@@ -756,7 +761,7 @@ for (const scenario of [
       );
     }
     await page.locator('[data-action-id="video:finish"]').click();
-    const notice = page.locator('[data-session-export-notice="video"]');
+    let notice = page.locator('[data-session-export-notice="video"]');
     try {
       await expect(notice.locator('[data-attachment-progress]')).toContainText(
         scenario === 'note' ? '2/2' : '1/2'
@@ -853,27 +858,70 @@ for (const scenario of [
           )
         )
         .toBe(false);
-    } else if (scenario === 'reload') {
-      await page.reload();
-      await injectContentRuntime(extensionPage, tabId);
+    } else if (scenario.startsWith('reload') || scenario === 'reopen') {
+      if (scenario === 'reload-legacy') {
+        const [draft] = await recoveryDrafts(extensionPage, url);
+        if (!draft) throw new Error('Original draft missing');
+        await extensionPage.evaluate(async (key) => {
+          const record = (await chrome.storage.local.get(key))[key] as {
+            payload: VideoSessionDraftPayloadShape;
+          };
+          if (record.payload.exportAttempt) delete record.payload.exportAttempt.rebuild;
+          await chrome.storage.local.set({ [key]: record });
+        }, draft.key);
+      } else if (scenario === 'reload-missing-cache') {
+        const refs = (payload as VideoSessionDraftPayloadShape).captures.flatMap((capture) =>
+          capture.kind === 'timestamp' && capture.screenshotRef ? [capture.screenshotRef] : []
+        );
+        expect(refs).toHaveLength(2);
+        await extensionPage.evaluate(async (refs) => {
+          const result = await chrome.runtime.sendMessage({
+            type: 'AIIOB_VIDEO_SCREENSHOT_CACHE',
+            operation: 'removeMany',
+            refs
+          });
+          if (!result.success) throw new Error('Cache fixture removal failed');
+        }, refs);
+      } else if (scenario === 'reload-destination-plan') {
+        await extensionPage.evaluate((options) => chrome.storage.sync.set({ options }), {
+          ...createOptionsFixture(),
+          templates: { video: 'Changed/changed.md' }
+        });
+      }
+      if (scenario === 'reopen') {
+        await page.close();
+        page = await context.newPage();
+        await page.goto(url, { waitUntil: 'domcontentloaded' });
+        tabId = await findCurrentTabId(extensionPage, url);
+        await injectContentRuntime(extensionPage, tabId);
+        notice = page.locator('[data-session-export-notice="video"]');
+      } else {
+        await page.reload();
+        await injectContentRuntime(extensionPage, tabId);
+      }
       await expect(notice.locator('[data-attachment-progress]')).toContainText('1/2', {
         timeout: 15_000
       });
       await expandVideoPanel(page);
-      await expect(notice.locator('[data-export-recovery="continue"]')).toHaveCount(0);
       await page.locator('[data-action-id="video:finish"]').click();
       expect(await attachmentWriteAttempts(extensionPage)).toHaveLength(2);
       expect(await extensionPage.evaluate(() => chrome.downloads.search({}))).toHaveLength(1);
-      console.log(
-        'attachment-recovery-evidence',
-        JSON.stringify({ scenario, confirmed: 1, writes: 2, files: 1, reloadDidNotDispatch: true })
-      );
-      return;
+      if (scenario === 'reload-legacy' || scenario === 'reload-missing-cache') {
+        await expect(notice.locator('[data-export-recovery="continue"]')).toHaveCount(0);
+        await expect(notice).toContainText('unavailable or changed');
+        return;
+      }
+      await expect(notice.locator('[data-export-recovery="continue"]')).toHaveCount(1);
     } else if (scenario === 'lost-continuation-ack')
       await interceptRecoveryReply(extensionPage, tabId, 'videoClip', 'lose');
 
     await notice.locator('[data-export-recovery="continue"]').click();
-    if (scenario === 'edit' || scenario === 'destination-plan' || scenario === 'missing-file') {
+    if (
+      scenario === 'edit' ||
+      scenario === 'destination-plan' ||
+      scenario === 'reload-destination-plan' ||
+      scenario === 'missing-file'
+    ) {
       await expect(notice).toContainText('unavailable or changed');
       expect(await attachmentWriteAttempts(extensionPage)).toHaveLength(2);
       expect(await extensionPage.evaluate(() => chrome.downloads.search({}))).toHaveLength(1);
@@ -892,6 +940,11 @@ for (const scenario of [
     }
     if (scenario === 'lost-continuation-ack') {
       await expect(notice).toContainText('unknown');
+      await expect(notice.locator('[data-export-recovery="continue"]')).toHaveCount(0);
+      if (await page.locator('#aiob-support-prompt').count())
+        await page.locator('#aiob-support-prompt').click({ position: { x: 3, y: 3 } });
+      await page.locator('[data-action-id="video:finish"]').click();
+      expect(await attachmentWriteAttempts(extensionPage)).toHaveLength(4);
       await page.reload();
       await injectContentRuntime(extensionPage, tabId);
       await expect(notice).toContainText('unknown', { timeout: 15_000 });
@@ -899,6 +952,9 @@ for (const scenario of [
       await page.locator('[data-action-id="video:finish"]').click();
       expect(await attachmentWriteAttempts(extensionPage)).toHaveLength(4);
       await expect(notice.locator('[data-export-recovery="continue"]')).toHaveCount(0);
+      await notice.locator('[data-export-recovery="confirm-saved"]').click();
+      await expect(page.locator('#aiob-video-panel')).toHaveCount(0);
+      expect(await attachmentWriteAttempts(extensionPage)).toHaveLength(4);
     } else await expect(page.locator('#aiob-video-panel')).toHaveCount(0);
     const files = await extensionPage.evaluate(() => chrome.downloads.search({}));
     expect(files).toHaveLength(3);
