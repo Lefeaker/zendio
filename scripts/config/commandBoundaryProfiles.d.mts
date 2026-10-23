@@ -3,6 +3,8 @@ export type CommandBoundaryProfileId =
   | 'chrome-prepare-v1'
   | 'chrome-publish-v1'
   | 'chrome-verify-v1'
+  | 'edge-verify-v1'
+  | 'edge-publish-v1'
   | 'coverage-summary-v1'
   | 'dependency-cruiser-v1'
   | 'fixture-v1'

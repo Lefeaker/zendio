@@ -474,7 +474,7 @@ function releaseStatePaths(attemptRoot, browser) {
   const root = join(attemptRoot, 'store-state', browser);
   return {
     root,
-    statePath: join(root, browser === 'chrome' ? 'publish-state.json' : 'submission-state.json'),
+    statePath: join(root, browser !== 'firefox' ? 'publish-state.json' : 'submission-state.json'),
     artifactReceiptPath: join(attemptRoot, 'receipts', `${browser}-artifact-verification.json`),
     bindingReceiptPath: join(attemptRoot, 'receipts', `${browser}-state-binding.json`),
     uuidPath: browser === 'firefox' ? join(root, 'web-ext-upload', 'upload-uuid.json') : null
@@ -814,6 +814,15 @@ const RELEASE_STATE_OPTIONAL_KEYS = ['lastStartedOperation', 'lastCompletedOpera
 
 const RELEASE_STATE_BROWSER_KEYS = deepFreeze({
   chrome: ['itemId', 'publisherIdFingerprint', 'packageVersion', 'archiveSha256', 'terminalResult'],
+  edge: [
+    'itemId',
+    'publisherIdFingerprint',
+    'packageVersion',
+    'archiveSha256',
+    'terminalResult',
+    'uploadOperationId',
+    'publishOperationId'
+  ],
   firefox: [
     'geckoId',
     'xpiSha256',
@@ -826,6 +835,7 @@ const RELEASE_STATE_BROWSER_KEYS = deepFreeze({
 
 const STORE_ACTION_SEQUENCES = deepFreeze({
   chrome: ['upload', 'publish'],
+  edge: ['upload', 'publish'],
   firefox: ['upload', 'version-submit', 'source-patch']
 });
 
@@ -979,9 +989,14 @@ function validateReleaseStateValue(
     value.artifactReceiptSha256 !== artifactDigest ||
     value.manifestPath !== artifactValue.manifestPath ||
     value.manifestSha256 !== artifactValue.manifestSha256 ||
-    value.store !== (context.browser === 'chrome' ? 'chrome-web-store-v1' : 'firefox-amo-v1') ||
+    value.store !==
+      (context.browser === 'edge'
+        ? 'edge-addons-v1'
+        : context.browser === 'chrome'
+          ? 'chrome-web-store-v1'
+          : 'firefox-amo-v1') ||
     !(
-      value.channel === (context.browser === 'chrome' ? 'default' : 'pending') ||
+      value.channel === (context.browser !== 'firefox' ? 'default' : 'pending') ||
       (context.browser === 'firefox' && ['listed', 'unlisted'].includes(value.channel))
     ) ||
     (context.browser === 'firefox' &&
@@ -990,7 +1005,7 @@ function validateReleaseStateValue(
       value.channel !== context.channel) ||
     value.packageSha256 !== identity.packageSha256 ||
     value.lockSha256 !== identity.lockSha256 ||
-    value.artifactRole !== (context.browser === 'chrome' ? 'extension-zip' : 'unsigned-xpi') ||
+    value.artifactRole !== (context.browser !== 'firefox' ? 'extension-zip' : 'unsigned-xpi') ||
     !(
       value.errorCode === null ||
       (typeof value.errorCode === 'string' && /^[A-Z0-9_:-]{1,128}$/u.test(value.errorCode))
@@ -1032,7 +1047,7 @@ function validateReleaseStateValue(
     input === null ||
     (typeof input === 'string' && input.length > 0 && Buffer.byteLength(input, 'utf8') <= maximum);
   const chromeIdentityPresent =
-    context.browser === 'chrome' &&
+    context.browser !== 'firefox' &&
     value.itemId !== null &&
     value.publisherIdFingerprint !== null &&
     value.packageVersion !== null &&
@@ -1042,9 +1057,26 @@ function validateReleaseStateValue(
     value.geckoId !== null &&
     value.xpiSha256 !== null &&
     value.sourceArchiveSha256 !== null;
+  if (context.browser === 'edge') {
+    const operationId = (id) =>
+      id === null ||
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(id ?? '');
+    if (
+      !operationId(value.uploadOperationId) ||
+      !operationId(value.publishOperationId) ||
+      (startedIndex >= 1 && value.uploadOperationId === null) ||
+      (value.outcome === 'success' &&
+        (value.publishOperationId === null || value.terminalResult !== 'PENDING_REVIEW')) ||
+      (!value.mutationInvoked &&
+        (value.uploadOperationId !== null || value.publishOperationId !== null)) ||
+      (startedIndex < 1 && value.publishOperationId !== null)
+    ) {
+      throw new Error('EDGE_STATE_OPERATION_INVALID');
+    }
+  }
   const identityPresent = chromeIdentityPresent || firefoxIdentityPresent;
   const identityAbsent =
-    context.browser === 'chrome'
+    context.browser !== 'firefox'
       ? [
           value.itemId,
           value.publisherIdFingerprint,
@@ -1056,7 +1088,7 @@ function validateReleaseStateValue(
         );
   if (
     (!identityPresent && !identityAbsent) ||
-    (context.browser === 'chrome' &&
+    (context.browser !== 'firefox' &&
       (!boundedStringOrNull(value.itemId) ||
         !sha256OrNull(value.publisherIdFingerprint) ||
         !boundedStringOrNull(value.packageVersion) ||
@@ -1075,7 +1107,7 @@ function validateReleaseStateValue(
         (value.outcome === 'success' &&
           (value.terminalResult !== value.channel ||
             (value.channel === 'unlisted') !== (value.signedXpiSha256 !== null))))) ||
-    (context.browser === 'chrome' &&
+    (context.browser !== 'firefox' &&
       value.outcome === 'success' &&
       !['PENDING_REVIEW', 'PUBLISHED'].includes(value.terminalResult)) ||
     (value.outcome !== 'success' && value.terminalResult !== null)
@@ -1246,12 +1278,17 @@ function executeInProcessProfile(spec) {
       artifactReceiptSha256: artifactDigest,
       manifestPath: artifact.value.manifestPath,
       manifestSha256: artifact.value.manifestSha256,
-      store: context.browser === 'chrome' ? 'chrome-web-store-v1' : 'firefox-amo-v1',
-      channel: context.browser === 'chrome' ? 'default' : 'pending',
+      store:
+        context.browser === 'edge'
+          ? 'edge-addons-v1'
+          : context.browser === 'chrome'
+            ? 'chrome-web-store-v1'
+            : 'firefox-amo-v1',
+      channel: context.browser !== 'firefox' ? 'default' : 'pending',
       packageSha256: identity.packageSha256,
       lockSha256: identity.lockSha256,
-      artifactRole: context.browser === 'chrome' ? 'extension-zip' : 'unsigned-xpi',
-      ...(context.browser === 'chrome'
+      artifactRole: context.browser !== 'firefox' ? 'extension-zip' : 'unsigned-xpi',
+      ...(context.browser !== 'firefox'
         ? {
             itemId: null,
             publisherIdFingerprint: null,
@@ -1267,6 +1304,7 @@ function executeInProcessProfile(spec) {
             signedXpiSha256: null,
             terminalResult: null
           }),
+      ...(context.browser === 'edge' ? { uploadOperationId: null, publishOperationId: null } : {}),
       errorCode: null,
       recovery: 'none',
       stage: 'preflight',
@@ -1364,7 +1402,8 @@ function publishArtifactVerificationReceipt(spec, before) {
 }
 
 function assertStoreProfilePreconditions(spec) {
-  if (!['chrome-publish-v1', 'firefox-submit-v1'].includes(spec.profileId)) return;
+  if (!['chrome-publish-v1', 'edge-publish-v1', 'firefox-submit-v1'].includes(spec.profileId))
+    return;
   const context = spec.commandContext;
   const paths = releaseStatePaths(context.attemptRoot, context.browser);
   if (context.statePath !== paths.statePath) throw new Error('RELEASE_STATE_PATH_INVALID');
@@ -2223,7 +2262,7 @@ export function startBoundedCommand({ profileId, arguments: args = [] }, depende
   assertFirefoxPhaseReceipt(spec);
   const storeInitial = assertStoreProfilePreconditions(spec);
   const verificationSnapshot =
-    ['chrome-verify-v1', 'firefox-verify-v1'].includes(profileId) &&
+    ['chrome-verify-v1', 'edge-verify-v1', 'firefox-verify-v1'].includes(profileId) &&
     spec.commandContext?.transport === 'github-artifact-v1'
       ? releaseFileSnapshot(
           spec.commandContext.attemptRoot,
@@ -2267,7 +2306,9 @@ export async function runBoundedCommand(invocation, dependencies = {}) {
   let result = await handle.completion;
   if (result.ok) {
     try {
-      if (['chrome-verify-v1', 'firefox-verify-v1'].includes(invocation.profileId))
+      if (
+        ['chrome-verify-v1', 'edge-verify-v1', 'firefox-verify-v1'].includes(invocation.profileId)
+      )
         publishArtifactVerificationReceipt(handle.spec, handle.verificationSnapshot);
       if (invocation.profileId === 'release-provenance-v1') validateActionOutput(handle.spec);
       publishFirefoxPhaseReceipt(handle.spec);

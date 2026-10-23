@@ -572,11 +572,51 @@ ordinary `build:edge` entry remains suitable for sideloading with analytics off.
 The protected GitHub Environment `edge-addons-release` holds `EDGE_CLIENT_ID` and
 `EDGE_API_KEY` as secrets, plus `EDGE_PRODUCT_ID` and the three public `ZENDIO_GA_*`
 variables. It requires maintainer review and permits `main` branches and `v*` tags.
-These credentials support Microsoft's Publish API v1.1; check their expiry in
-Partner Center and rotate the GitHub secret before it expires. No Edge store-upload
-workflow is currently wired to this environment. Initial publication and listing
-metadata are submitted through Partner Center; build/package success does not
-mean the extension has been submitted or certified.
+These credentials support Microsoft's Publish API v1.1. The key visible on
+2026-10-23 expires on **2026-11-24**; the maintainer must renew it in Partner Center
+and update the Environment secret before expiry. Never print the key in logs.
+
+`.github/workflows/release-edge-addons.yml` is the automatic package-update entry.
+A new `v*` tag triggers it independently of Chrome and Firefox; manual dispatch
+requires the exact current `main` SHA. It reuses the existing credential-free
+Chromium prepare owner, required main CI and immutable artifact format. The
+protected `edge-addons-release` job downloads the prepared artifact by ID, fails
+on a digest mismatch, verifies it again and reauthorizes its source. Only
+`edge-publish-v1` receives the Edge credentials. Existing Environment reviewer
+approval is still required; automation does not bypass it.
+
+The Edge adapter checks the shared MV3 manifest, version, store-controlled updates
+and localized branding, uploads the ZIP once, waits for successful upload
+processing, then submits certification notes once. It records the upload and
+submission operation IDs in `zendio-edge-submission-state-v1`. `PENDING_REVIEW`
+means submission accepted, not public availability. A timeout, rejection or unknown
+response after mutation requires reconciliation; do not rerun the workflow or
+try a second request encoding. Notes follow the form field in Microsoft's complete
+PowerShell example; the documentation's JSON/plain-text descriptions differ.
+The first future automatic submission must be checked in Partner Center to confirm
+the notes and review status. Do not resubmit 0.3.4 to test the new workflow.
+
+### Required manual fallback
+
+For **every release**, account for Edge separately. If the automatic workflow is
+absent, blocked, unsuccessful, has expired credentials, or lacks a confirmed
+submission receipt, the release is not complete for Edge. First check Partner
+Center and any saved operation IDs. If the intended version is already In review
+or Live, record that state and do not upload again. Otherwise, upload the verified
+versioned Chromium ZIP in the existing product's Packages page, confirm its
+version and Complete status, review the draft, enter fresh certification notes,
+click the final Publish action, and verify In review. Retain the package SHA-256
+and distinguish the submitted version from the publicly available version.
+
+Initial publication and listing metadata (descriptions, screenshots, markets and
+privacy declarations) still require Partner Center; the API updates packages and
+submits the current draft. Review pending listing changes before approving the
+protected job. Build/package success and a GitHub Release are not Edge submission.
+On **2026-10-23**, version **0.3.4** was submitted manually and confirmed **In review**;
+**0.3.3** remained Live. This is independent of the first future automated submission.
+
+Official API contracts: [overview and complete example](https://learn.microsoft.com/en-us/microsoft-edge/extensions/update/api/using-addons-api)
+and [operation/status reference](https://learn.microsoft.com/en-us/microsoft-edge/extensions/update/api/addons-api-reference).
 
 ### Compatibility and store preparation
 

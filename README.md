@@ -8,13 +8,13 @@
 
 [Website](https://zendio.sxnian.com/en/) · [GitHub Releases](https://github.com/Lefeaker/zendio/releases) · [Report an issue](https://github.com/Lefeaker/zendio/issues)
 
-| Browser         | Store                                                                                                                              | Availability       |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| Google Chrome   | [Install from Chrome Web Store](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)                         | v0.3.3 available.  |
-| Mozilla Firefox | [Install from Firefox Add-ons](https://addons.mozilla.org/firefox/addon/zendio/)                                                   | v0.3.4 available.  |
-| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | See store listing. |
+| Browser         | Store                                                                                                                              | Availability                   |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| Google Chrome   | [Install from Chrome Web Store](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)                         | v0.3.3 available.              |
+| Mozilla Firefox | [Install from Firefox Add-ons](https://addons.mozilla.org/firefox/addon/zendio/)                                                   | v0.3.4 available.              |
+| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | v0.3.3 live; v0.3.4 in review. |
 
-Store status checked on **October 20, 2026**: Firefox offers **v0.3.4**; Chrome offers **v0.3.3**, with **v0.3.4 pending review**. Check the Edge listing for its current version. The source version is **v0.3.4**; verified Chromium ZIP and Firefox signed XPI packages are available in [GitHub Release v0.3.4](https://github.com/Lefeaker/zendio/releases/tag/v0.3.4).
+Store status checked on **October 20, 2026**: Firefox offers **v0.3.4**; Chrome offers **v0.3.3**, with **v0.3.4 pending review**. Edge was checked separately on **October 23, 2026**: **v0.3.3 is live**, and **v0.3.4 has been submitted for review**. The source version is **v0.3.4**; verified Chromium ZIP and Firefox signed XPI packages are available in [GitHub Release v0.3.4](https://github.com/Lefeaker/zendio/releases/tag/v0.3.4).
 
 ## What's New in v0.3.4
 

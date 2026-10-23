@@ -358,6 +358,8 @@ export const PROFILE_IDS = deepFreeze([
   'chrome-prepare-v1',
   'chrome-publish-v1',
   'chrome-verify-v1',
+  'edge-verify-v1',
+  'edge-publish-v1',
   'coverage-summary-v1',
   'dependency-cruiser-v1',
   'fixture-v1',
@@ -461,6 +463,7 @@ const FIXED_RELEASE_NODE_PATHS = new Set([
   'scripts/prepare-chrome-release.mjs',
   'scripts/prepare-firefox-release.mjs',
   'scripts/publish-chrome-webstore.mjs',
+  'scripts/publish-edge-addons.mjs',
   'scripts/run-firefox-xpi-smoke.mjs',
   'scripts/run-playwright.mjs',
   'scripts/submit-firefox-amo-release.mjs',
@@ -635,11 +638,15 @@ function validateReleaseProfileArguments(profileId, args) {
     requireFlagValue(args, 0, '--output-dir', absolutePathToken);
     return args;
   }
-  if (profileId === 'chrome-verify-v1' || profileId === 'firefox-verify-v1') {
+  if (['chrome-verify-v1', 'edge-verify-v1', 'firefox-verify-v1'].includes(profileId)) {
     if (args.length !== 4) invalid('RELEASE_VERIFY_ARGUMENTS_INVALID');
     requireFlagValue(args, 0, '--manifest', absolutePathToken);
     const transport = requireFlagValue(args, 2, '--transport-mode');
-    if (!RELEASE_TRANSPORT_MODES.has(transport)) invalid('RELEASE_TRANSPORT_MODE_INVALID');
+    if (
+      !RELEASE_TRANSPORT_MODES.has(transport) ||
+      (profileId === 'edge-verify-v1' && transport !== 'github-artifact-v1')
+    )
+      invalid('RELEASE_TRANSPORT_MODE_INVALID');
     return args;
   }
   if (profileId === 'firefox-smoke-v1') {
@@ -664,7 +671,7 @@ function validateReleaseProfileArguments(profileId, args) {
     if (new Set([zip, manifest, state]).size !== 3) invalid('RELEASE_PATH_ALIAS_INVALID');
     return args;
   }
-  if (profileId === 'chrome-publish-v1') {
+  if (profileId === 'chrome-publish-v1' || profileId === 'edge-publish-v1') {
     if (args.length !== 7 || args[0] !== '--publish') invalid('CHROME_PUBLISH_ARGUMENTS_INVALID');
     const manifest = requireFlagValue(args, 1, '--artifact-manifest', absolutePathToken);
     const state = requireFlagValue(args, 3, '--state-file', absolutePathToken);
@@ -704,7 +711,11 @@ function validateReleaseProfileArguments(profileId, args) {
     return args;
   }
   if (profileId === 'release-state-init-v1' || profileId === 'release-state-check-v1') {
-    if (args.length !== 2 || args[0] !== '--browser' || !RELEASE_BROWSERS.has(args[1]))
+    if (
+      args.length !== 2 ||
+      args[0] !== '--browser' ||
+      !['chrome', 'edge', 'firefox'].includes(args[1])
+    )
       invalid('RELEASE_STATE_ARGUMENTS_INVALID');
     return args;
   }
@@ -1231,6 +1242,7 @@ const CI_JOB_TIMEOUTS = deepFreeze({
   'browser-v1': 60,
   'chrome-prepare-v1': 75,
   'chrome-publish-v1': 60,
+  'edge-publish-v1': 60,
   'firefox-prepare-v1': 120,
   'firefox-submit-v1': 90
 });
@@ -1278,6 +1290,17 @@ export const R03_CI_JOB_SEQUENCE_RESERVATIONS = deepFreeze({
     { owner: 'platform:upload-state-v1', fullMs: 0 },
     { owner: 'runner-finalization-v1', fullMs: 120_000 }
   ],
+  'edge-publish-v1': [
+    { owner: 'github-ci-install-v1', fullMs: 640_000 },
+    { owner: 'platform:download-artifact-v1', fullMs: 0 },
+    { owner: 'edge-verify-v1', fullMs: 310_000 },
+    { owner: 'release-provenance-v1:reauthorize', fullMs: 190_000 },
+    { owner: 'release-state-init-v1', fullMs: 70_000 },
+    { owner: 'edge-publish-v1', fullMs: 730_000 },
+    { owner: 'release-state-check-v1', fullMs: 70_000 },
+    { owner: 'platform:upload-state-v1', fullMs: 0 },
+    { owner: 'runner-finalization-v1', fullMs: 120_000 }
+  ],
   'firefox-submit-v1': [
     { owner: 'github-ci-install-v1', fullMs: 640_000 },
     { owner: 'platform:download-artifact-v1', fullMs: 0 },
@@ -1292,12 +1315,17 @@ export const R03_CI_JOB_SEQUENCE_RESERVATIONS = deepFreeze({
 });
 
 const R03_CI_JOB_CLASSES = new Set([
+  'edge-publish-v1',
   'chrome-prepare-v1',
   'chrome-publish-v1',
   'firefox-prepare-v1',
   'firefox-submit-v1'
 ]);
-const PROTECTED_CI_JOB_CLASSES = new Set(['chrome-publish-v1', 'firefox-submit-v1']);
+const PROTECTED_CI_JOB_CLASSES = new Set([
+  'chrome-publish-v1',
+  'edge-publish-v1',
+  'firefox-submit-v1'
+]);
 
 const CI_ENVIRONMENT_KEYS = [
   'CI',
@@ -1371,6 +1399,7 @@ function ciAttemptName(jobClass, runId, runAttempt, job) {
   if (jobClass === 'chrome-prepare-v1') return `zendio-chrome-${runId}-${runAttempt}`;
   if (jobClass === 'firefox-prepare-v1') return `zendio-firefox-${runId}-${runAttempt}`;
   if (jobClass === 'chrome-publish-v1') return `zendio-chrome-publish-${runId}-${runAttempt}`;
+  if (jobClass === 'edge-publish-v1') return `zendio-edge-publish-${runId}-${runAttempt}`;
   if (jobClass === 'firefox-submit-v1') return `zendio-firefox-submit-${runId}-${runAttempt}`;
   return `zendio-ci-node-${runId}-${runAttempt}-${job}`;
 }
@@ -1704,15 +1733,18 @@ const CHROME_STORE_KEYS = [
   'CWS_PUBLISHER_ID'
 ];
 const FIREFOX_STORE_KEYS = ['WEB_EXT_API_KEY', 'WEB_EXT_API_SECRET'];
-const ALL_STORE_KEYS = [...CHROME_STORE_KEYS, ...FIREFOX_STORE_KEYS];
+const EDGE_STORE_KEYS = ['EDGE_CLIENT_ID', 'EDGE_API_KEY', 'EDGE_PRODUCT_ID'];
+const ALL_STORE_KEYS = [...CHROME_STORE_KEYS, ...FIREFOX_STORE_KEYS, ...EDGE_STORE_KEYS];
 
 function releaseProfileEnvironment(profileId, environment, additions = {}) {
   const allowedSecrets =
     profileId === 'chrome-publish-v1'
       ? CHROME_STORE_KEYS
-      : profileId === 'firefox-submit-v1'
-        ? FIREFOX_STORE_KEYS
-        : [];
+      : profileId === 'edge-publish-v1'
+        ? EDGE_STORE_KEYS
+        : profileId === 'firefox-submit-v1'
+          ? FIREFOX_STORE_KEYS
+          : [];
   for (const key of Object.keys(environment)) {
     const canonical = ALL_STORE_KEYS.find(
       (candidate) => candidate.toLowerCase() === key.toLowerCase()
@@ -1845,6 +1877,8 @@ function profileFixedScript(profileId) {
     'chrome-prepare-v1': 'scripts/prepare-chrome-release.mjs',
     'chrome-publish-v1': 'scripts/publish-chrome-webstore.mjs',
     'chrome-verify-v1': 'scripts/verify-chrome-release.mjs',
+    'edge-verify-v1': 'scripts/verify-chrome-release.mjs',
+    'edge-publish-v1': 'scripts/publish-edge-addons.mjs',
     'firefox-prepare-v1': 'scripts/prepare-firefox-release.mjs',
     'firefox-geckodriver-provision-v1': 'scripts/provision-geckodriver.mjs',
     'firefox-smoke-v1': 'scripts/run-firefox-xpi-smoke.mjs',
@@ -2529,7 +2563,7 @@ export function resolveCommandProfile(
       attemptRoot = requireReleaseJob(environment, [`${browser}-prepare-v1`]);
     } else if (profileId === 'release-state-init-v1' || profileId === 'release-state-check-v1') {
       attemptRoot = requireReleaseJob(environment, [
-        browser === 'chrome' ? 'chrome-publish-v1' : 'firefox-submit-v1'
+        browser === 'firefox' ? 'firefox-submit-v1' : `${browser}-publish-v1`
       ]);
     } else {
       attemptRoot =
@@ -2600,7 +2634,7 @@ export function resolveCommandProfile(
       environment,
       prepareLike
         ? ['chrome-prepare-v1', 'firefox-prepare-v1']
-        : ['chrome-publish-v1', 'firefox-submit-v1']
+        : ['chrome-publish-v1', 'edge-publish-v1', 'firefox-submit-v1']
     );
     for (const flag of ['--artifact-manifest', '--authorization-record']) {
       const value = profileArgumentValue(args, flag);
@@ -2643,6 +2677,8 @@ export function resolveCommandProfile(
     [
       'chrome-prepare-v1',
       'chrome-verify-v1',
+      'edge-verify-v1',
+      'edge-publish-v1',
       'firefox-prepare-v1',
       'firefox-verify-v1',
       'firefox-smoke-v1',
@@ -2651,7 +2687,11 @@ export function resolveCommandProfile(
       'firefox-submit-v1'
     ].includes(profileId)
   ) {
-    const browser = profileId.startsWith('chrome-') ? 'chrome' : 'firefox';
+    const browser = profileId.startsWith('edge-')
+      ? 'edge'
+      : profileId.startsWith('chrome-')
+        ? 'chrome'
+        : 'firefox';
     const transport = profileArgumentValue(args, '--transport-mode');
     const configMode = profileArgumentValue(args, '--config-mode');
     const firefoxReleaseConsumer = [
@@ -2677,13 +2717,13 @@ export function resolveCommandProfile(
       if (profileId === 'firefox-prepare-v1' && configMode !== 'standalone-synthetic')
         invalid('RELEASE_CONFIG_MODE_INVALID');
       attemptRoot = requireFirefoxAcceptanceJob(environment);
-    } else if (profileId === 'chrome-publish-v1' || profileId === 'firefox-submit-v1') {
+    } else if (['chrome-publish-v1', 'edge-publish-v1', 'firefox-submit-v1'].includes(profileId)) {
       attemptRoot = requireReleaseJob(environment, [
-        browser === 'chrome' ? 'chrome-publish-v1' : 'firefox-submit-v1'
+        browser === 'firefox' ? 'firefox-submit-v1' : `${browser}-publish-v1`
       ]);
     } else if (firefoxProtectedVerifier || transport === 'github-artifact-v1') {
       attemptRoot = requireReleaseJob(environment, [
-        browser === 'chrome' ? 'chrome-publish-v1' : 'firefox-submit-v1'
+        browser === 'firefox' ? 'firefox-submit-v1' : `${browser}-publish-v1`
       ]);
     } else if (firefoxReleaseConsumer) {
       attemptRoot =
@@ -2737,9 +2777,9 @@ export function resolveCommandProfile(
       limits:
         profileId === 'chrome-prepare-v1'
           ? COMMAND_LIMITS.chromePrepare
-          : profileId === 'chrome-verify-v1'
+          : ['chrome-verify-v1', 'edge-verify-v1'].includes(profileId)
             ? COMMAND_LIMITS.chromeVerify
-            : profileId === 'chrome-publish-v1'
+            : ['chrome-publish-v1', 'edge-publish-v1'].includes(profileId)
               ? COMMAND_LIMITS.chromePublish
               : profileId === 'firefox-prepare-v1'
                 ? COMMAND_LIMITS.firefoxPrepare
