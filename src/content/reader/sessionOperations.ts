@@ -1,5 +1,6 @@
 import {
   createSessionExportAttempt,
+  prepareSessionExportDispatch,
   sessionExportSnapshotId,
   type SessionExportRecoveryAction
 } from '../../shared/sessionDrafts/exportAttempt';
@@ -461,6 +462,7 @@ export async function finishReaderSession(
         context.state.frozenExportPayload = payload;
       }
       if (!attempt || !payload) throw new Error('CLIP_EXPORT_SNAPSHOT_UNAVAILABLE');
+      context.state.exportAttempt = prepareSessionExportDispatch(attempt);
       await context.persistExportAttempt?.();
       writeRequested = true;
       await context.dependencies.dispatchClipResult(
@@ -510,7 +512,9 @@ export async function finishReaderSession(
             writeRequested ? 'unknown' : 'failed',
             resolveReaderFailureCategory(error)
           ),
-      recoveryAction === 'continue' ? previousAttempt?.attachmentProgress : undefined
+      recoveryAction === 'continue'
+        ? (writeRequested ? context.state.exportAttempt : previousAttempt)?.attachmentProgress
+        : undefined
     );
     if (failure.attachmentProgress && context.state.exportAttempt) {
       context.state.exportAttempt = {

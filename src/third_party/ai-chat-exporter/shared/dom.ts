@@ -129,10 +129,6 @@ export function cleanupUIElements(container: HTMLElement): void {
     /^Hide\s*thinking$/i,
     /^思考过程$/i,
     /^Thinking$/i,
-    /^您说[：:]\s*$/i,
-    /^ChatGPT\s*说[：:]\s*$/i,
-    /^You\s+said[：:]\s*$/i,
-    /^ChatGPT\s+said[：:]\s*$/i,
     /^\d+\/\d+$/
   ];
 

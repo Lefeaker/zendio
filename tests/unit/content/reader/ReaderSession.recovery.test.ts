@@ -49,11 +49,13 @@ async function createPersistedSession() {
 }
 
 describe('ReaderSession terminal recovery through the background store', () => {
-  it.each<'continue' | 'edit' | 'missing-snapshot' | 'persist-failure'>([
+  it.each([
     'continue',
     'edit',
     'missing-snapshot',
-    'persist-failure'
+    'persist-failure',
+    'lost-ack',
+    'fresh-progress'
   ])('retains confirmed progress and respects %s before another dispatch', async (scenario) => {
     const startedAt = new Date(2026, 9, 15, 23, 59, 59).getTime();
     const { context, key, callbacks } = await createPersistedSession();
@@ -95,10 +97,50 @@ describe('ReaderSession terminal recovery through the background store', () => {
     if (scenario === 'missing-snapshot') api.state.frozenExportPayload = undefined;
     if (scenario === 'persist-failure')
       context.draftMessages.rejectNext('save', new Error('Cannot persist attempt'));
+    if (scenario === 'lost-ack' || scenario === 'fresh-progress') {
+      context.dispatchClipResult.mockImplementationOnce(async (payload) => {
+        expect(
+          (await readStoredReaderDraft(context, key))?.payload.exportAttempt?.attachmentProgress
+            ?.blocked
+        ).toBe(true);
+        const progress = payload.meta?.attachmentProgress;
+        expect(progress?.blocked).toBeUndefined();
+        throw new ClipSaveError(
+          createClipSaveFailure(
+            'unknown',
+            'connection',
+            'note',
+            scenario === 'fresh-progress' && progress
+              ? {
+                  ...progress,
+                  phase: 'note',
+                  confirmed: [...progress.confirmed, { id: 'shot-2', outputPath: 'note/two.jpg' }]
+                }
+              : undefined
+          )
+        );
+      });
+    }
     api.state.exportRecoveryAction = 'continue';
     vi.setSystemTime(startedAt + 2000);
     await callbacks.onFinish();
-    if (scenario === 'continue') {
+    if (scenario === 'lost-ack' || scenario === 'fresh-progress') {
+      expect(context.dispatchClipResult).toHaveBeenCalledTimes(2);
+      const stored = await readStoredReaderDraft(context, key);
+      expect(stored?.payload.exportAttempt?.attachmentProgress?.blocked).toBe(
+        scenario === 'lost-ack' ? true : undefined
+      );
+      api.state.exportRecoveryAction = 'continue';
+      await callbacks.onFinish();
+      expect(context.dispatchClipResult).toHaveBeenCalledTimes(scenario === 'lost-ack' ? 2 : 3);
+      if (scenario === 'lost-ack') {
+        expect(api.state.frozenExportPayload).toBeUndefined();
+        api.state.exportRecoveryAction = 'confirm-saved';
+        await callbacks.onFinish();
+        expect(context.dispatchClipResult).toHaveBeenCalledTimes(2);
+      }
+      expect(isReaderSessionActive(document)).toBe(false);
+    } else if (scenario === 'continue') {
       expect(context.dispatchClipResult).toHaveBeenCalledTimes(2);
       const first = context.dispatchClipResult.mock.calls[0]?.[0];
       const second = context.dispatchClipResult.mock.calls[1]?.[0];

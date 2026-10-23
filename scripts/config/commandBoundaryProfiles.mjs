@@ -1012,7 +1012,7 @@ const PASS_ENV = new Set([
   'ZENDIO_RUNNER_OS'
 ]);
 
-function isVerifiedNpmLifecycle(environment) {
+function resolveVerifiedNpmLifecycle(environment) {
   try {
     const npm = detectNpmCommand({
       repositoryRoot: REPOSITORY_ROOT,
@@ -1022,7 +1022,7 @@ function isVerifiedNpmLifecycle(environment) {
     const { packageJson } = packageProjection();
     const event = environment.npm_lifecycle_event;
     const script = typeof event === 'string' ? packageJson.scripts?.[event] : undefined;
-    return (
+    const verified =
       typeof script === 'string' &&
       environment.npm_command === 'run-script' &&
       environment.npm_config_npm_version === npm.version &&
@@ -1034,10 +1034,10 @@ function isVerifiedNpmLifecycle(environment) {
       environment.npm_package_version === packageJson.version &&
       environment.npm_lifecycle_script === script &&
       environment.INIT_CWD === REPOSITORY_ROOT &&
-      environment.PWD === REPOSITORY_ROOT
-    );
+      environment.PWD === REPOSITORY_ROOT;
+    return verified ? npm : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -1145,12 +1145,8 @@ function normalizeVerifiedNpmLifecycleConfig(environment) {
     typeof environment.npm_lifecycle_event !== 'string'
   )
     return environment;
-  if (!isVerifiedNpmLifecycle(environment)) return environment;
-  const npm = detectNpmCommand({
-    repositoryRoot: REPOSITORY_ROOT,
-    environment: {},
-    policy: RUNTIME_POLICY
-  });
+  const npm = resolveVerifiedNpmLifecycle(environment);
+  if (!npm) return environment;
   const home = environment.HOME;
   const userconfig = environment.NPM_CONFIG_USERCONFIG;
   const globalconfig = environment.NPM_CONFIG_GLOBALCONFIG;
@@ -1192,7 +1188,7 @@ export function buildClosedCommandEnvironment(environment = process.env, additio
     const emptyNpmNoProxy =
       key === 'npm_config_noproxy' &&
       environment[key] === '' &&
-      isVerifiedNpmLifecycle(environment);
+      Boolean(resolveVerifiedNpmLifecycle(environment));
     if (
       !emptyNpmNoProxy &&
       ([
