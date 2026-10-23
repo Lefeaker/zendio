@@ -10,6 +10,7 @@ export const SessionExportAttemptSchema = z
     snapshotId: z.string().regex(/^[a-f0-9]{64}$/u),
     outcome: z.enum(['unknown', 'saved']),
     startedAt: z.number().finite().nonnegative(),
+    rebuild: z.literal('video-v1').optional().catch(undefined),
     filePath: z.string().optional(),
     targetLabel: z.string().optional(),
     requestedPath: z.string().optional(),
@@ -42,4 +43,11 @@ export function createSessionExportAttempt(
 export function readSessionExportAttempt(value: unknown): SessionExportAttempt | undefined {
   const parsed = SessionExportAttemptSchema.safeParse(value);
   return parsed.success ? parsed.data : undefined;
+}
+
+/** An in-flight continuation cannot reuse its old prefix until a fresh write result arrives. */
+export function prepareSessionExportDispatch(attempt: SessionExportAttempt): SessionExportAttempt {
+  return attempt.attachmentProgress
+    ? { ...attempt, attachmentProgress: { ...attempt.attachmentProgress, blocked: true } }
+    : attempt;
 }

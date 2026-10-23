@@ -64,6 +64,39 @@ function readExportedClip(repository: ReturnType<typeof createRepository>): Vide
 }
 
 describe('VideoSessionExporter', () => {
+  it('rebuilds the same export from retained captures after reopening on a later day', async () => {
+    vi.useFakeTimers();
+    const startedAt = new Date(2026, 9, 15, 23, 59, 59).getTime();
+    const repository = createRepository();
+    const input = {
+      captures: [
+        createTimestampCapture('one', 42, {
+          comment: 'Retained note',
+          screenshotRequested: true,
+          screenshot: createScreenshot('one', 'original bytes')
+        })
+      ],
+      videoTitle: 'Retained title',
+      canonicalUrl: 'https://video.example/watch',
+      videoUrl: 'https://video.example/watch',
+      platform: 'youtube' as const,
+      messages: DEFAULT_SESSION_MESSAGES,
+      storageKey: null,
+      operationId: 'op_reopened1',
+      exportStartedAt: startedAt
+    };
+    try {
+      vi.setSystemTime(startedAt);
+      await new VideoSessionExporter(repository).export(input);
+      const first = readExportedClip(repository);
+      vi.setSystemTime(startedAt + 86_400_000);
+      await new VideoSessionExporter(repository).export(input);
+      expect(readExportedClip(repository)).toEqual(first);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('continues the same prepared Markdown, bytes, timestamp and operation ID without rebuilding', async () => {
     const repository = createRepository();
     const exporter = new VideoSessionExporter(repository);

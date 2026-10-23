@@ -30,7 +30,8 @@ import {
   resetVideoSessionHarnessMocks,
   restoreVideoSessionHarnessGlobals,
   seedTimestampCaptures,
-  toSessionTestApi
+  toSessionTestApi,
+  toDraftControllerTestApi
 } from './videoSessionTestHarness';
 
 const { exportMock, sendPreparedMock } = getVideoSessionHarnessMocks();
@@ -95,7 +96,15 @@ describe('VideoSession export', () => {
       vi.useRealTimers();
     }
   );
-  it.each<'continue' | 'edit' | 'missing-snapshot'>(['continue', 'edit', 'missing-snapshot'])(
+  it.each([
+    'continue',
+    'edit',
+    'rebuild',
+    'legacy',
+    'lost-ack',
+    'fresh-progress',
+    'persist-failure'
+  ] as const)(
     'preserves the prepared payload and checks %s for attachment recovery',
     async (scenario) => {
       vi.useFakeTimers();
@@ -149,12 +158,66 @@ describe('VideoSession export', () => {
         if (!capture) throw new Error('Expected the captured video note');
         capture.comment = 'Newer note';
       }
-      if (scenario === 'missing-snapshot') api.state.frozenExportPayload = undefined;
+      if (scenario === 'rebuild' || scenario === 'legacy')
+        api.state.frozenExportPayload = undefined;
+      if (scenario === 'legacy' && api.state.exportAttempt) delete api.state.exportAttempt.rebuild;
+      if (scenario === 'persist-failure')
+        vi.spyOn(toDraftControllerTestApi(session), 'flushNow').mockResolvedValueOnce('failure');
+      if (scenario === 'lost-ack' || scenario === 'fresh-progress') {
+        sendPreparedMock.mockImplementationOnce(async (_payload, progress) => {
+          const [pending] = await listVideoDraftCandidates(deps);
+          expect(pending?.payload.exportAttempt?.attachmentProgress?.blocked).toBe(true);
+          expect(progress?.blocked).toBeUndefined();
+          return createClipSaveFailure(
+            'unknown',
+            'connection',
+            'note',
+            scenario === 'fresh-progress' && progress
+              ? {
+                  ...progress,
+                  phase: 'note',
+                  confirmed: [...progress.confirmed, { id: 'two', outputPath: 'two.jpg' }]
+                }
+              : undefined
+          );
+        });
+      }
       api.state.exportRecoveryAction = 'continue';
       vi.setSystemTime(startedAt + 2000);
       await api.finish();
-      expect(exportMock).toHaveBeenCalledTimes(1);
-      if (scenario === 'continue') {
+      expect(exportMock).toHaveBeenCalledTimes(scenario === 'rebuild' ? 2 : 1);
+      if (scenario === 'lost-ack' || scenario === 'fresh-progress') {
+        expect(sendPreparedMock).toHaveBeenCalledTimes(1);
+        const [pending] = await listVideoDraftCandidates(deps);
+        expect(pending?.payload.exportAttempt?.attachmentProgress?.blocked).toBe(
+          scenario === 'lost-ack' ? true : undefined
+        );
+        api.state.exportRecoveryAction = 'continue';
+        await api.finish();
+        expect(sendPreparedMock).toHaveBeenCalledTimes(scenario === 'lost-ack' ? 1 : 2);
+        if (scenario === 'lost-ack') {
+          expect(api.state.frozenExportPayload).toBeUndefined();
+          api.state.exportRecoveryAction = 'confirm-saved';
+          await api.finish();
+          expect(sendPreparedMock).toHaveBeenCalledTimes(1);
+        }
+        expect(isVideoSessionActive(document)).toBe(false);
+      } else if (scenario === 'persist-failure') {
+        expect(sendPreparedMock).not.toHaveBeenCalled();
+        expect(api.state.exportAttempt?.attachmentProgress?.blocked).toBeUndefined();
+        api.state.exportRecoveryAction = 'continue';
+        await api.finish();
+        expect(sendPreparedMock).toHaveBeenCalledTimes(1);
+        expect(isVideoSessionActive(document)).toBe(false);
+      } else if (scenario === 'rebuild') {
+        expect(exportMock.mock.calls[1]?.[0]).toMatchObject({
+          operationId: draft?.payload.exportAttempt?.operationId,
+          exportStartedAt: startedAt,
+          attachmentProgress: draft?.payload.exportAttempt?.attachmentProgress
+        });
+        expect(sendPreparedMock).not.toHaveBeenCalled();
+        expect(isVideoSessionActive(document)).toBe(false);
+      } else if (scenario === 'continue') {
         expect(sendPreparedMock).toHaveBeenCalledTimes(1);
         expect(sendPreparedMock.mock.calls[0]?.[0].content).toBe('Original final Markdown');
         expect(sendPreparedMock.mock.calls[0]?.[0].operationId).toBe(
