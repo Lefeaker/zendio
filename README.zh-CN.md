@@ -8,13 +8,13 @@
 
 [产品网站](https://zendio.sxnian.com/) · [GitHub Releases](https://github.com/Lefeaker/zendio/releases) · [反馈问题](https://github.com/Lefeaker/zendio/issues)
 
-| 浏览器          | 商店入口                                                                                                                           | 上架状态         |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| Google Chrome   | [从 Chrome 应用商店安装](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)                                | v0.3.3 已上架。  |
-| Mozilla Firefox | [从 Firefox 附加组件商店安装](https://addons.mozilla.org/firefox/addon/zendio/)                                                    | v0.3.4 已上架。  |
-| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | 以商店页面为准。 |
+| 浏览器          | 商店入口                                                                                                                           | 上架状态                       |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| Google Chrome   | [从 Chrome 应用商店安装](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)                                | v0.3.3 已上架。                |
+| Mozilla Firefox | [从 Firefox 附加组件商店安装](https://addons.mozilla.org/firefox/addon/zendio/)                                                    | v0.3.4 已上架。                |
+| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | v0.3.3 已上架；v0.3.4 审核中。 |
 
-商店状态核对于 **2026 年 10 月 20 日**：Firefox 已公开 **v0.3.4**；Chrome 当前公开 **v0.3.3**，**v0.3.4 等待审核**。Edge 当前版本请以商店页面为准。当前源码版本为 **v0.3.4**；经过核验的 Chromium ZIP 和 Firefox 签名 XPI 可从 [GitHub Release v0.3.4](https://github.com/Lefeaker/zendio/releases/tag/v0.3.4) 下载。
+商店状态核对于 **2026 年 10 月 20 日**：Firefox 已公开 **v0.3.4**；Chrome 当前公开 **v0.3.3**，**v0.3.4 等待审核**。Edge 单独核对于 **2026 年 10 月 23 日**：**v0.3.3 已上架，v0.3.4 已提交审核**。当前源码版本为 **v0.3.4**；经过核验的 Chromium ZIP 和 Firefox 签名 XPI 可从 [GitHub Release v0.3.4](https://github.com/Lefeaker/zendio/releases/tag/v0.3.4) 下载。
 
 ## v0.3.4 更新
 

@@ -377,7 +377,7 @@ function runVitestIdentityProbe(fixture: VitestIdentityFixturePaths, argv?: stri
 }
 
 function releaseAttemptFixture(
-  browser: 'chrome' | 'firefox',
+  browser: 'chrome' | 'edge' | 'firefox',
   phase: 'prepare' | 'publish' | 'submit' = 'prepare'
 ) {
   const runnerTemp = realpathSync(temporaryRoot());
@@ -386,16 +386,16 @@ function releaseAttemptFixture(
   const jobClass =
     phase === 'prepare'
       ? `${browser}-prepare-v1`
-      : browser === 'chrome'
-        ? 'chrome-publish-v1'
+      : browser !== 'firefox'
+        ? `${browser}-publish-v1`
         : 'firefox-submit-v1';
   const rootName =
     jobClass === 'chrome-prepare-v1'
       ? `zendio-chrome-${runId}-${runAttempt}`
       : jobClass === 'firefox-prepare-v1'
         ? `zendio-firefox-${runId}-${runAttempt}`
-        : jobClass === 'chrome-publish-v1'
-          ? `zendio-chrome-publish-${runId}-${runAttempt}`
+        : jobClass === 'chrome-publish-v1' || jobClass === 'edge-publish-v1'
+          ? `zendio-${browser}-publish-${runId}-${runAttempt}`
           : `zendio-firefox-submit-${runId}-${runAttempt}`;
   const attemptRoot = join(runnerTemp, rootName);
   mkdirSync(attemptRoot, { mode: 0o700 });
@@ -424,13 +424,135 @@ function releaseAttemptFixture(
           ? '75'
           : jobClass === 'firefox-prepare-v1'
             ? '120'
-            : jobClass === 'chrome-publish-v1'
+            : jobClass === 'chrome-publish-v1' || jobClass === 'edge-publish-v1'
               ? '60'
               : '90',
       ZENDIO_RUNNER_ENVIRONMENT: 'github-hosted'
     })
   };
 }
+
+describe('Edge release command boundary', () => {
+  it('binds protected installation to the prepared commit and a separate attempt root', () => {
+    const fixture = protectedCiInstallFixture('edge');
+    const spec = resolveCommandProfile('github-ci-install-v1', [], {
+      environment: fixture.environment,
+      operations: fixture.operations
+    });
+    expect(spec.commandContext).toMatchObject({ protectedJob: true, jobClass: 'edge-publish-v1' });
+    expect(spec.commandContext?.attemptRoot).toContain('/zendio-edge-publish-');
+  });
+
+  it('confines credentials to Edge mutation and rejects reruns, local invocation and bare routes', () => {
+    const fixture = releaseAttemptFixture('edge', 'publish');
+    const manifest = join(fixture.attemptRoot, 'manifest.json');
+    const args = [
+      '--publish',
+      '--artifact-manifest',
+      manifest,
+      '--state-file',
+      join(fixture.attemptRoot, 'store-state/edge/publish-state.json'),
+      '--transport-mode',
+      'github-artifact-v1'
+    ];
+    const environment = {
+      ...fixture.environment,
+      ZENDIO_EXPECTED_RELEASE_MANIFEST_SHA256: 'a'.repeat(64),
+      EDGE_CLIENT_ID: 'client',
+      EDGE_API_KEY: 'key',
+      EDGE_PRODUCT_ID: 'product'
+    };
+    const spec = resolveCommandProfile('edge-publish-v1', args, { environment });
+    expect(spec.commandContext).toMatchObject({
+      browser: 'edge',
+      attemptRoot: fixture.attemptRoot
+    });
+    expect(spec.env.EDGE_API_KEY).toBe('key');
+    expect(() =>
+      resolveCommandProfile('edge-publish-v1', args, {
+        environment: { ...environment, GITHUB_RUN_ATTEMPT: '2' }
+      })
+    ).toThrow();
+    expect(() =>
+      resolveCommandProfile('edge-publish-v1', args, { environment: cleanEnvironment() })
+    ).toThrow();
+    expect(() =>
+      resolveCommandProfile(
+        'edge-verify-v1',
+        ['--manifest', manifest, '--transport-mode', 'github-artifact-v1'],
+        { environment }
+      )
+    ).toThrow('STORE_CREDENTIAL_FORBIDDEN');
+    expect(() =>
+      resolveCommandProfile('edge-publish-v1', args, {
+        environment: { ...environment, CWS_CLIENT_ID: 'unrelated-secret' }
+      })
+    ).toThrow('STORE_CREDENTIAL_FORBIDDEN');
+    expect(() =>
+      resolveCommandProfile('node-script-standard-v1', ['scripts/publish-edge-addons.mjs'], {
+        environment: cleanEnvironment()
+      })
+    ).toThrow('NODE_SCRIPT_FIXED_OWNER_REQUIRED');
+  });
+
+  it.each([true, false])('validates terminal Edge operation evidence (valid=%s)', async (valid) => {
+    const value = await initializedStoreFixture('edge');
+    const spec = storeLeafSpec(value, true);
+    const result = await runBoundedCommand(
+      { profileId: 'edge-publish-v1', arguments: [] },
+      {
+        resolveProfile: () => spec,
+        spawnOperation: spawnAfter(() => {
+          writeStoreTerminalState(value.statePath, {
+            outcome: 'success',
+            started: 'publish',
+            completed: 'publish'
+          });
+          if (!valid)
+            rewriteCanonicalOwnedJson(value.statePath, (state) => {
+              state.publishOperationId = null;
+            });
+        })
+      }
+    );
+    expect(result.ok).toBe(valid);
+    if (!valid) expect(result.terminalReason).toBe('EDGE_STATE_OPERATION_INVALID');
+    if (valid)
+      await expect(
+        runBoundedCommand(
+          { profileId: 'release-state-check-v1', arguments: ['--browser', 'edge'] },
+          { environment: value.fixture.environment }
+        )
+      ).resolves.toMatchObject({ ok: true });
+  });
+
+  it('requires a bound Edge verification receipt before initializing submission state', async () => {
+    const value = await initializedStoreFixture('edge');
+    expect(JSON.parse(readFileSync(value.statePath, 'utf8'))).toMatchObject({
+      browser: 'edge',
+      store: 'edge-addons-v1',
+      artifactRole: 'extension-zip',
+      uploadOperationId: null,
+      publishOperationId: null
+    });
+    expect(value.statePath).toContain('/store-state/edge/publish-state.json');
+    await expect(
+      runBoundedCommand(
+        { profileId: 'release-state-check-v1', arguments: ['--browser', 'edge'] },
+        { environment: value.fixture.environment }
+      )
+    ).resolves.toMatchObject({ ok: true });
+    rewriteCanonicalOwnedJson(value.statePath, (state) => {
+      state.uploadOperationId = 'unexpected';
+    });
+    await expect(
+      runBoundedCommand(
+        { profileId: 'release-state-check-v1', arguments: ['--browser', 'edge'] },
+        { environment: value.fixture.environment }
+      )
+    ).resolves.toMatchObject({ ok: false });
+  });
+});
 
 function installAttemptConfigs(attemptRoot: string) {
   const installRoot = join(attemptRoot, 'install');
@@ -534,7 +656,9 @@ function rewriteCanonicalOwnedJson(
   const value: Record<string, RequestValue> = JSON.parse(readFileSync(path, 'utf8'));
   mutate(value);
   const sorted = Object.fromEntries(
-    Object.entries(value).sort(([left], [right]) => left.localeCompare(right))
+    Object.keys(value)
+      .sort()
+      .map((key) => [key, value[key]])
   );
   writeFileSync(path, `${JSON.stringify(sorted)}\n`);
   chmodSync(path, 0o600);
@@ -598,12 +722,17 @@ function writeStoreTerminalState(
           : 'reconcile';
     if (value.browser === 'firefox') value.channel = terminal.channel ?? 'listed';
     if (terminal.outcome !== 'pre-mutation-failure') {
-      if (value.browser === 'chrome') {
+      if (value.browser !== 'firefox') {
         value.itemId = 'fixture-item';
         value.publisherIdFingerprint = 'a'.repeat(64);
         value.packageVersion = '1.0.0';
         value.archiveSha256 = 'b'.repeat(64);
         value.terminalResult = terminal.outcome === 'success' ? 'PENDING_REVIEW' : null;
+        if (value.browser === 'edge') {
+          value.uploadOperationId = '11111111-1111-1111-1111-111111111111';
+          value.publishOperationId =
+            terminal.started === 'publish' ? '22222222-2222-2222-2222-222222222222' : null;
+        }
       } else {
         value.geckoId = 'fixture@example.test';
         value.xpiSha256 = 'c'.repeat(64);
@@ -625,8 +754,8 @@ function writeStoreTerminalState(
   });
 }
 
-async function initializedStoreFixture(browser: 'chrome' | 'firefox') {
-  const fixture = releaseAttemptFixture(browser, browser === 'chrome' ? 'publish' : 'submit');
+async function initializedStoreFixture(browser: 'chrome' | 'edge' | 'firefox') {
+  const fixture = releaseAttemptFixture(browser, browser !== 'firefox' ? 'publish' : 'submit');
   installAttemptConfigs(fixture.attemptRoot);
   const manifest = join(fixture.attemptRoot, 'manifest.json');
   writeFileSync(manifest, `${browser}-bound-manifest`, { mode: 0o600 });
@@ -666,7 +795,7 @@ async function initializedStoreFixture(browser: 'chrome' | 'firefox') {
     expectedManifestSha256,
     statePath: join(
       stateRoot,
-      browser === 'chrome' ? 'publish-state.json' : 'submission-state.json'
+      browser !== 'firefox' ? 'publish-state.json' : 'submission-state.json'
     ),
     bindingPath: join(fixture.attemptRoot, 'receipts', `${browser}-state-binding.json`),
     uuidPath: join(stateRoot, 'web-ext-upload/upload-uuid.json')
@@ -752,7 +881,8 @@ function storeLeafSpec(
   });
   return {
     ...leaf,
-    profileId: initialized.browser === 'chrome' ? 'chrome-publish-v1' : 'firefox-submit-v1',
+    profileId:
+      initialized.browser === 'firefox' ? 'firefox-submit-v1' : `${initialized.browser}-publish-v1`,
     env: initialized.fixture.environment,
     argv:
       initialized.browser === 'firefox'
@@ -810,14 +940,14 @@ function gitValue(args: string[]): string {
   return result.stdout.trim();
 }
 
-function protectedCiInstallFixture(browser: 'chrome' | 'firefox') {
+function protectedCiInstallFixture(browser: 'chrome' | 'edge' | 'firefox') {
   const runnerTemp = realpathSync(temporaryRoot());
   const output = join(runnerTemp, 'github-output');
   const runId = '987654';
   const runAttempt = '1';
-  const job = browser === 'chrome' ? 'chrome-publish' : 'firefox-submit';
-  const jobClass = browser === 'chrome' ? 'chrome-publish-v1' : 'firefox-submit-v1';
-  const timeout = browser === 'chrome' ? '60' : '90';
+  const job = browser !== 'firefox' ? `${browser}-publish` : 'firefox-submit';
+  const jobClass = browser !== 'firefox' ? `${browser}-publish-v1` : 'firefox-submit-v1';
+  const timeout = browser !== 'firefox' ? '60' : '90';
   const startCentiseconds = '200000';
   writeFileSync(output, '', { mode: 0o600 });
   chmodSync(output, 0o600);
@@ -1196,6 +1326,21 @@ describe('bounded command ownership', () => {
           'release-provenance-v1:reauthorize',
           'release-state-init-v1',
           'chrome-publish-v1',
+          'release-state-check-v1',
+          'platform:upload-state-v1',
+          'runner-finalization-v1'
+        ],
+        totalMs: 2_130_000,
+        frozen: true
+      },
+      'edge-publish-v1': {
+        owners: [
+          'github-ci-install-v1',
+          'platform:download-artifact-v1',
+          'edge-verify-v1',
+          'release-provenance-v1:reauthorize',
+          'release-state-init-v1',
+          'edge-publish-v1',
           'release-state-check-v1',
           'platform:upload-state-v1',
           'runner-finalization-v1'

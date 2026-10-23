@@ -84,11 +84,11 @@ export function checkFirefoxAmoReleaseWorkflowContract({
       !report.ok ||
       JSON.stringify(report.summary) !==
         JSON.stringify({
-          yamlFiles: 5,
-          workflowFiles: 3,
+          yamlFiles: 6,
+          workflowFiles: 4,
           actionFiles: 2,
-          externalUses: 38,
-          localUses: 21,
+          externalUses: 43,
+          localUses: 23,
           compositeActions: 2,
           findings: 0
         })
