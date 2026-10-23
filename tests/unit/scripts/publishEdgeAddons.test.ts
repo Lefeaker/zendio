@@ -111,7 +111,7 @@ describe('Edge Add-ons exact package submission', () => {
     const requests: { url: string; init?: RequestInit }[] = [];
     const fetchImpl = vi.fn(async (url: string | URL, init?: RequestInit) => {
       requests.push({ url: String(url), init });
-      const state = JSON.parse(await readFile(value.stateFile, 'utf8'));
+      const state = JSON.parse(await readFile(value.stateFile, 'utf8')) as Record<string, unknown>;
       expect(state).toMatchObject({
         mutationInvoked: true,
         retrySafe: false,
@@ -179,21 +179,23 @@ describe('Edge Add-ons exact package submission', () => {
     async (reason) => {
       const value = await fixture();
       const calls: string[] = [];
-      const fetchImpl = vi.fn(async (_url: string | URL, init?: RequestInit) => {
+      const fetchImpl = vi.fn((_url: string | URL, init?: RequestInit): Promise<Response> => {
         calls.push(init?.method ?? 'GET');
         if (calls.length === 1) {
-          if (reason === 'rejected') return new Response(environment.EDGE_API_KEY, { status: 401 });
-          if (reason === 'network') throw new Error(environment.EDGE_API_KEY);
-          if (reason === 'foreign-location') return accepted(`https://evil.example/${upload}`);
-          return accepted(upload);
+          if (reason === 'rejected')
+            return Promise.resolve(new Response(environment.EDGE_API_KEY, { status: 401 }));
+          if (reason === 'network') return Promise.reject(new Error(environment.EDGE_API_KEY));
+          if (reason === 'foreign-location')
+            return Promise.resolve(accepted(`https://evil.example/${upload}`));
+          return Promise.resolve(accepted(upload));
         }
         if (calls.length === 2) {
-          if (reason === 'wrong-id') return status(publish);
+          if (reason === 'wrong-id') return Promise.resolve(status(publish));
           if (reason === 'oversized')
-            return new Response('x'.repeat(EDGE_LIMITS.responseBytes + 1));
-          return status(upload);
+            return Promise.resolve(new Response('x'.repeat(EDGE_LIMITS.responseBytes + 1)));
+          return Promise.resolve(status(upload));
         }
-        return new Response('failure', { status: 503 });
+        return Promise.resolve(new Response('failure', { status: 503 }));
       });
       await expect(publishVerifiedEdgeRelease(value, { fetchImpl })).rejects.toMatchObject({
         message: 'unknown-submission-state:EDGE_RECONCILE_REQUIRED',
@@ -217,11 +219,11 @@ describe('Edge Add-ons exact package submission', () => {
 
   it('bounds polling while retaining the operation ID for reconciliation', async () => {
     const value = await fixture();
-    const fetchImpl = vi.fn(async (_url: string | URL, init?: RequestInit) =>
-      init?.method === 'POST' ? accepted(upload) : status(upload, 'InProgress')
+    const fetchImpl = vi.fn((_url: string | URL, init?: RequestInit) =>
+      Promise.resolve(init?.method === 'POST' ? accepted(upload) : status(upload, 'InProgress'))
     );
     await expect(
-      publishVerifiedEdgeRelease(value, { fetchImpl, sleep: async () => {} })
+      publishVerifiedEdgeRelease(value, { fetchImpl, sleep: () => Promise.resolve() })
     ).rejects.toThrow('EDGE_RECONCILE_REQUIRED');
     expect(fetchImpl).toHaveBeenCalledTimes(EDGE_LIMITS.pollAttempts + 1);
     expect(JSON.parse(await readFile(value.stateFile, 'utf8'))).toMatchObject({
