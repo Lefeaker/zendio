@@ -54,7 +54,7 @@ describe('ai chat platform parsers', () => {
     expect(result.messages.some((message) => /您说|ChatGPT 说/.test(message.md ?? ''))).toBe(false);
   });
 
-  it.each(['user', 'assistant'] as const)(
+  it.each(['user', 'assistant'])(
     'preserves role-label literals throughout the ChatGPT %s message body',
     (role) => {
       const doc = new DOMParser().parseFromString(

@@ -10,6 +10,7 @@ import { DEFAULT_HIGHLIGHT_THEME } from '@content/video/fragmentHighlighter';
 import type { VideoCaptureScreenshot, VideoTimestampCapture } from '@content/video/types';
 import type { VideoScreenshotCacheRef } from '@content/video/videoScreenshotCacheTypes';
 import type { VideoScreenshotCacheRepository } from '@content/video/videoScreenshotCacheRepository';
+import type { ExportDestinationMetadata } from '@shared/exportDestination';
 
 function recoveryContext() {
   const state = new VideoSessionState(DEFAULT_HIGHLIGHT_THEME);
@@ -43,14 +44,14 @@ function recoveryContext() {
     capturedAt: 1,
     content: { kind: 'blob', blob: new Blob(['aaa'], { type: 'image/jpeg' }), byteLength: 3 }
   };
-  const cache: VideoScreenshotCacheRepository = {
+  const cache = {
     save: vi.fn(),
-    load: vi.fn(async () => screenshot),
+    load: vi.fn<VideoScreenshotCacheRepository['load']>().mockResolvedValue(screenshot),
     remove: vi.fn(),
     removeMany: vi.fn(),
     pruneExpired: vi.fn(),
     pruneToLimits: vi.fn()
-  };
+  } satisfies VideoScreenshotCacheRepository;
   const context = { state, dependencies: { screenshotCacheRepository: cache } };
   state.exportAttempt = {
     operationId: 'op_rebuild1',
@@ -101,7 +102,7 @@ describe('Video reopened export preparation', () => {
     await expect(prepareVideoRecoveryCaptures(context)).resolves.toMatchObject([{ screenshot }]);
   });
 
-  it.each(['legacy', 'edit', 'destination', 'retention'] as const)(
+  it.each(['legacy', 'edit', 'destination', 'retention'])(
     'does not offer reconstruction for %s content',
     (change) => {
       const { context, capture } = recoveryContext();
@@ -111,7 +112,10 @@ describe('Video reopened export preparation', () => {
       if (change === 'retention') context.state.captures = [];
       const targetContext =
         change === 'destination'
-          ? { ...context, getExportDestinationMetadata: () => ({ kind: 'downloads' as const }) }
+          ? {
+              ...context,
+              getExportDestinationMetadata: (): ExportDestinationMetadata => ({ kind: 'downloads' })
+            }
           : context;
       expect(canContinueVideoExport(targetContext)).toBe(false);
     }
@@ -119,9 +123,9 @@ describe('Video reopened export preparation', () => {
 
   it('rejects a live edit arriving while the original cache read is pending', async () => {
     const { context, cache, screenshot, capture } = recoveryContext();
-    vi.mocked(cache.load).mockImplementation(async () => {
+    vi.mocked(cache.load).mockImplementation(() => {
       capture.comment = 'New edit during recovery';
-      return screenshot;
+      return Promise.resolve(screenshot);
     });
     await expect(prepareVideoRecoveryCaptures(context)).rejects.toThrow(
       'CLIP_EXPORT_SNAPSHOT_UNAVAILABLE'

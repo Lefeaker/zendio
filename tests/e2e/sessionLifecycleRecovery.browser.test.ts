@@ -812,7 +812,15 @@ for (const scenario of [
         contentType: 'image/png'
       });
     }
-    const payload = (await recoveryDrafts(extensionPage, url))[0]?.record.payload;
+    const [originalDraft] = await recoveryDrafts(extensionPage, url);
+    if (!originalDraft) throw new Error('Original draft missing');
+    const payload = await extensionPage.evaluate(async (key) => {
+      const records =
+        await chrome.storage.local.get<Record<string, { payload: VideoSessionDraftPayloadShape }>>(
+          key
+        );
+      return records[key]?.payload;
+    }, originalDraft.key);
     const attempt =
       payload && 'exportAttempt' in payload
         ? readSessionExportAttempt(payload.exportAttempt)
@@ -863,23 +871,26 @@ for (const scenario of [
         const [draft] = await recoveryDrafts(extensionPage, url);
         if (!draft) throw new Error('Original draft missing');
         await extensionPage.evaluate(async (key) => {
-          const record = (await chrome.storage.local.get(key))[key] as {
-            payload: VideoSessionDraftPayloadShape;
-          };
+          const records =
+            await chrome.storage.local.get<
+              Record<string, { payload: VideoSessionDraftPayloadShape }>
+            >(key);
+          const record = records[key];
+          if (!record) throw new Error('Original draft missing');
           if (record.payload.exportAttempt) delete record.payload.exportAttempt.rebuild;
           await chrome.storage.local.set({ [key]: record });
         }, draft.key);
       } else if (scenario === 'reload-missing-cache') {
-        const refs = (payload as VideoSessionDraftPayloadShape).captures.flatMap((capture) =>
+        if (!payload) throw new Error('Original video payload missing');
+        const refs = payload.captures.flatMap((capture) =>
           capture.kind === 'timestamp' && capture.screenshotRef ? [capture.screenshotRef] : []
         );
         expect(refs).toHaveLength(2);
         await extensionPage.evaluate(async (refs) => {
-          const result = await chrome.runtime.sendMessage({
-            type: 'AIIOB_VIDEO_SCREENSHOT_CACHE',
-            operation: 'removeMany',
-            refs
-          });
+          const request = { type: 'AIIOB_VIDEO_SCREENSHOT_CACHE', operation: 'removeMany', refs };
+          const result = await chrome.runtime.sendMessage<typeof request, { success: boolean }>(
+            request
+          );
           if (!result.success) throw new Error('Cache fixture removal failed');
         }, refs);
       } else if (scenario === 'reload-destination-plan') {

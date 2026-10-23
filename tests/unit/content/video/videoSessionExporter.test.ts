@@ -1,7 +1,10 @@
 /* @vitest-environment node */
 
 import { describe, expect, it, vi } from 'vitest';
-import { VideoSessionExporter } from '@content/video/videoSessionExporter';
+import {
+  VideoSessionExporter,
+  type BuildPayloadContext
+} from '@content/video/videoSessionExporter';
 import { DEFAULT_SESSION_MESSAGES } from '@content/video/sessionMessages';
 import { serializedAttachmentContentToBlob } from '@shared/attachments/clipAttachmentBinary';
 import type { IVideoRepository, VideoClipData } from '@shared/repositories/IVideoRepository';
@@ -68,7 +71,7 @@ describe('VideoSessionExporter', () => {
     vi.useFakeTimers();
     const startedAt = new Date(2026, 9, 15, 23, 59, 59).getTime();
     const repository = createRepository();
-    const input = {
+    const input: BuildPayloadContext = {
       captures: [
         createTimestampCapture('one', 42, {
           comment: 'Retained note',
@@ -79,7 +82,7 @@ describe('VideoSessionExporter', () => {
       videoTitle: 'Retained title',
       canonicalUrl: 'https://video.example/watch',
       videoUrl: 'https://video.example/watch',
-      platform: 'youtube' as const,
+      platform: 'youtube',
       messages: DEFAULT_SESSION_MESSAGES,
       storageKey: null,
       operationId: 'op_reopened1',
