@@ -9,6 +9,10 @@ import { createSessionDraftRepository } from '@content/sessionDrafts/sessionDraf
 import type { VideoPanelCallbacks } from '@content/video/application/videoPanelModel';
 import { VideoSession } from '@content/video/session';
 import {
+  setYamlConfigOverrides,
+  resetYamlConfigOverridesStore
+} from '@shared/state/yamlConfigOverridesStore';
+import {
   buildVideoSessionDraftPayload,
   createVideoSessionDraftEnvelope
 } from '@content/video/sessionDrafts';
@@ -116,16 +120,6 @@ describe('VideoSession export', () => {
     exportMock.mockImplementationOnce((input) => {
       const operationId = input.operationId;
       if (!operationId) throw new Error('Missing attempt ID');
-      input.onPrepared?.({
-        operationId,
-        ...(input.exportStartedAt !== undefined ? { exportStartedAt: input.exportStartedAt } : {}),
-        content: 'Original final Markdown',
-        title: input.videoTitle,
-        url: input.canonicalUrl,
-        videoUrl: input.videoUrl,
-        timestamp: 1,
-        platform: 'youtube'
-      });
       return Promise.resolve(
         createClipSaveFailure('unknown', 'write', 'attachments', {
           operationId,
@@ -229,6 +223,102 @@ describe('VideoSession export', () => {
     }
     vi.useRealTimers();
   });
+  it('keeps reopened progress retryable after local YAML preparation fails before dispatch', async () => {
+    const deps = createDependencies();
+    const { VideoSessionExporter: RealExporter } = await vi.importActual<
+      typeof import('@content/video/videoSessionExporter')
+    >('@content/video/videoSessionExporter');
+    const exporter = new RealExporter(deps.videoRepository);
+    const session = new VideoSession(document, deps);
+    const api = toSessionTestApi(session);
+    await session.start();
+    // Exercise the production exporter instead of the shared session harness double.
+    Object.defineProperty(session, 'exporter', { value: exporter });
+    seedTimestampCaptures(api, 1);
+    const capture = api.state.captures[0];
+    if (!capture) throw new Error('Expected timestamp capture');
+    capture.screenshotRequested = true;
+    capture.screenshot = {
+      id: 'shot1',
+      fileName: 'shot1.jpg',
+      mimeType: 'image/jpeg',
+      capturedAt: 1,
+      dataUrl: 'data:image/jpeg;base64,/9j/2Q=='
+    };
+    const send = vi
+      .spyOn(deps.videoRepository, 'sendVideoClip')
+      .mockImplementationOnce((payload) => {
+        if (!payload.operationId) throw new Error('Expected operation ID');
+        return Promise.resolve(
+          createClipSaveFailure('unknown', 'write', 'note', {
+            operationId: payload.operationId,
+            planId: 'a'.repeat(64),
+            total: 1,
+            storageTarget: 'downloads',
+            phase: 'note',
+            confirmed: [
+              {
+                id: 'shot1',
+                outputPath: 'shot1.jpg',
+                download: { id: 1, filename: '/downloads/shot1.jpg' }
+              }
+            ]
+          })
+        );
+      })
+      .mockImplementationOnce(async (payload) => {
+        const [pending] = await listVideoDraftCandidates(deps);
+        expect(pending?.payload.exportAttempt?.attachmentProgress?.blocked).toBe(true);
+        expect(payload.attachmentProgress?.blocked).toBeUndefined();
+        return { success: true };
+      });
+    try {
+      setYamlConfigOverrides(null);
+      await api.finish();
+      const [original] = await listVideoDraftCandidates(deps);
+      const progress = original?.payload.exportAttempt?.attachmentProgress;
+      expect(progress?.confirmed).toHaveLength(1);
+      api.state.frozenExportPayload = undefined;
+      setYamlConfigOverrides({
+        contentTypes: {
+          video: {
+            customFields: [
+              {
+                name: 'required_recovery_field',
+                type: 'text',
+                enabled: true,
+                required: true,
+                valuePath: 'missing_value'
+              }
+            ]
+          }
+        }
+      });
+      const build = vi.spyOn(exporter, 'buildPayload');
+      api.state.exportRecoveryAction = 'continue';
+      await api.finish();
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(build).toHaveBeenCalledTimes(1);
+      await expect(build.mock.results[0]?.value).rejects.toThrow('required_recovery_field');
+      const [failedPreparation] = await listVideoDraftCandidates(deps);
+      expect(failedPreparation?.payload.exportAttempt?.attachmentProgress).toEqual(progress);
+      expect(api.state.frozenExportPayload).toBeUndefined();
+      setYamlConfigOverrides(null);
+      api.state.exportRecoveryAction = 'continue';
+      await api.finish();
+      expect(send).toHaveBeenCalledTimes(2);
+      expect(send.mock.calls[1]?.[0]).toMatchObject({
+        operationId: original?.payload.exportAttempt?.operationId,
+        attachmentProgress: progress
+      });
+      expect(isVideoSessionActive(document)).toBe(false);
+      expect(await listVideoDraftCandidates(deps)).toHaveLength(0);
+    } finally {
+      resetYamlConfigOverridesStore();
+      api.cleanup();
+    }
+  });
+
   it('creates a new operation and path time only for an explicit save-again', async () => {
     vi.useFakeTimers();
     const startedAt = new Date(2026, 9, 15, 23, 59, 59).getTime();

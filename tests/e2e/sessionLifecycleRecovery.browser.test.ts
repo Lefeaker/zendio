@@ -729,6 +729,7 @@ for (const scenario of [
   'reload-legacy',
   'reload-missing-cache',
   'reload-destination-plan',
+  'reload-yaml-prepare',
   'clock-boundary',
   'lost-continuation-ack'
 ] as const) {
@@ -899,6 +900,26 @@ for (const scenario of [
           templates: { video: 'Changed/changed.md' }
         });
       }
+      if (scenario === 'reload-yaml-prepare') {
+        await extensionPage.evaluate((options) => chrome.storage.sync.set({ options }), {
+          ...createOptionsFixture(),
+          yamlConfig: {
+            contentTypes: {
+              video: {
+                customFields: [
+                  {
+                    name: 'required_recovery_field',
+                    type: 'text',
+                    enabled: true,
+                    required: true,
+                    valuePath: 'missing_value'
+                  }
+                ]
+              }
+            }
+          }
+        });
+      }
       if (scenario === 'reopen') {
         await page.close();
         page = await context.newPage();
@@ -926,6 +947,39 @@ for (const scenario of [
     } else if (scenario === 'lost-continuation-ack')
       await interceptRecoveryReply(extensionPage, tabId, 'videoClip', 'lose');
 
+    if (scenario === 'reload-yaml-prepare') {
+      const preparationFailure = page.waitForEvent('console', {
+        predicate: (message) =>
+          message.type() === 'error' && message.text().includes('required_recovery_field')
+      });
+      await notice.locator('[data-export-recovery="continue"]').click();
+      await preparationFailure;
+      await expect(notice.locator('[data-export-recovery="continue"]')).toBeVisible();
+      const [retainedDraft] = await recoveryDrafts(extensionPage, url);
+      const retainedPayload = retainedDraft?.record.payload;
+      const retainedAttempt =
+        retainedPayload && 'exportAttempt' in retainedPayload
+          ? readSessionExportAttempt(retainedPayload.exportAttempt)
+          : undefined;
+      expect(retainedAttempt).toEqual(attempt);
+      expect(await attachmentWriteAttempts(extensionPage)).toHaveLength(2);
+      expect(await extensionPage.evaluate(() => chrome.downloads.search({}))).toHaveLength(1);
+      await extensionPage.evaluate(
+        (options) => chrome.storage.sync.set({ options }),
+        createOptionsFixture()
+      );
+      expect((await recoveryDrafts(extensionPage, url))[0]?.key).toBe(retainedDraft?.key);
+      await page.reload();
+      await injectContentRuntime(extensionPage, tabId);
+      await expandVideoPanel(page);
+      await expect(notice.locator('[data-export-recovery="continue"]')).toBeVisible();
+      const resumedPayload = (await recoveryDrafts(extensionPage, url))[0]?.record.payload;
+      expect(
+        resumedPayload && 'exportAttempt' in resumedPayload
+          ? readSessionExportAttempt(resumedPayload.exportAttempt)
+          : undefined
+      ).toEqual(attempt);
+    }
     await notice.locator('[data-export-recovery="continue"]').click();
     if (
       scenario === 'edit' ||

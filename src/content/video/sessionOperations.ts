@@ -358,10 +358,13 @@ export async function finishVideoSession(
               rebuild: 'video-v1' as const
             };
       const exportInput = {
-        onPrepared: (
+        onPrepared: async (
           payload: import('../../shared/repositories/IVideoRepository').VideoClipData
         ) => {
           context.state.frozenExportPayload = payload;
+          context.state.exportAttempt = prepareSessionExportDispatch(attempt);
+          await persistVideoExportAttempt(context);
+          writeRequested = true;
         },
         operationId: attempt.operationId,
         exportStartedAt: attempt.startedAt,
@@ -380,15 +383,11 @@ export async function finishVideoSession(
         storageKey: context.state.storageKey,
         ...(exportDestination ? { exportDestination: { ...exportDestination } } : {})
       };
-      context.state.exportAttempt = prepareSessionExportDispatch(attempt);
-      await persistVideoExportAttempt(context);
-      writeRequested = true;
+      const frozenPayload = recoveryAction === 'continue' && context.state.frozenExportPayload;
+      if (frozenPayload) await exportInput.onPrepared(frozenPayload);
       const result = readClipSaveResult(
-        await (recoveryAction === 'continue' && context.state.frozenExportPayload
-          ? context.exporter.sendPrepared(
-              context.state.frozenExportPayload,
-              attempt.attachmentProgress
-            )
+        await (frozenPayload
+          ? context.exporter.sendPrepared(frozenPayload, attempt.attachmentProgress)
           : context.exporter.export(exportInput))
       );
       if (!result.success) throw new ClipSaveError(result);

@@ -67,6 +67,42 @@ function readExportedClip(repository: ReturnType<typeof createRepository>): Vide
 }
 
 describe('VideoSessionExporter', () => {
+  it.each(['resolve', 'reject'])(
+    'awaits preparation %s before sending any payload',
+    async (outcome) => {
+      const repository = createRepository();
+      let resolve = () => {};
+      let reject = (_error: Error) => {};
+      const gate = new Promise<void>((done, fail) => {
+        resolve = done;
+        reject = fail;
+      });
+      const onPrepared = vi.fn(() => gate);
+      const pending = new VideoSessionExporter(repository).export({
+        captures: [],
+        videoTitle: 'Prepared video',
+        canonicalUrl: '',
+        videoUrl: '',
+        platform: 'youtube',
+        messages: DEFAULT_SESSION_MESSAGES,
+        storageKey: null,
+        onPrepared
+      });
+      await vi.waitFor(() => expect(onPrepared).toHaveBeenCalledOnce());
+      expect(repository.sendVideoClip).not.toHaveBeenCalled();
+      if (outcome === 'reject') {
+        const failed = expect(pending).rejects.toThrow('SESSION_DRAFT_SAVE_FAILED');
+        reject(new Error('SESSION_DRAFT_SAVE_FAILED'));
+        await failed;
+        expect(repository.sendVideoClip).not.toHaveBeenCalled();
+      } else {
+        resolve();
+        await pending;
+        expect(repository.sendVideoClip).toHaveBeenCalledOnce();
+      }
+    }
+  );
+
   it('rebuilds the same export from retained captures after reopening on a later day', async () => {
     vi.useFakeTimers();
     const startedAt = new Date(2026, 9, 15, 23, 59, 59).getTime();

@@ -31,7 +31,7 @@ export interface ExportPayload {
 }
 
 export interface BuildPayloadContext {
-  onPrepared?: (payload: VideoClipData) => void;
+  onPrepared?: (payload: VideoClipData) => void | Promise<void>;
   attachmentProgress?: ClipAttachmentProgress;
   operationId?: string;
   exportStartedAt?: number;
@@ -184,7 +184,7 @@ export class VideoSessionExporter {
       ...(payload.meta.attachments ? { attachments: payload.meta.attachments } : {}),
       ...(ctx.exportDestination ? { exportDestination: ctx.exportDestination } : {})
     };
-    ctx.onPrepared?.(clipData);
+    await ctx.onPrepared?.(clipData);
     return this.sendPrepared(clipData, ctx.attachmentProgress);
   }
 
