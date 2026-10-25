@@ -10,6 +10,22 @@ import { SessionExportAttemptSchema } from '../../../src/shared/sessionDrafts/ex
 import { ClipMetaSchema } from '../../../src/shared/schemas/clip.schema';
 
 describe('clip result boundary', () => {
+  it.each([undefined, 'video-v1', 'unsupported', { payload: 'must not persist' }])(
+    'keeps legacy attempts and only accepts the known rebuild capability: %j',
+    (rebuild) => {
+      const marker = {
+        operationId: 'op_rebuild1',
+        snapshotId: 'a'.repeat(64),
+        outcome: 'unknown',
+        startedAt: 1
+      };
+      const parsed = SessionExportAttemptSchema.parse({ ...marker, rebuild });
+      expect(parsed).toMatchObject(marker);
+      expect(parsed.rebuild).toBe(rebuild === 'video-v1' ? 'video-v1' : undefined);
+      expect(JSON.stringify(parsed)).not.toContain('must not persist');
+    }
+  );
+
   it.each([
     { total: 51 },
     {

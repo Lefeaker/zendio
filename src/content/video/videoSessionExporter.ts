@@ -31,7 +31,8 @@ export interface ExportPayload {
 }
 
 export interface BuildPayloadContext {
-  onPrepared?: (payload: VideoClipData) => void;
+  onPrepared?: (payload: VideoClipData) => void | Promise<void>;
+  attachmentProgress?: ClipAttachmentProgress;
   operationId?: string;
   exportStartedAt?: number;
   captures: VideoCapture[];
@@ -91,7 +92,7 @@ export class VideoSessionExporter {
           : 'Video Capture';
     const title = ctx.videoTitle || defaultTitle;
     const pageUrl = ctx.canonicalUrl || ctx.videoUrl || '';
-    const clippedAt = formatDateTime(new Date());
+    const clippedAt = formatDateTime(new Date(ctx.exportStartedAt ?? Date.now()));
     const domain = pageUrl ? this.deriveDomain(pageUrl) : '';
     const platformLabel = ctx.platform === 'unknown' ? 'video' : ctx.platform;
 
@@ -175,7 +176,7 @@ export class VideoSessionExporter {
       title: payload.title,
       url: payload.meta.url || ctx.canonicalUrl || ctx.videoUrl || '',
       videoUrl: ctx.videoUrl ?? '',
-      timestamp: Date.now(),
+      timestamp: ctx.exportStartedAt ?? Date.now(),
       ...(ctx.operationId ? { operationId: ctx.operationId } : {}),
       ...(ctx.exportStartedAt !== undefined ? { exportStartedAt: ctx.exportStartedAt } : {}),
       timestampCount: payload.meta.timestampCount,
@@ -183,8 +184,8 @@ export class VideoSessionExporter {
       ...(payload.meta.attachments ? { attachments: payload.meta.attachments } : {}),
       ...(ctx.exportDestination ? { exportDestination: ctx.exportDestination } : {})
     };
-    ctx.onPrepared?.(clipData);
-    return this.sendPrepared(clipData);
+    await ctx.onPrepared?.(clipData);
+    return this.sendPrepared(clipData, ctx.attachmentProgress);
   }
 
   sendPrepared(

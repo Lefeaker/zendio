@@ -206,7 +206,7 @@ function isLikelyLanguageLabel(elem: HTMLElement, text: string): boolean {
   if (/\b(language|lang|syntax|code|chip|badge|toolbar|label)\b/i.test(classAttr)) {
     return true;
   }
-  return Boolean(text && text === text.toUpperCase() && text.length <= 15);
+  return text.length <= 15 && text !== text.toLowerCase() && text === text.toUpperCase();
 }
 
 export function captureLanguageLabel(elem: HTMLElement): boolean {

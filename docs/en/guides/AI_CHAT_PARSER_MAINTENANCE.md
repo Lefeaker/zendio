@@ -72,6 +72,7 @@ When a platform DOM drift is found:
 
 - Global constants belong in `shared/constants.ts`.
 - DOM cleanup utilities should live in `shared/dom.ts`; reuse them rather than duplicating selectors inside platform modules.
+- ChatGPT role labels belong to the platform's DOM chrome, not a Markdown text replacement. Only remove exact native labels from separate `h5` / `.sr-only` headers outside the selected message body; legacy unmarked articles require a leading header with a separate content sibling. Preserve the same words in prose, quotes, code, links, and body headings, including messages consisting only of those words. Shared cleanup must not strip role-label text.
 - Markdown conversion helpers are centralised in `shared/markdown.ts`. When adding constructs (tables, KaTeX, custom components), extend this file and add regression tests.
 - The profile parser engine in `shared/profileEngine.ts` is opt-in. It fails closed when a container role cannot be resolved; set `fallbackRole` explicitly only when the platform contract owns that behavior.
 - Per-platform helpers should use specific names such as `perplexityCandidates.ts` or `chineseFamilyHelpers.ts`. Do not add broad family facades unless they own real shared behavior used by multiple platforms.

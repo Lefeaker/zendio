@@ -182,7 +182,21 @@ vi.mock('../../../../src/content/video/videoSessionExporter', async () => {
     ...actual,
     VideoSessionExporter: vi.fn().mockImplementation(function VideoSessionExporterMock() {
       return {
-        export: exportMock,
+        export: async (input: Parameters<typeof exportMock>[0]) => {
+          await input.onPrepared?.({
+            content: 'Original final Markdown',
+            title: input.videoTitle,
+            url: input.canonicalUrl,
+            videoUrl: input.videoUrl,
+            timestamp: input.exportStartedAt ?? Date.now(),
+            ...(input.operationId ? { operationId: input.operationId } : {}),
+            ...(input.exportStartedAt !== undefined
+              ? { exportStartedAt: input.exportStartedAt }
+              : {}),
+            platform: 'youtube'
+          });
+          return exportMock(input);
+        },
         sendPrepared: sendPreparedMock
       };
     })

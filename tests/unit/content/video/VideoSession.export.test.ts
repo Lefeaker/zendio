@@ -9,6 +9,10 @@ import { createSessionDraftRepository } from '@content/sessionDrafts/sessionDraf
 import type { VideoPanelCallbacks } from '@content/video/application/videoPanelModel';
 import { VideoSession } from '@content/video/session';
 import {
+  setYamlConfigOverrides,
+  resetYamlConfigOverridesStore
+} from '@shared/state/yamlConfigOverridesStore';
+import {
   buildVideoSessionDraftPayload,
   createVideoSessionDraftEnvelope
 } from '@content/video/sessionDrafts';
@@ -30,7 +34,8 @@ import {
   resetVideoSessionHarnessMocks,
   restoreVideoSessionHarnessGlobals,
   seedTimestampCaptures,
-  toSessionTestApi
+  toSessionTestApi,
+  toDraftControllerTestApi
 } from './videoSessionTestHarness';
 
 const { exportMock, sendPreparedMock } = getVideoSessionHarnessMocks();
@@ -95,83 +100,225 @@ describe('VideoSession export', () => {
       vi.useRealTimers();
     }
   );
-  it.each<'continue' | 'edit' | 'missing-snapshot'>(['continue', 'edit', 'missing-snapshot'])(
-    'preserves the prepared payload and checks %s for attachment recovery',
-    async (scenario) => {
-      vi.useFakeTimers();
-      const startedAt = new Date(2026, 9, 15, 23, 59, 59).getTime();
-      vi.setSystemTime(startedAt);
-      const deps = createDependencies();
-      const session = new VideoSession(document, deps);
-      const api = toSessionTestApi(session);
-      await session.start();
-      await api.handleAddCapture();
-      exportMock.mockImplementationOnce((input) => {
-        const operationId = input.operationId;
-        if (!operationId) throw new Error('Missing attempt ID');
-        input.onPrepared?.({
+  it.each([
+    'continue',
+    'edit',
+    'rebuild',
+    'legacy',
+    'lost-ack',
+    'fresh-progress',
+    'persist-failure'
+  ])('preserves the prepared payload and checks %s for attachment recovery', async (scenario) => {
+    vi.useFakeTimers();
+    const startedAt = new Date(2026, 9, 15, 23, 59, 59).getTime();
+    vi.setSystemTime(startedAt);
+    const deps = createDependencies();
+    const session = new VideoSession(document, deps);
+    const api = toSessionTestApi(session);
+    await session.start();
+    await api.handleAddCapture();
+    exportMock.mockImplementationOnce((input) => {
+      const operationId = input.operationId;
+      if (!operationId) throw new Error('Missing attempt ID');
+      return Promise.resolve(
+        createClipSaveFailure('unknown', 'write', 'attachments', {
           operationId,
-          ...(input.exportStartedAt !== undefined
-            ? { exportStartedAt: input.exportStartedAt }
-            : {}),
-          content: 'Original final Markdown',
-          title: input.videoTitle,
-          url: input.canonicalUrl,
-          videoUrl: input.videoUrl,
-          timestamp: 1,
-          platform: 'youtube'
-        });
+          planId: 'a'.repeat(64),
+          storageTarget: 'downloads',
+          total: 2,
+          phase: 'attachments',
+          confirmed: [
+            {
+              id: 'one',
+              outputPath: 'one.jpg',
+              download: { id: 1, filename: '/downloads/one.jpg' }
+            }
+          ]
+        })
+      );
+    });
+    await api.finish();
+    await api.finish();
+    expect(exportMock).toHaveBeenCalledTimes(1);
+    const [draft] = await listVideoDraftCandidates(deps);
+    expect(draft?.payload.exportAttempt?.attachmentProgress?.confirmed).toHaveLength(1);
+    expect(exportMock.mock.calls[0]?.[0].exportStartedAt).toBe(startedAt);
+    if (scenario === 'edit') {
+      const capture = api.state.captures[0];
+      if (!capture) throw new Error('Expected the captured video note');
+      capture.comment = 'Newer note';
+    }
+    if (scenario === 'rebuild' || scenario === 'legacy') api.state.frozenExportPayload = undefined;
+    if (scenario === 'legacy' && api.state.exportAttempt) delete api.state.exportAttempt.rebuild;
+    if (scenario === 'persist-failure')
+      vi.spyOn(toDraftControllerTestApi(session), 'flushNow').mockResolvedValueOnce('failure');
+    if (scenario === 'lost-ack' || scenario === 'fresh-progress') {
+      sendPreparedMock.mockImplementationOnce(async (_payload, progress) => {
+        const [pending] = await listVideoDraftCandidates(deps);
+        expect(pending?.payload.exportAttempt?.attachmentProgress?.blocked).toBe(true);
+        expect(progress?.blocked).toBeUndefined();
+        return createClipSaveFailure(
+          'unknown',
+          'connection',
+          'note',
+          scenario === 'fresh-progress' && progress
+            ? {
+                ...progress,
+                phase: 'note',
+                confirmed: [...progress.confirmed, { id: 'two', outputPath: 'two.jpg' }]
+              }
+            : undefined
+        );
+      });
+    }
+    api.state.exportRecoveryAction = 'continue';
+    vi.setSystemTime(startedAt + 2000);
+    await api.finish();
+    expect(exportMock).toHaveBeenCalledTimes(scenario === 'rebuild' ? 2 : 1);
+    if (scenario === 'lost-ack' || scenario === 'fresh-progress') {
+      expect(sendPreparedMock).toHaveBeenCalledTimes(1);
+      const [pending] = await listVideoDraftCandidates(deps);
+      expect(pending?.payload.exportAttempt?.attachmentProgress?.blocked).toBe(
+        scenario === 'lost-ack' ? true : undefined
+      );
+      api.state.exportRecoveryAction = 'continue';
+      await api.finish();
+      expect(sendPreparedMock).toHaveBeenCalledTimes(scenario === 'lost-ack' ? 1 : 2);
+      if (scenario === 'lost-ack') {
+        expect(api.state.frozenExportPayload).toBeUndefined();
+        api.state.exportRecoveryAction = 'confirm-saved';
+        await api.finish();
+        expect(sendPreparedMock).toHaveBeenCalledTimes(1);
+      }
+      expect(isVideoSessionActive(document)).toBe(false);
+    } else if (scenario === 'persist-failure') {
+      expect(sendPreparedMock).not.toHaveBeenCalled();
+      expect(api.state.exportAttempt?.attachmentProgress?.blocked).toBeUndefined();
+      api.state.exportRecoveryAction = 'continue';
+      await api.finish();
+      expect(sendPreparedMock).toHaveBeenCalledTimes(1);
+      expect(isVideoSessionActive(document)).toBe(false);
+    } else if (scenario === 'rebuild') {
+      expect(exportMock.mock.calls[1]?.[0]).toMatchObject({
+        operationId: draft?.payload.exportAttempt?.operationId,
+        exportStartedAt: startedAt,
+        attachmentProgress: draft?.payload.exportAttempt?.attachmentProgress
+      });
+      expect(sendPreparedMock).not.toHaveBeenCalled();
+      expect(isVideoSessionActive(document)).toBe(false);
+    } else if (scenario === 'continue') {
+      expect(sendPreparedMock).toHaveBeenCalledTimes(1);
+      expect(sendPreparedMock.mock.calls[0]?.[0].content).toBe('Original final Markdown');
+      expect(sendPreparedMock.mock.calls[0]?.[0].operationId).toBe(
+        draft?.payload.exportAttempt?.operationId
+      );
+      expect(sendPreparedMock.mock.calls[0]?.[0].exportStartedAt).toBe(startedAt);
+      expect(sendPreparedMock.mock.calls[0]?.[1]?.confirmed).toHaveLength(1);
+      expect(isVideoSessionActive(document)).toBe(false);
+    } else {
+      expect(sendPreparedMock).not.toHaveBeenCalled();
+      expect(api.state.exportAttempt?.attachmentProgress?.confirmed).toHaveLength(1);
+      expect(isVideoSessionActive(document)).toBe(true);
+      api.cleanup();
+    }
+    vi.useRealTimers();
+  });
+  it('keeps reopened progress retryable after local YAML preparation fails before dispatch', async () => {
+    const deps = createDependencies();
+    const { VideoSessionExporter: RealExporter } = await vi.importActual<
+      typeof import('@content/video/videoSessionExporter')
+    >('@content/video/videoSessionExporter');
+    const exporter = new RealExporter(deps.videoRepository);
+    const session = new VideoSession(document, deps);
+    const api = toSessionTestApi(session);
+    await session.start();
+    // Exercise the production exporter instead of the shared session harness double.
+    Object.defineProperty(session, 'exporter', { value: exporter });
+    seedTimestampCaptures(api, 1);
+    const capture = api.state.captures[0];
+    if (!capture) throw new Error('Expected timestamp capture');
+    capture.screenshotRequested = true;
+    capture.screenshot = {
+      id: 'shot1',
+      fileName: 'shot1.jpg',
+      mimeType: 'image/jpeg',
+      capturedAt: 1,
+      dataUrl: 'data:image/jpeg;base64,/9j/2Q=='
+    };
+    const send = vi
+      .spyOn(deps.videoRepository, 'sendVideoClip')
+      .mockImplementationOnce((payload) => {
+        if (!payload.operationId) throw new Error('Expected operation ID');
         return Promise.resolve(
-          createClipSaveFailure('unknown', 'write', 'attachments', {
-            operationId,
+          createClipSaveFailure('unknown', 'write', 'note', {
+            operationId: payload.operationId,
             planId: 'a'.repeat(64),
+            total: 1,
             storageTarget: 'downloads',
-            total: 2,
-            phase: 'attachments',
+            phase: 'note',
             confirmed: [
               {
-                id: 'one',
-                outputPath: 'one.jpg',
-                download: { id: 1, filename: '/downloads/one.jpg' }
+                id: 'shot1',
+                outputPath: 'shot1.jpg',
+                download: { id: 1, filename: '/downloads/shot1.jpg' }
               }
             ]
           })
         );
+      })
+      .mockImplementationOnce(async (payload) => {
+        const [pending] = await listVideoDraftCandidates(deps);
+        expect(pending?.payload.exportAttempt?.attachmentProgress?.blocked).toBe(true);
+        expect(payload.attachmentProgress?.blocked).toBeUndefined();
+        return { success: true };
       });
+    try {
+      setYamlConfigOverrides(null);
       await api.finish();
-      await api.finish();
-      expect(exportMock).toHaveBeenCalledTimes(1);
-      const [draft] = await listVideoDraftCandidates(deps);
-      expect(draft?.payload.exportAttempt?.attachmentProgress?.confirmed).toHaveLength(1);
-      expect(exportMock.mock.calls[0]?.[0].exportStartedAt).toBe(startedAt);
-      if (scenario === 'edit') {
-        const capture = api.state.captures[0];
-        if (!capture) throw new Error('Expected the captured video note');
-        capture.comment = 'Newer note';
-      }
-      if (scenario === 'missing-snapshot') api.state.frozenExportPayload = undefined;
+      const [original] = await listVideoDraftCandidates(deps);
+      const progress = original?.payload.exportAttempt?.attachmentProgress;
+      expect(progress?.confirmed).toHaveLength(1);
+      api.state.frozenExportPayload = undefined;
+      setYamlConfigOverrides({
+        contentTypes: {
+          video: {
+            customFields: [
+              {
+                name: 'required_recovery_field',
+                type: 'text',
+                enabled: true,
+                required: true,
+                valuePath: 'missing_value'
+              }
+            ]
+          }
+        }
+      });
+      const build = vi.spyOn(exporter, 'buildPayload');
       api.state.exportRecoveryAction = 'continue';
-      vi.setSystemTime(startedAt + 2000);
       await api.finish();
-      expect(exportMock).toHaveBeenCalledTimes(1);
-      if (scenario === 'continue') {
-        expect(sendPreparedMock).toHaveBeenCalledTimes(1);
-        expect(sendPreparedMock.mock.calls[0]?.[0].content).toBe('Original final Markdown');
-        expect(sendPreparedMock.mock.calls[0]?.[0].operationId).toBe(
-          draft?.payload.exportAttempt?.operationId
-        );
-        expect(sendPreparedMock.mock.calls[0]?.[0].exportStartedAt).toBe(startedAt);
-        expect(sendPreparedMock.mock.calls[0]?.[1]?.confirmed).toHaveLength(1);
-        expect(isVideoSessionActive(document)).toBe(false);
-      } else {
-        expect(sendPreparedMock).not.toHaveBeenCalled();
-        expect(api.state.exportAttempt?.attachmentProgress?.confirmed).toHaveLength(1);
-        expect(isVideoSessionActive(document)).toBe(true);
-        api.cleanup();
-      }
-      vi.useRealTimers();
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(build).toHaveBeenCalledTimes(1);
+      await expect(build.mock.results[0]?.value).rejects.toThrow('required_recovery_field');
+      const [failedPreparation] = await listVideoDraftCandidates(deps);
+      expect(failedPreparation?.payload.exportAttempt?.attachmentProgress).toEqual(progress);
+      expect(api.state.frozenExportPayload).toBeUndefined();
+      setYamlConfigOverrides(null);
+      api.state.exportRecoveryAction = 'continue';
+      await api.finish();
+      expect(send).toHaveBeenCalledTimes(2);
+      expect(send.mock.calls[1]?.[0]).toMatchObject({
+        operationId: original?.payload.exportAttempt?.operationId,
+        attachmentProgress: progress
+      });
+      expect(isVideoSessionActive(document)).toBe(false);
+      expect(await listVideoDraftCandidates(deps)).toHaveLength(0);
+    } finally {
+      resetYamlConfigOverridesStore();
+      api.cleanup();
     }
-  );
+  });
+
   it('creates a new operation and path time only for an explicit save-again', async () => {
     vi.useFakeTimers();
     const startedAt = new Date(2026, 9, 15, 23, 59, 59).getTime();
