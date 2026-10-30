@@ -99,3 +99,18 @@ DOM shape without raw conversation text.
 | --- | --- | --- | --- |
 | `deepseek-live-residual-2026-06-27.html` | DeepSeek | P14 | parser evidence only: shared-thread ordering can start with an assistant `.ds-message`, so the manifest marks `expectedValidation: 'role-incomplete'` and product export must fail closed; user `.ds-message` nodes use `d29f3d7d` / `fbb737a4` wrappers and may mention platform names such as DeepSeek or Qwen in message text |
 | `tongyi-qianwen-live-residual-2026-06-27.html` | Tongyi/Qianwen | P14 | `message-select-wrapper-*` wrappers can contain empty `share-selection-*` nodes before the real `chat-question-wrap` / `answerItem-*` content, and a `last-message-item` wrapper can nest a final question/answer pair |
+
+
+## ChatGPT October 2026 message boundaries
+
+`chatgpt-current-2026-10-31.html` is sanitized from a two-turn test conversation
+captured in Chrome on 2026-10-31. Each `data-turn-key` contains a user and an
+assistant message. The source uses `h4[data-conversation-role]`,
+`data-user-message-bubble` and `data-markdown-text-style="assistant-message"`,
+without `article` or `data-message-author-role` roots. Assertions retain all four
+messages, lists, code and math while excluding native role labels and actions.
+Additional parser tests preserve multiple response blocks and repeated messages,
+reject unknown/missing explicit role evidence, and distinguish unrelated article
+content from legacy `h5` role headings. A prior synthetic unlabelled article was
+updated to include an explicit native role heading; an arbitrary article is not
+sufficient evidence that its author is the assistant.

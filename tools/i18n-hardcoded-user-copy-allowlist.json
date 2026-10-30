@@ -2,19 +2,19 @@
   "rules": [
     {
       "id": "p21-chatgpt-native-user-role-labels",
-      "path": "src/third_party/ai-chat-exporter/platforms/chatgpt.ts",
-      "line": 27,
+      "path": "src/third_party/ai-chat-exporter/platforms/chatgptMessages.ts",
+      "line": 17,
       "category": "site-native-role-label",
       "reason": "ChatGPT parser strips role labels that come from the source site's own conversation headers.",
       "ownerPlan": "P21",
       "revisit": "Recheck if ChatGPT header parsing stops relying on source-site role labels.",
-      "literalIncludes": ["您说", "您"],
+      "literalIncludes": ["您说", "您", "你说", "你"],
       "findingKinds": ["cjk-literal"]
     },
     {
       "id": "p21-chatgpt-native-assistant-role-label",
-      "path": "src/third_party/ai-chat-exporter/platforms/chatgpt.ts",
-      "line": 28,
+      "path": "src/third_party/ai-chat-exporter/platforms/chatgptMessages.ts",
+      "line": 18,
       "category": "site-native-role-label",
       "reason": "ChatGPT parser strips assistant role labels that come from the source site's own conversation headers.",
       "ownerPlan": "P21",

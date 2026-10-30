@@ -296,6 +296,20 @@ export const AI_CHAT_FIXTURE_MANIFEST: readonly AIChatFixtureMetadata[] = [
     status: 'active'
   },
   {
+    file: 'current-dom/chatgpt-current-2026-10-31.html',
+    platform: 'chatgpt',
+    sourceCaptureDate: '2026-10-31',
+    captureKind: 'current-dom-sanitized',
+    expectedTitle: 'Zendio Current DOM Regression',
+    expectedMessageCount: 4,
+    expectedRoles: ['user', 'assistant', 'user', 'assistant'],
+    sentinels: ['ZENDIO_TEST_OK', '第一条无序列表', '第二条无序列表', 'const x = 1;', '$x^2$'],
+    absentSentinels: ['你说：', 'ChatGPT 说：', '复制消息', '重新生成回复'],
+    privacyStatus: 'sanitized',
+    ownerMilestone: 'issue-91-chatgpt-2026-10-31',
+    status: 'active'
+  },
+  {
     file: 'current-dom/claude-current-2026-06-24.html',
     platform: 'claude',
     sourceCaptureDate: '2026-06-24',
