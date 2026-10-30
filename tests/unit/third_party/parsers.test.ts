@@ -423,7 +423,7 @@ describe('ai chat platform parsers', () => {
           <select><option selected>ChatGPT 4.5</option></select>
           <article data-message-author-role="user"><div>   </div></article>
           <article data-message-author-role="user"><div>Prompt body</div></article>
-          <article><div>Answer body</div></article>
+          <article><h5>ChatGPT said:</h5><div>Answer body</div></article>
         </body>
       </html>
     `);
