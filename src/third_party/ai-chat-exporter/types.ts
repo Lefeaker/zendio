@@ -8,7 +8,8 @@ export type PlatformId =
   | 'kimi'
   | 'doubao'
   | 'monica'
-  | 'perplexity';
+  | 'perplexity'
+  | 'grok';
 
 export type ParsedMessage = {
   id: string;

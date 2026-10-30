@@ -78,7 +78,7 @@ Hello to everyone who's new here.
 
 ### AI Chat Conversation Capture
 
-- Export conversations from ChatGPT, Claude, Gemini, Copilot, Perplexity, Tongyi Qianwen, DeepSeek, Kimi, and similar supported platforms.
+- Export conversations from ChatGPT, Claude, Gemini, Copilot, Perplexity, Tongyi Qianwen, DeepSeek, Kimi, Grok (standard grok.com chats), and similar supported platforms.
 - Remove platform chrome and reaction noise while preserving conversation structure and formatting.
 - Optional metadata helpers use only the providers you configure; clipping and export do not require a model provider.
 

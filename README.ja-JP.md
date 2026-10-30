@@ -78,7 +78,7 @@
 
 ### AI チャット会話の保存
 
-- ChatGPT、Claude、Gemini、Copilot、Perplexity、通義千問、DeepSeek、Kimi などの会話をエクスポート。
+- ChatGPT、Claude、Gemini、Copilot、Perplexity、通義千問、DeepSeek、Kimi、Grok（grok.com の通常の会話）などの会話をエクスポート。
 - プラットフォームの UI ノイズやリアクション表示を取り除き、会話構造と書式を保持。
 - 任意のメタデータ補助機能は、ユーザーが設定したプロバイダーだけを使います。基本的なクリップとエクスポートにモデルプロバイダーは不要です。
 

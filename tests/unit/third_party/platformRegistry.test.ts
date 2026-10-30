@@ -26,7 +26,8 @@ const expectedPlatformIds: readonly PlatformId[] = [
   'kimi',
   'doubao',
   'monica',
-  'perplexity'
+  'perplexity',
+  'grok'
 ];
 
 const hostMatrix: ReadonlyArray<[PlatformId, string]> = [
@@ -45,7 +46,9 @@ const hostMatrix: ReadonlyArray<[PlatformId, string]> = [
   ['kimi', 'https://www.kimi.com/chat/123'],
   ['doubao', 'https://www.doubao.com/chat/123'],
   ['monica', 'https://monica.im/chat/123'],
-  ['perplexity', 'https://www.perplexity.ai/search/123']
+  ['perplexity', 'https://www.perplexity.ai/search/123'],
+  ['grok', 'https://grok.com/'],
+  ['grok', 'https://www.grok.com/']
 ];
 
 const expectedProductSurface = [
@@ -58,7 +61,8 @@ const expectedProductSurface = [
   { id: 'kimi', label: 'Kimi', url: 'https://www.kimi.com/' },
   { id: 'doubao', label: 'Doubao', url: 'https://www.doubao.com/' },
   { id: 'monica', label: 'Monica', url: 'https://monica.im/' },
-  { id: 'perplexity', label: 'Perplexity', url: 'https://www.perplexity.ai/' }
+  { id: 'perplexity', label: 'Perplexity', url: 'https://www.perplexity.ai/' },
+  { id: 'grok', label: 'Grok', url: 'https://grok.com/' }
 ] as const;
 
 describe('AI chat platform registry', () => {
@@ -89,6 +93,15 @@ describe('AI chat platform registry', () => {
 
     expect(normalizeHostname('not a url', fallbackDocument)).toBe('www.qianwen.com');
     expect(resolveAIChatPlatformByUrl('not a url', fallbackDocument)).toBe('tongyi');
+  });
+
+  it.each([
+    'https://grok.com.example.org/',
+    'https://example.org/?source=grok.com',
+    'https://x.com/i/grok',
+    'https://api.grok.com/'
+  ])('does not register unrelated Grok-looking URLs: %s', (url) => {
+    expect(resolveAIChatPlatformByUrl(url, document)).toBeNull();
   });
 
   it('has exactly one definition per platform id', () => {

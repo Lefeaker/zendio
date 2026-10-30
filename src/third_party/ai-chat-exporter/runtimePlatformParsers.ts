@@ -3,6 +3,7 @@ import { geminiParser } from './platforms/gemini';
 import { monicaParser } from './platforms/monica';
 import { chatgptParser, claudeParser, copilotParser } from './platforms/openaiFamily';
 import { perplexityParser } from './platforms/perplexity';
+import { grokParser } from './platforms/grok';
 import type { ChatPlatformParser, PlatformId } from './types';
 
 const runtimePlatformParsers: Record<PlatformId, ChatPlatformParser> = {
@@ -15,7 +16,8 @@ const runtimePlatformParsers: Record<PlatformId, ChatPlatformParser> = {
   kimi: kimiParser,
   doubao: doubaoParser,
   monica: monicaParser,
-  perplexity: perplexityParser
+  perplexity: perplexityParser,
+  grok: grokParser
 };
 
 export function getRuntimePlatformParser(platform: PlatformId): ChatPlatformParser {

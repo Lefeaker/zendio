@@ -573,6 +573,20 @@ export const AI_CHAT_FIXTURE_MANIFEST: readonly AIChatFixtureMetadata[] = [
     status: 'active'
   },
   {
+    file: 'current-dom/grok-current-2026-10-31.html',
+    platform: 'grok',
+    sourceCaptureDate: '2026-10-31',
+    captureKind: 'current-dom-sanitized',
+    expectedTitle: 'Grok parser compatibility',
+    expectedMessageCount: 4,
+    expectedRoles: ['user', 'assistant', 'user', 'assistant'],
+    sentinels: ['GROK_USER_ONE', 'GROK_REPLY_ONE_END', 'GROK_USER_TWO', 'GROK_REPLY_TWO_END'],
+    absentSentinels: ['COPY_CONTROL', 'Sidebar history', 'Log in to continue'],
+    privacyStatus: 'sanitized',
+    ownerMilestone: 'issue-90',
+    status: 'active'
+  },
+  {
     file: 'current-dom/monica-current-pass-regression-2026-06-24.html',
     platform: 'monica',
     sourceCaptureDate: '2026-06-24',

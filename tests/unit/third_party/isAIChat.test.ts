@@ -20,7 +20,8 @@ describe('isAIChat', () => {
     ['Kimi', 'https://www.kimi.com/chat'],
     ['Doubao', 'https://www.doubao.com/chat/'],
     ['Monica', 'https://monica.im/chat'],
-    ['Perplexity', 'https://www.perplexity.ai/search/123']
+    ['Perplexity', 'https://www.perplexity.ai/search/123'],
+    ['Grok', 'https://grok.com/']
   ])('detects %s domain as AI chat', (_label, url) => {
     const result = isAIChat(url, document);
     expect(result).toBe(true);

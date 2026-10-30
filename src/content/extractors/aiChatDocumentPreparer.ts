@@ -1,4 +1,5 @@
 import type { PlatformId } from '../../third_party/ai-chat-exporter/types';
+import { prepareGrokDocumentForExtraction } from './grokDocumentPreparer';
 
 type AIChatDocumentPreparer = (doc: Document) => Promise<Document>;
 
@@ -235,7 +236,8 @@ async function prepareDeepSeekDocumentForExtraction(doc: Document): Promise<Docu
 }
 
 export const AI_CHAT_DOCUMENT_PREPARERS: Partial<Record<PlatformId, AIChatDocumentPreparer>> = {
-  deepseek: prepareDeepSeekDocumentForExtraction
+  deepseek: prepareDeepSeekDocumentForExtraction,
+  grok: prepareGrokDocumentForExtraction
 };
 
 export async function prepareAIChatDocumentForExtraction(

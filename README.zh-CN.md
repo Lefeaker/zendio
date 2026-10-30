@@ -78,7 +78,7 @@
 
 ### AI 对话捕捉
 
-- 支持导出 ChatGPT、Claude、Gemini、Copilot、Perplexity、通义千问、DeepSeek、Kimi 等平台的对话。
+- 支持导出 ChatGPT、Claude、Gemini、Copilot、Perplexity、通义千问、DeepSeek、Kimi、Grok（grok.com 普通对话）等平台的对话。
 - 剥离平台界面噪音和反应条，同时保留对话结构与格式。
 - 可选元数据能力只使用用户自己配置的提供方；基础剪藏和导出不依赖任何模型提供方。
 

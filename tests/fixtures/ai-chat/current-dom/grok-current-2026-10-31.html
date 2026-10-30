@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>Grok parser compatibility | Shared Grok Conversation</title>
+</head>
+<body>
+<nav>Sidebar history must stay outside the conversation</nav>
+<div id="grok-content-area" role="main">
+<h1 class="sr-only">Grok parser compatibility</h1>
+<div data-testid="share-transcript-scroller" data-transcript-renderer="plane" role="region" aria-busy="false">
+<div data-plane-row="transcript:top-inset"></div>
+<div data-plane-row="response:sample-user-one">
+<div id="response-sample-user-one" class="relative group items-end">
+<div role="article" data-testid="user-message" class="message-bubble chat-md prose" aria-labelledby="turn-heading-sample-user-one">
+<h2 id="turn-heading-sample-user-one" class="sr-only" data-no-copy="true">You</h2>
+<div class="relative"><div class="response-content-markdown markdown chat-md"><p style="white-space: pre-wrap">GROK_USER_ONE: compare two options.</p></div></div>
+<section class="inline-media-container"></section>
+</div>
+<button>USER_COPY_CONTROL</button>
+</div>
+</div>
+<div data-plane-row="response:sample-assistant-one">
+<div id="response-sample-assistant-one" class="relative group items-start">
+<div role="article" data-testid="assistant-message" class="message-bubble chat-md prose" aria-labelledby="turn-heading-sample-assistant-one">
+<h2 id="turn-heading-sample-assistant-one" class="sr-only" data-no-copy="true">Grok</h2>
+<div class="thinking-container"></div>
+<div class="relative"><div class="response-content-markdown markdown chat-md"><div class="streamdown-chat-md"><div class="sd:space-y-4">
+<p>GROK_REPLY_ONE: a <strong>comparison</strong>.</p>
+<h3>Available options</h3>
+<ul><li>First option</li><li>Second option</li></ul>
+<div class="table-container">
+<button aria-label="Copy table">TABLE_COPY_CONTROL</button>
+<table class="table-card-row-dividers"><thead><tr><th data-col-size="md">Option</th><th data-col-size="md">Result</th></tr></thead><tbody data-streamdown="table-body"><tr><td data-col-size="md">Alpha</td><td data-col-size="md">Ready</td></tr><tr><td data-col-size="md">Beta</td><td data-col-size="md">Pending</td></tr></tbody></table>
+</div>
+<p>GROK_REPLY_ONE_END</p>
+</div></div></div></div>
+<section class="inline-media-container"></section>
+<div class="flex gap-2 print:hidden"></div>
+</div>
+<button>ASSISTANT_COPY_CONTROL</button>
+</div>
+</div>
+<div data-plane-row="response:sample-user-two">
+<div id="response-sample-user-two" class="relative group items-end">
+<div role="article" data-testid="user-message" class="message-bubble chat-md prose" aria-labelledby="turn-heading-sample-user-two">
+<h2 id="turn-heading-sample-user-two" class="sr-only" data-no-copy="true">You</h2>
+<div class="relative"><div class="response-content-markdown markdown chat-md"><p style="white-space: pre-wrap">GROK_USER_TWO: explain the result.</p></div></div>
+<section class="inline-media-container"></section>
+</div>
+</div>
+</div>
+<div data-plane-row="response:sample-assistant-two">
+<div id="response-sample-assistant-two" class="relative group items-start">
+<div role="article" data-testid="assistant-message" class="message-bubble chat-md prose" aria-labelledby="turn-heading-sample-assistant-two">
+<h2 id="turn-heading-sample-assistant-two" class="sr-only" data-no-copy="true">Grok</h2>
+<div class="thinking-container"></div>
+<div class="relative"><div class="response-content-markdown markdown chat-md"><div class="streamdown-chat-md"><div class="sd:space-y-4"><p>GROK_REPLY_TWO: the result is ready.</p><p>GROK_REPLY_TWO_END</p></div></div></div></div>
+<section class="inline-media-container"></section>
+<div class="flex gap-2 print:hidden"></div>
+</div>
+</div>
+</div>
+<div data-plane-row="transcript:bottom-spacing"></div>
+</div>
+<button>Log in to continue</button>
+</div>
+</body>
+</html>
