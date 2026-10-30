@@ -5,9 +5,38 @@ const MESSAGE_SELECTOR =
   '[role="article"][data-testid="user-message"], [role="article"][data-testid="assistant-message"]';
 const MAX_WINDOWS = 200;
 const MAX_DURATION_MS = 12_000;
-const inFlightPreparations = new WeakMap<Document, Promise<Document>>();
+type ConversationOwner = {
+  url: string;
+  title: string;
+  scope: Element | null;
+  scroller: HTMLElement | null;
+};
+const inFlightPreparations = new WeakMap<
+  Document,
+  { owner: ConversationOwner; promise: Promise<Document> }
+>();
 
 type CollectedTurn = { key: string; element: HTMLElement };
+
+function captureOwner(doc: Document): ConversationOwner {
+  const scope = doc.querySelector('#grok-content-area, #grok-page-content');
+  return {
+    url: doc.URL,
+    title: doc.title,
+    scope,
+    scroller: scope?.querySelector<HTMLElement>(TRANSCRIPT_SELECTOR) ?? null
+  };
+}
+
+function isCurrentOwner(doc: Document, owner: ConversationOwner): boolean {
+  const current = captureOwner(doc);
+  return (
+    current.url === owner.url &&
+    current.title === owner.title &&
+    current.scope === owner.scope &&
+    current.scroller === owner.scroller
+  );
+}
 
 function failPreparation(doc: Document, messageCount: number, diagnostic: string): never {
   throw extractionErrors.aiChatPreparationIncomplete({
@@ -100,8 +129,12 @@ function mergeWindow(
   }
 }
 
-function createPreparedDocument(doc: Document, collected: Map<string, HTMLElement>): Document {
-  const prepared = doc.implementation.createHTMLDocument(doc.title);
+function createPreparedDocument(
+  doc: Document,
+  collected: Map<string, HTMLElement>,
+  title: string
+): Document {
+  const prepared = doc.implementation.createHTMLDocument(title);
   prepared.documentElement.lang = doc.documentElement.lang;
   const root = prepared.createElement('main');
   root.id = 'grok-content-area';
@@ -110,12 +143,11 @@ function createPreparedDocument(doc: Document, collected: Map<string, HTMLElemen
   return prepared;
 }
 
-async function collectGrokDocument(doc: Document): Promise<Document> {
-  const scope = doc.querySelector('#grok-content-area, #grok-page-content');
+async function collectGrokDocument(doc: Document, owner: ConversationOwner): Promise<Document> {
+  const { scope, scroller } = owner;
   if (scope?.querySelector('.grok-bot[data-state="working"]')) {
     failPreparation(doc, 0, 'grok_response_in_progress');
   }
-  const scroller = scope?.querySelector<HTMLElement>(TRANSCRIPT_SELECTOR);
   if (!scroller) return doc;
   if (scroller.getAttribute('aria-busy') === 'true') {
     failPreparation(doc, 0, 'grok_transcript_loading');
@@ -136,8 +168,15 @@ async function collectGrokDocument(doc: Document): Promise<Document> {
   try {
     for (let windowIndex = 0; windowIndex < MAX_WINDOWS; windowIndex += 1) {
       if (performance.now() >= deadline) break;
+      if (!isCurrentOwner(doc, owner)) {
+        failPreparation(doc, collected.size, 'grok_conversation_changed');
+      }
       setScrollTop(scroller, position);
-      if (!(await waitForWindow(scroller))) {
+      const stable = await waitForWindow(scroller);
+      if (!isCurrentOwner(doc, owner)) {
+        failPreparation(doc, collected.size, 'grok_conversation_changed');
+      }
+      if (!stable) {
         failPreparation(doc, collected.size, 'grok_transcript_unstable');
       }
       if (
@@ -159,7 +198,7 @@ async function collectGrokDocument(doc: Document): Promise<Document> {
         if (!scroller.querySelector('[data-plane-row="transcript:bottom-spacing"]')) {
           failPreparation(doc, collected.size, 'grok_transcript_end_missing');
         }
-        return createPreparedDocument(doc, collected);
+        return createPreparedDocument(doc, collected, owner.title);
       }
       position = Math.min(
         maxScrollTop,
@@ -168,17 +207,33 @@ async function collectGrokDocument(doc: Document): Promise<Document> {
     }
     return failPreparation(doc, collected.size, 'grok_transcript_budget_exhausted');
   } finally {
-    setScrollTop(scroller, originalScrollTop);
-    await waitForWindow(scroller);
+    if (isCurrentOwner(doc, owner)) {
+      setScrollTop(scroller, originalScrollTop);
+      await waitForWindow(scroller);
+      if (!isCurrentOwner(doc, owner)) {
+        failPreparation(doc, collected.size, 'grok_conversation_changed');
+      }
+    }
   }
 }
 
-export function prepareGrokDocumentForExtraction(doc: Document): Promise<Document> {
+export async function prepareGrokDocumentForExtraction(doc: Document): Promise<Document> {
   const existing = inFlightPreparations.get(doc);
-  if (existing) return existing;
-  const preparation = collectGrokDocument(doc).finally(() => {
-    inFlightPreparations.delete(doc);
-  });
-  inFlightPreparations.set(doc, preparation);
+  if (existing) {
+    if (!isCurrentOwner(doc, existing.owner)) {
+      failPreparation(doc, 0, 'grok_conversation_changed');
+    }
+    return existing.promise;
+  }
+  const owner = captureOwner(doc);
+  const preparation = collectGrokDocument(doc, owner)
+    .then((prepared) => {
+      if (!isCurrentOwner(doc, owner)) failPreparation(doc, 0, 'grok_conversation_changed');
+      return prepared;
+    })
+    .finally(() => {
+      inFlightPreparations.delete(doc);
+    });
+  inFlightPreparations.set(doc, { owner, promise: preparation });
   return preparation;
 }

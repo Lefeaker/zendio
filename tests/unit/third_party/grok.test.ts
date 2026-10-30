@@ -23,11 +23,12 @@ function loadFixture(): Document {
 
 function createExtractor() {
   return createAIChatExtractor({
-    getMessages: async () => ({
-      exportAiChatFallbackTitleDeepseek: 'DeepSeek conversation',
-      exportAiChatFallbackTitleKimi: 'Kimi conversation',
-      exportAiChatFallbackTitleTongyi: 'Qianwen conversation'
-    })
+    getMessages: () =>
+      Promise.resolve({
+        exportAiChatFallbackTitleDeepseek: 'DeepSeek conversation',
+        exportAiChatFallbackTitleKimi: 'Kimi conversation',
+        exportAiChatFallbackTitleTongyi: 'Qianwen conversation'
+      })
   });
 }
 

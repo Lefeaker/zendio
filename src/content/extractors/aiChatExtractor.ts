@@ -15,6 +15,7 @@ import { getContentI18nResource, getContentMessages } from '../i18n/context';
 import type { Messages } from '@i18n';
 import { validateAIChatExtraction } from './aiChatExtractionValidation';
 import { prepareAIChatDocumentForExtraction } from './aiChatDocumentPreparer';
+import { extractionErrors } from '../../shared/errors/extractionErrors';
 
 interface OptionsProvider {
   get(): Promise<StoredOptions>;
@@ -123,6 +124,34 @@ function requireFallbackTitle(
   return undefined;
 }
 
+function createAIChatSourceCheck(doc: Document, url: string, platform: PlatformId): () => void {
+  const view = doc.defaultView;
+  const sourceUrl =
+    view && view.document === doc && resolveAIChatPlatformByUrl(view.location.href)
+      ? view.location.href
+      : null;
+  let requestedUrl = url;
+  try {
+    requestedUrl = new URL(url).href;
+  } catch {
+    // Invalid explicit URLs cannot match a connected AI page's absolute URL.
+  }
+
+  return () => {
+    // Detached DOM and archived HTML may intentionally carry an explicit source URL.
+    if (!view || !sourceUrl) return;
+    if (requestedUrl !== sourceUrl || view.document !== doc || view.location.href !== sourceUrl) {
+      throw extractionErrors.aiChatPreparationIncomplete({
+        type: 'ai_chat',
+        platform,
+        url,
+        messageCount: 0,
+        parserDiagnosticCodes: ['ai_chat_source_changed']
+      });
+    }
+  };
+}
+
 export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): ContentExtractor => {
   const optionsProvider =
     deps?.optionsProvider ??
@@ -142,6 +171,8 @@ export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): Cont
     if (!platform) {
       throw new Error(`Unsupported AI chat platform for ${url}`);
     }
+    const checkSource = createAIChatSourceCheck(document, url, platform);
+    checkSource();
 
     const storedOptions = await resolvedDeps.optionsProvider.get();
     const options = storedOptions;
@@ -156,12 +187,15 @@ export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): Cont
 
     const { parseChatDOMAsync } =
       await import('../../third_party/ai-chat-exporter/runtimeRegistry');
+    checkSource();
     const preparedDocument = await prepareAIChatDocumentForExtraction(platform, document);
+    checkSource();
     const { title, messages, assets, model, createdAt, diagnostics } = await parseChatDOMAsync(
       platform,
       preparedDocument,
       parseConfig
     );
+    checkSource();
     const aiChatOptions: ChatMarkdownOptions = {
       includeTimestamps: options?.aiChat?.includeTimestamps ?? false,
       userName: options?.aiChat?.userName || 'USER'

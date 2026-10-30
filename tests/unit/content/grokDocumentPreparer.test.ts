@@ -103,11 +103,12 @@ describe('Grok virtual transcript preparation', () => {
   it('uses preparation in the real extractor before formatting and reports all messages', async () => {
     const { doc, scroller } = createVirtualTranscript();
     const extractor = createAIChatExtractor({
-      getMessages: async () => ({
-        exportAiChatFallbackTitleDeepseek: 'DeepSeek',
-        exportAiChatFallbackTitleKimi: 'Kimi',
-        exportAiChatFallbackTitleTongyi: 'Qianwen'
-      })
+      getMessages: () =>
+        Promise.resolve({
+          exportAiChatFallbackTitleDeepseek: 'DeepSeek',
+          exportAiChatFallbackTitleKimi: 'Kimi',
+          exportAiChatFallbackTitleTongyi: 'Qianwen'
+        })
     });
     const result = await extractor.extract({ document: doc, url: doc.URL });
     expect(result.meta.messageCount).toBe(6);
@@ -232,6 +233,63 @@ describe('Grok virtual transcript preparation', () => {
     await expect(prepareAIChatDocumentForExtraction('grok', doc)).rejects.toMatchObject({
       code: 'EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE',
       context: { parserDiagnosticCodes: ['grok_transcript_message_unresolved'] }
+    });
+  });
+
+  it('rejects an old export after SPA navigation reuses its connected scroller', async () => {
+    const { doc, scroller } = createVirtualTranscript();
+    const originalUrl = doc.URL;
+    let navigated = false;
+    scroller.addEventListener('scroll', () => {
+      if (navigated) return;
+      navigated = true;
+      doc.defaultView?.history.pushState({}, '', '/share/replacement');
+      doc.title = 'Replacement conversation';
+      scroller.scrollTop = 400;
+    });
+    const extractor = createAIChatExtractor({
+      getMessages: () =>
+        Promise.resolve({
+          exportAiChatFallbackTitleDeepseek: 'DeepSeek',
+          exportAiChatFallbackTitleKimi: 'Kimi',
+          exportAiChatFallbackTitleTongyi: 'Qianwen'
+        })
+    });
+    await expect(extractor.extract({ document: doc, url: originalUrl })).rejects.toMatchObject({
+      code: 'EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE',
+      context: { parserDiagnosticCodes: ['grok_conversation_changed'] }
+    });
+    expect(scroller.isConnected).toBe(true);
+    expect(scroller.scrollTop).toBe(400);
+  });
+
+  it('does not share an old document scan with a request for a different SPA URL', async () => {
+    const { doc, scroller } = createVirtualTranscript();
+    const oldRequest = prepareAIChatDocumentForExtraction('grok', doc);
+    doc.defaultView?.history.pushState({}, '', '/share/replacement');
+    doc.title = 'Replacement conversation';
+    scroller.scrollTop = 400;
+    const newRequest = prepareAIChatDocumentForExtraction('grok', doc);
+    const results = await Promise.allSettled([oldRequest, newRequest]);
+    expect(results).toEqual([
+      expect.objectContaining({ status: 'rejected' }),
+      expect.objectContaining({ status: 'rejected' })
+    ]);
+    expect(scroller.scrollTop).toBe(400);
+    const retried = await prepareAIChatDocumentForExtraction('grok', doc);
+    expect(retried.title).toBe('Replacement conversation');
+    expect(grokParser.parse(retried).messages).toHaveLength(6);
+    expect(scroller.scrollTop).toBe(400);
+  });
+
+  it('rechecks the owner before a non-scrolling preparation promise settles', async () => {
+    const { doc, scroller } = createVirtualTranscript();
+    Object.defineProperty(scroller, 'scrollHeight', { value: 500, configurable: true });
+    const oldRequest = prepareAIChatDocumentForExtraction('grok', doc);
+    doc.defaultView?.history.pushState({}, '', '/share/replacement');
+    await expect(oldRequest).rejects.toMatchObject({
+      code: 'EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE',
+      context: { parserDiagnosticCodes: ['grok_conversation_changed'] }
     });
   });
 });
