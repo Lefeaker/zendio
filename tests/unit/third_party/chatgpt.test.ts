@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { chatgptParser } from '../../../src/third_party/ai-chat-exporter/platforms/chatgpt';
+import { extractAIChat } from '../../../src/content/extractors/aiChatExtractor';
 
 function parse(html: string) {
   return chatgptParser.parse(new DOMParser().parseFromString(html, 'text/html'));
@@ -93,15 +94,10 @@ describe('ChatGPT message boundaries', () => {
     expect(result.diagnostics?.[0]?.code).toBe('chatgpt_role_missing');
   });
 
-  it('does not guess a missing user from assistant-first content or export empty generation chrome', () => {
-    const result = parse(
-      message('assistant', '<p>Existing reply</p>') +
-        message('user', 'Next question') +
-        message('assistant', '<button>Stop generating</button>')
-    );
+  it('does not guess a missing user from assistant-first content', () => {
+    const result = parse(message('assistant', '<p>Existing reply</p>'));
     expect(result.messages.map((item) => [item.role, item.md])).toEqual([
-      ['assistant', 'Existing reply'],
-      ['user', 'Next question']
+      ['assistant', 'Existing reply']
     ]);
   });
 
@@ -131,5 +127,96 @@ describe('ChatGPT message boundaries', () => {
     );
     expect(result.messages).toEqual([]);
     expect(result.diagnostics?.[0]?.code).toBe('chatgpt_message_boundary_ambiguous');
+  });
+});
+
+describe('ChatGPT generation completion', () => {
+  const parseDocument = (state: string) =>
+    new DOMParser().parseFromString(
+      `<title>Streaming regression</title><div data-talvt-turn-state="complete">${message('user', 'First question')}${message('assistant', 'Completed first answer')}</div>
+    <div data-talvt-turn-state="${state}">${message('user', 'Output eighty neutral lines')}${message('assistant', '<p>First partial line</p>')}</div>`,
+      'text/html'
+    );
+  const extract = (doc: Document) =>
+    extractAIChat(doc, 'https://chatgpt.com/c/sanitized-streaming', {
+      getMessages: () =>
+        Promise.resolve({
+          exportAiChatFallbackTitleDeepseek: 'DeepSeek',
+          exportAiChatFallbackTitleKimi: 'Kimi',
+          exportAiChatFallbackTitleTongyi: 'Tongyi'
+        })
+    });
+
+  it('rejects a real in_progress turn even when user and partial assistant text are already mounted', async () => {
+    const doc = parseDocument('in_progress');
+    await expect(extract(doc)).rejects.toMatchObject({
+      code: 'EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE',
+      recoverable: true,
+      context: { parserDiagnosticCodes: ['chatgpt_generation_in_progress'] }
+    });
+    const result = chatgptParser.parse(doc);
+    expect(result.messages).toEqual([]);
+    expect(result.diagnostics).toEqual([
+      { code: 'chatgpt_generation_in_progress', severity: 'error' }
+    ]);
+  });
+
+  it('does not silently drop a mounted empty modern reply while preserving earlier turns', async () => {
+    const doc = parseDocument('complete');
+    doc.querySelectorAll('[data-markdown-text-style="assistant-message"]')[1]?.replaceChildren();
+    await expect(extract(doc)).rejects.toMatchObject({
+      code: 'EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE',
+      context: { parserDiagnosticCodes: ['chatgpt_message_content_incomplete'] }
+    });
+  });
+
+  it.each([true, false])(
+    'rejects an unanswered last user turn with transcript busy=%s',
+    async (busy) => {
+      const doc = new DOMParser().parseFromString(
+        `<div data-thread-user-message-navigation-content>
+      ${message('user', 'First question')}${message('assistant', 'Completed first answer')}${message('user', 'Waiting for the next answer')}
+      ${busy ? '<span role="status" aria-busy="true"></span>' : ''}
+    </div>`,
+        'text/html'
+      );
+      await expect(extract(doc)).rejects.toMatchObject({
+        code: 'EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE',
+        context: {
+          parserDiagnosticCodes: [
+            busy ? 'chatgpt_generation_in_progress' : 'chatgpt_message_content_incomplete'
+          ]
+        }
+      });
+    }
+  );
+
+  it('does not confuse an unrelated page status with a busy conversation', async () => {
+    const doc = parseDocument('complete');
+    const unrelated = doc.createElement('span');
+    unrelated.setAttribute('role', 'status');
+    unrelated.setAttribute('aria-busy', 'true');
+    doc.body.append(unrelated);
+    await expect(extract(doc)).resolves.toMatchObject({ meta: { messageCount: 4 } });
+  });
+
+  it('ignores hidden stale in_progress turns when exporting the visible finished conversation', async () => {
+    const doc = parseDocument('complete');
+    const hidden = doc.createElement('div');
+    hidden.hidden = true;
+    hidden.setAttribute('data-talvt-turn-state', 'in_progress');
+    doc.body.append(hidden);
+    await expect(extract(doc)).resolves.toMatchObject({ meta: { messageCount: 4 } });
+  });
+
+  it('exports the finished response after the observed state becomes complete', async () => {
+    const doc = parseDocument('complete');
+    const lastAnswer = doc.querySelectorAll('[data-markdown-text-style="assistant-message"]')[1];
+    lastAnswer?.append(doc.createTextNode(' Final line eighty.'));
+    const result = await extract(doc);
+    expect(result.meta?.messageCount).toBe(4);
+    expect(result.markdown).toContain('Completed first answer');
+    expect(result.markdown).toContain('First partial line');
+    expect(result.markdown).toContain('Final line eighty.');
   });
 });

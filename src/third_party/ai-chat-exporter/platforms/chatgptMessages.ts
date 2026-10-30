@@ -21,7 +21,12 @@ const ROLE_PREFIX = new RegExp(
   'iu'
 );
 
-type MessageRoot = { element: HTMLElement; role: 'user' | 'assistant'; stripPrefix: boolean };
+type MessageRoot = {
+  element: HTMLElement;
+  role: 'user' | 'assistant';
+  modern: boolean;
+  stripPrefix: boolean;
+};
 type MessageExtraction = Pick<ParsedResult, 'messages' | 'diagnostics'>;
 
 function roleFromLabel(label: string): MessageRoot['role'] | null {
@@ -76,6 +81,17 @@ function cloneMessageContent(root: MessageRoot): HTMLElement {
 }
 
 export function extractChatGPTMessages(doc: Document): MessageExtraction {
+  // The source turn remains in_progress after partial assistant text is mounted.
+  // A complete role pair therefore does not yet make a complete export.
+  if (
+    Array.from(
+      doc.querySelectorAll(
+        '[data-talvt-turn-state="in_progress"], [data-thread-user-message-navigation-content] [role="status"][aria-busy="true"]'
+      )
+    ).some((turn) => !turn.closest(HIDDEN))
+  ) {
+    return failure('chatgpt_generation_in_progress');
+  }
   const roots: MessageRoot[] = [];
   for (const candidate of Array.from(
     doc.querySelectorAll<HTMLElement>(`article, ${LEGACY_ROLE}, ${ROLE_HEADING}`)
@@ -113,6 +129,7 @@ export function extractChatGPTMessages(doc: Document): MessageExtraction {
     roots.push({
       element,
       role,
+      modern,
       stripPrefix: !modern && explicitRole === null && !element.querySelector('h5')
     });
   }
@@ -127,12 +144,19 @@ export function extractChatGPTMessages(doc: Document): MessageExtraction {
     }
   }
 
+  if (roots[roots.length - 1]?.role === 'user') {
+    return failure('chatgpt_message_content_incomplete');
+  }
+
   const messages: ParsedMessage[] = [];
   for (const root of roots) {
     const fragment = cloneMessageContent(root);
     const rendered = chatElementToMarkdown(fragment);
     const markdown = (root.stripPrefix ? rendered.replace(ROLE_PREFIX, '') : rendered).trim();
-    if (!markdown) continue;
+    if (!markdown) {
+      if (root.modern) return failure('chatgpt_message_content_incomplete');
+      continue;
+    }
     messages.push({
       id: `msg-${messages.length + 1}`,
       role: root.role,

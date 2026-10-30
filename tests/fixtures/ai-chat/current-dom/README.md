@@ -114,3 +114,19 @@ reject unknown/missing explicit role evidence, and distinguish unrelated article
 content from legacy `h5` role headings. A prior synthetic unlabelled article was
 updated to include an explicit native role heading; an arbitrary article is not
 sufficient evidence that its author is the assistant.
+
+A second temporary live test on 2026-10-31 observed nonempty assistant content
+while `data-talvt-turn-state="in_progress"`. The same turn became `complete`
+after its final output line appeared. The sanitized inline generation fixture in
+`tests/unit/third_party/chatgpt.test.ts` covers both states through the real
+extractor: generation-in-progress and mounted empty modern messages reject with
+a recoverable incomplete-conversation error; completed content exports in full.
+Parser error diagnostics also prevent a partial result with both roles from
+silently passing validation. The guard does not depend on localized stop-button
+text and does not add waits or change the user's scroll position.
+
+Before an assistant root exists, the observed busy status is scoped under
+`data-thread-user-message-navigation-content`; its `role="status"` and
+`aria-busy="true"` are checked only within that transcript owner. An unrelated
+page busy status does not block export. A submitted last user turn without an
+assistant answer is incomplete even after the busy status disappears.
