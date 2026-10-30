@@ -162,3 +162,27 @@ sanitized file is added and the row is switched to `status: 'active'`.
 ## Contact & Ownership
 
 - Parser code is consumed by `src/content/extractors/aiChatExtractor.ts`. Coordinate changes with the extraction team to keep detection rules aligned with DOM updates.
+
+### ChatGPT paginated and virtual history
+
+The ChatGPT preparer uses the visible `data-app-action-timeline-scroll` owner and
+stable `data-turn-key` identities. A new page of older messages can increase both
+scroll height and scroll position; a temporarily stable height is not proof of
+the conversation start. Preparation stays at the start until the history loading
+indicator disappears, then collects overlapping mounted turn windows in order.
+It advances by mounted turn geometry and re-reads the current height so long
+responses and changing layout do not imply missing windows. Repeated text in
+different turn IDs remains separate.
+
+A preparation is shared only by concurrent callers for the same Document, URL
+and active scroll owner. A route or owner change rejects the old snapshot and
+never scrolls the new chat. Generation, unresolved identities, disjoint windows,
+content changes, missing boundaries or the bounded 60-second/200-window budget
+return the recoverable incomplete-conversation error instead of partial export.
+Restoration is bounded and only touches the original conversation owner.
+Success requires the original visible turn/relative offset or bottom position to
+be verified after restoration. A failed scan makes a bounded best-effort attempt;
+a route change or a now-unmounted anchor after height changes can prevent full
+restoration, but never turns the failed scan into a successful partial export. The unit regression includes the real extractor, dynamic
+pagination, height growth after the original anchor, duplicate message text,
+concurrent callers, failures and same-Document navigation.
