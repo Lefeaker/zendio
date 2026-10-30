@@ -160,7 +160,10 @@ export function normalizeLanguageTag(label: string): string {
 function findAssociatedPreElement(elem: HTMLElement): HTMLElement | null {
   let current = elem.nextElementSibling as HTMLElement | null;
   while (current) {
-    if (current.matches(CODE_LABEL_SKIP_SELECTOR)) {
+    if (
+      current.matches(CODE_LABEL_SKIP_SELECTOR) ||
+      (!current.textContent?.trim() && !current.querySelector('pre'))
+    ) {
       current = current.nextElementSibling as HTMLElement | null;
       continue;
     }
@@ -174,17 +177,6 @@ function findAssociatedPreElement(elem: HTMLElement): HTMLElement | null {
     break;
   }
 
-  const parent = elem.parentElement;
-  if (parent) {
-    const candidate = parent.querySelector('pre');
-    if (candidate) {
-      const relation = elem.compareDocumentPosition(candidate);
-      if (relation & Node.DOCUMENT_POSITION_FOLLOWING) {
-        return candidate as HTMLElement;
-      }
-    }
-  }
-
   return null;
 }
 
@@ -194,23 +186,19 @@ function isLikelyLanguageLabel(elem: HTMLElement, text: string): boolean {
     return false;
   }
 
-  const classAttr = elem.getAttribute('class') || '';
   const attrLanguage =
     elem.getAttribute('data-language') ||
     elem.getAttribute('data-code-language') ||
     elem.getAttribute('data-lang');
 
-  if (attrLanguage || resolveLanguageLabel(text)) {
-    return true;
-  }
-  if (/\b(language|lang|syntax|code|chip|badge|toolbar|label)\b/i.test(classAttr)) {
-    return true;
-  }
-  return Boolean(text && text === text.toUpperCase() && text.length <= 15);
+  return Boolean(attrLanguage || resolveLanguageLabel(text));
 }
 
 export function captureLanguageLabel(elem: HTMLElement): boolean {
-  if (elem.querySelector('pre')) {
+  // Lists and other prose structures are never a code-language label, even when
+  // their short text happens to be a language name or has no lowercase letters.
+  const proseSelector = 'ul, ol, li, table, blockquote, h1, h2, h3, h4, h5, h6';
+  if (elem.matches(proseSelector) || elem.querySelector(`pre, ${proseSelector}`)) {
     return false;
   }
 

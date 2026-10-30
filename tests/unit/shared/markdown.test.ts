@@ -545,3 +545,40 @@ describe('chatHtmlToMarkdown safe parsing', () => {
     expect(markdown).not.toContain('Copy');
   });
 });
+
+describe('code labels do not consume surrounding prose', () => {
+  it.each([
+    ['<ul><li>第一项</li><li>第二项</li></ul>', ['- 第一项', '- 第二项']],
+    ['<ol><li>第一步</li><li>第二步</li></ol>', ['1. 第一步', '2. 第二步']],
+    ['<p>注意</p><p>READ THIS</p>', ['注意', 'READ THIS']],
+    ['<blockquote><p>提示</p></blockquote>', ['> 提示']],
+    ['<ul><li>SQL</li><li>HTML</li></ul>', ['- SQL', '- HTML']]
+  ])('keeps short content before a later code block: %s', (prose, expected) => {
+    const markdown = chatHtmlToMarkdown(
+      `<div>${prose}<table><tr><td>Value</td></tr></table><pre><code>const x = 1;</code></pre></div>`
+    );
+    for (const text of expected) expect(markdown).toContain(text);
+    expect(markdown).toContain('```\nconst x = 1;\n```');
+  });
+
+  it('does not infer an unknown uppercase paragraph as a language immediately before code', () => {
+    const markdown = chatHtmlToMarkdown('<p>IMPORTANT</p><pre><code>example</code></pre>');
+    expect(markdown).toBe('IMPORTANT\n\n```\nexample\n```');
+  });
+
+  it('only accepts an unknown language from explicit metadata associated with the code', () => {
+    const markdown = chatHtmlToMarkdown(
+      '<div data-code-language="CUSTOMLANG">CUSTOMLANG</div><pre><code>example</code></pre>'
+    );
+    expect(markdown).toBe('```customlang\nexample\n```');
+  });
+
+  it('does not associate a language chip across intervening ordinary prose', () => {
+    const markdown = chatHtmlToMarkdown(
+      '<div class="language-chip">SQL</div><p>Explanation</p><pre><code>select 1;</code></pre>'
+    );
+    expect(markdown).toContain('SQL');
+    expect(markdown).toContain('Explanation');
+    expect(markdown).toContain('```\nselect 1;\n```');
+  });
+});
