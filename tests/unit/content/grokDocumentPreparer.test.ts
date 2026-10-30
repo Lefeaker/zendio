@@ -194,4 +194,44 @@ describe('Grok virtual transcript preparation', () => {
     });
     expect(scroller.scrollTop).toBe(1500);
   });
+
+  it('shares one active scan when the same document is exported concurrently', async () => {
+    const { doc, scroller } = createVirtualTranscript();
+    const prepared = await Promise.all([
+      prepareAIChatDocumentForExtraction('grok', doc),
+      prepareAIChatDocumentForExtraction('grok', doc)
+    ]);
+    expect(scroller.scrollTop).toBe(1500);
+    for (const result of prepared) expect(grokParser.parse(result).messages).toHaveLength(6);
+    const next = await prepareAIChatDocumentForExtraction('grok', doc);
+    expect(next).not.toBe(prepared[0]);
+    expect(scroller.scrollTop).toBe(1500);
+  });
+
+  it('rejects an unhydrated response row in the middle and restores the viewport', async () => {
+    const { doc, scroller } = createVirtualTranscript();
+    const breakMiddleRow = () => {
+      scroller.querySelector('[data-plane-row="response:turn-2"]')?.replaceChildren();
+    };
+    scroller.addEventListener('scroll', breakMiddleRow);
+    await expect(prepareAIChatDocumentForExtraction('grok', doc)).rejects.toMatchObject({
+      code: 'EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE',
+      context: { parserDiagnosticCodes: ['grok_transcript_message_unresolved'] }
+    });
+    expect(scroller.scrollTop).toBe(1500);
+    scroller.removeEventListener('scroll', breakMiddleRow);
+    const retried = await prepareAIChatDocumentForExtraction('grok', doc);
+    expect(grokParser.parse(retried).messages).toHaveLength(6);
+    expect(scroller.scrollTop).toBe(1500);
+  });
+
+  it('validates response placeholders even when the transcript does not overflow', async () => {
+    const { doc, scroller } = createVirtualTranscript();
+    Object.defineProperty(scroller, 'scrollHeight', { value: 500, configurable: true });
+    scroller.querySelector('[data-plane-row="response:turn-2"]')?.replaceChildren();
+    await expect(prepareAIChatDocumentForExtraction('grok', doc)).rejects.toMatchObject({
+      code: 'EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE',
+      context: { parserDiagnosticCodes: ['grok_transcript_message_unresolved'] }
+    });
+  });
 });

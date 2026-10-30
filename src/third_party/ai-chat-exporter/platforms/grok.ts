@@ -41,14 +41,23 @@ function extractGrokChatData(doc: Document): ParsedResult {
   const roots = Array.from(scope.querySelectorAll<HTMLElement>(GROK_MESSAGE_SELECTOR)).filter(
     (message) => !message.parentElement?.closest(GROK_MESSAGE_SELECTOR)
   );
+  const markIncompleteContent = () => {
+    result.diagnostics = [{ code: 'grok_message_content_incomplete', severity: 'error' }];
+  };
 
   for (const root of roots) {
     const role = root.getAttribute('data-testid') === 'user-message' ? 'user' : 'assistant';
     // Assistant labels, thinking steps and action controls are not a completed answer.
-    if (role === 'assistant' && !root.querySelector(GROK_CONTENT_SELECTOR)) continue;
+    if (role === 'assistant' && !root.querySelector(GROK_CONTENT_SELECTOR)) {
+      markIncompleteContent();
+      continue;
+    }
     const fragment = collectMessageContent(root);
     const markdown = chatElementToMarkdown(fragment).trim();
-    if (!markdown) continue;
+    if (!markdown) {
+      markIncompleteContent();
+      continue;
+    }
     messages.push({
       id: `msg-${messages.length + 1}`,
       role,

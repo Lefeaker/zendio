@@ -86,9 +86,9 @@ describe('chatHtmlToMarkdown - code fences', () => {
     expect(markdown).not.toMatch(/JavaScript\s*\n```/);
   });
 
-  it('preserves camel-case labels like TypeScript when provided as text nodes', () => {
+  it('preserves camel-case labels rendered directly in a code container', () => {
     const html = `
-      <div>
+      <div class="code-container">
         TypeScript
         <pre><code>// comment\nlet value: number = 42;</code></pre>
       </div>
@@ -100,7 +100,7 @@ describe('chatHtmlToMarkdown - code fences', () => {
     expect(markdown).not.toMatch(/TypeScript\s*\n```/);
   });
 
-  it('fixes dangling language labels when structural capture fails', () => {
+  it('keeps unmarked language prose before a code block with an empty gap', () => {
     const html = `
       <div class="block">
         <p>Python</p>
@@ -111,8 +111,8 @@ describe('chatHtmlToMarkdown - code fences', () => {
 
     const markdown = chatHtmlToMarkdown(html);
 
-    expect(markdown).toContain('```Python');
-    expect(markdown).not.toMatch(/Python\s*\n```/);
+    expect(markdown).toContain("Python\n\n```\nprint('deepseek')\n```");
+    expect(markdown).not.toContain('```Python');
   });
 });
 
@@ -328,9 +328,9 @@ it('keeps label text plain when a following pre block has no code child', () => 
   expect(markdown).not.toContain('```sql');
 });
 
-it('infers language labels from standalone text nodes before nested pre blocks', () => {
+it('infers text-node labels in explicit code containers before nested pre blocks', () => {
   const html = `
-    <div>
+    <div class="code-container">
       TSX
       <span class="toolbar-action">Copy</span>
       <section><pre><code>const App = () =&gt; null;</code></pre></section>
@@ -580,5 +580,28 @@ describe('code labels do not consume surrounding prose', () => {
     expect(markdown).toContain('SQL');
     expect(markdown).toContain('Explanation');
     expect(markdown).toContain('```\nselect 1;\n```');
+  });
+});
+
+describe('code-language inference keeps DOM provenance', () => {
+  it.each([
+    '<p>Python</p><pre><code>print(1)</code></pre>',
+    '<p><span>Python</span></p><pre><code>print(1)</code></pre>',
+    '<ul><li><p>Python</p><pre><code>print(1)</code></pre></li></ul>',
+    '<ul><li>Python<pre><code>print(1)</code></pre></li></ul>',
+    '<div>Python<pre><code>print(1)</code></pre></div>'
+  ])('retains an unmarked language word as prose: %s', (html) => {
+    const markdown = chatHtmlToMarkdown(html);
+    expect(markdown).toContain('Python');
+    expect(markdown).toContain('```\nprint(1)\n```');
+    expect(markdown).not.toContain('```Python');
+  });
+
+  it('still reads explicit language metadata within a list code component', () => {
+    const markdown = chatHtmlToMarkdown(
+      '<ul><li><p>Python example</p><span data-language="python">Python</span><pre><code>print(1)</code></pre></li></ul>'
+    );
+    expect(markdown).toContain('- Python example');
+    expect(markdown).toContain('```python\nprint(1)\n```');
   });
 });

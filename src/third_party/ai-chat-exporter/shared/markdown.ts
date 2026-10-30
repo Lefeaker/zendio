@@ -2,9 +2,7 @@ import { cleanupUIElements } from './dom';
 import {
   captureLanguageLabel,
   captureLanguageLabelFromTextNode,
-  normalizeLanguageTag,
-  resetPendingCodeLanguageLabel,
-  resolveLanguageLabel
+  resetPendingCodeLanguageLabel
 } from './markdownLanguage';
 import { renderBlockMarkdownNode } from './markdownBlockNodes';
 import { renderInlineMarkdownNode } from './markdownInlineNodes';
@@ -64,46 +62,6 @@ function processRootChildren(root: HTMLElement): string {
   return result;
 }
 
-function fixDanglingLanguageLabels(markdown: string): string {
-  if (!markdown.includes('```')) {
-    return markdown;
-  }
-
-  const lines = markdown.split('\n');
-  const result: string[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const trimmed = line.trim();
-
-    if (trimmed) {
-      const resolved = resolveLanguageLabel(trimmed);
-      if (resolved) {
-        let j = i + 1;
-        while (j < lines.length && lines[j].trim() === '') {
-          j++;
-        }
-
-        if (j < lines.length) {
-          const fenceLine = lines[j];
-          const fenceTrimmed = fenceLine.trim();
-          if (fenceTrimmed === '```') {
-            const indentMatch = fenceLine.match(/^\s*/);
-            const indent = indentMatch ? indentMatch[0] : '';
-            result.push(`${indent}\`\`\`${normalizeLanguageTag(resolved)}`);
-            i = j;
-            continue;
-          }
-        }
-      }
-    }
-
-    result.push(line);
-  }
-
-  return result.join('\n');
-}
-
 function updateHeadingLevelOffset(root: ParentNode): void {
   const headings = root.querySelectorAll('h1, h2, h3, h4, h5, h6');
   let minHeadingLevel = 7;
@@ -131,8 +89,6 @@ function normalizeRenderedMarkdown(markdown: string): string {
     .replace(/&nbsp;/g, ' ');
 
   normalized = normalized.replace(/\n\s*\n\s*\n/g, '\n\n').replace(/^\s+|\s+$/g, '');
-
-  normalized = fixDanglingLanguageLabels(normalized);
 
   return normalized;
 }

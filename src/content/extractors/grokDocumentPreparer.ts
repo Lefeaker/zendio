@@ -5,6 +5,7 @@ const MESSAGE_SELECTOR =
   '[role="article"][data-testid="user-message"], [role="article"][data-testid="assistant-message"]';
 const MAX_WINDOWS = 200;
 const MAX_DURATION_MS = 12_000;
+const inFlightPreparations = new WeakMap<Document, Promise<Document>>();
 
 type CollectedTurn = { key: string; element: HTMLElement };
 
@@ -60,14 +61,18 @@ function setScrollTop(scroller: HTMLElement, position: number): void {
   scroller.dispatchEvent(new EventCtor('scroll', { bubbles: true }));
 }
 
-function collectWindow(scroller: HTMLElement): CollectedTurn[] {
+function collectWindow(scroller: HTMLElement, messageCount: number): CollectedTurn[] {
   const turns: CollectedTurn[] = [];
   for (const row of Array.from(
     scroller.querySelectorAll<HTMLElement>('[data-plane-row^="response:"]')
   )) {
-    const element = row.querySelector<HTMLElement>(MESSAGE_SELECTOR);
+    const elements = row.querySelectorAll<HTMLElement>(MESSAGE_SELECTOR);
+    const element = elements[0];
     const key = row.getAttribute('data-plane-row');
-    if (element && key) turns.push({ key, element });
+    if (elements.length !== 1 || !element || !key || key === 'response:') {
+      failPreparation(scroller.ownerDocument, messageCount, 'grok_transcript_message_unresolved');
+    }
+    turns.push({ key, element });
   }
   return turns;
 }
@@ -105,7 +110,7 @@ function createPreparedDocument(doc: Document, collected: Map<string, HTMLElemen
   return prepared;
 }
 
-export async function prepareGrokDocumentForExtraction(doc: Document): Promise<Document> {
+async function collectGrokDocument(doc: Document): Promise<Document> {
   const scope = doc.querySelector('#grok-content-area, #grok-page-content');
   if (scope?.querySelector('.grok-bot[data-state="working"]')) {
     failPreparation(doc, 0, 'grok_response_in_progress');
@@ -118,7 +123,10 @@ export async function prepareGrokDocumentForExtraction(doc: Document): Promise<D
   if (scroller.clientHeight <= 0) {
     failPreparation(doc, 0, 'grok_transcript_viewport_unavailable');
   }
-  if (scroller.scrollHeight <= scroller.clientHeight) return doc;
+  if (scroller.scrollHeight <= scroller.clientHeight) {
+    collectWindow(scroller, 0);
+    return doc;
+  }
 
   const originalScrollTop = scroller.scrollTop;
   const deadline = performance.now() + MAX_DURATION_MS;
@@ -142,7 +150,7 @@ export async function prepareGrokDocumentForExtraction(doc: Document): Promise<D
       if (windowIndex === 0 && !scroller.querySelector('[data-plane-row="transcript:top-inset"]')) {
         failPreparation(doc, 0, 'grok_transcript_start_missing');
       }
-      const turns = collectWindow(scroller);
+      const turns = collectWindow(scroller, collected.size);
       if (turns.length === 0) failPreparation(doc, collected.size, 'grok_transcript_window_empty');
       mergeWindow(doc, collected, turns);
 
@@ -163,4 +171,14 @@ export async function prepareGrokDocumentForExtraction(doc: Document): Promise<D
     setScrollTop(scroller, originalScrollTop);
     await waitForWindow(scroller);
   }
+}
+
+export function prepareGrokDocumentForExtraction(doc: Document): Promise<Document> {
+  const existing = inFlightPreparations.get(doc);
+  if (existing) return existing;
+  const preparation = collectGrokDocument(doc).finally(() => {
+    inFlightPreparations.delete(doc);
+  });
+  inFlightPreparations.set(doc, preparation);
+  return preparation;
 }

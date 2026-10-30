@@ -132,9 +132,44 @@ describe('Grok parser', () => {
     await expect(
       createExtractor().extract({ document: doc, url: 'https://grok.com/' })
     ).rejects.toMatchObject({
-      code: 'EXTRACTION_AI_CHAT_PARSE_ROLE_INCOMPLETE'
+      code: 'EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE'
     });
   });
+
+  it.each([
+    ['missing body', '<h2 data-no-copy="true">Grok</h2>'],
+    [
+      'thinking only',
+      '<h2 data-no-copy="true">Grok</h2><div class="thinking-container"><div class="response-content-markdown">Still thinking</div></div>'
+    ],
+    [
+      'empty Markdown',
+      '<h2 data-no-copy="true">Grok</h2><div class="response-content-markdown"> <button>Copy</button> </div>'
+    ]
+  ])(
+    'rejects %s in the final assistant turn after a complete earlier round',
+    async (_label, html) => {
+      const doc = loadFixture();
+      const assistants = doc.querySelectorAll('[data-testid="assistant-message"]');
+      const finalAssistant = assistants[assistants.length - 1];
+      if (!finalAssistant) throw new Error('Missing final assistant fixture');
+      finalAssistant.innerHTML = html;
+      const result = grokParser.parse(doc);
+      expect(result.messages.map((message) => message.role)).toEqual(['user', 'assistant', 'user']);
+      expect(result.messages[1]?.md).toContain('GROK_REPLY_ONE_END');
+      await expect(
+        createExtractor().extract({ document: doc, url: doc.URL })
+      ).rejects.toMatchObject({
+        code: 'EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE',
+        recoverable: true,
+        context: { parserDiagnosticCodes: ['grok_message_content_incomplete'] }
+      });
+      expect(result.diagnostics).toContainEqual({
+        code: 'grok_message_content_incomplete',
+        severity: 'error'
+      });
+    }
+  );
 
   it('routes Grok through the real asynchronous extractor and Markdown formatter', async () => {
     const document = loadFixture();

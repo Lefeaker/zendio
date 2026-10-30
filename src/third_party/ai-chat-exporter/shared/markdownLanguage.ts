@@ -17,6 +17,11 @@ const LANGUAGE_ALIAS_MAP: Record<string, string> = {
 
 const CODE_LABEL_SKIP_SELECTOR =
   'button, .button, [role="button"], [class*="copy" i], [class*="action" i], [class*="toolbar" i]';
+const LANGUAGE_METADATA = '[data-language], [data-code-language], [data-lang]';
+const CODE_LABEL_CONTEXT =
+  '[class*="language-"], [class*="language_"], [class*="code-label"], [class*="code-toolbar"]';
+const CODE_COMPONENT =
+  '[class*="code-container"], [class*="code-toolbar"], [class*="code-wrapper"], [class*="code-block"], [class*="code-shell"]';
 
 const KNOWN_LANGUAGE_LABELS: Set<string> = new Set([
   'bash',
@@ -191,7 +196,12 @@ function isLikelyLanguageLabel(elem: HTMLElement, text: string): boolean {
     elem.getAttribute('data-code-language') ||
     elem.getAttribute('data-lang');
 
-  return Boolean(attrLanguage || resolveLanguageLabel(text));
+  const labelContext =
+    elem.matches('div, span') &&
+    (elem.matches(CODE_LABEL_CONTEXT) ||
+      elem.parentElement?.matches(CODE_COMPONENT) ||
+      (elem.matches('[class*="toolbar"]') && elem.querySelector(LANGUAGE_METADATA)));
+  return Boolean(attrLanguage || (labelContext && resolveLanguageLabel(text)));
 }
 
 export function captureLanguageLabel(elem: HTMLElement): boolean {
@@ -218,6 +228,9 @@ export function captureLanguageLabel(elem: HTMLElement): boolean {
 }
 
 export function captureLanguageLabelFromTextNode(node: Node, rawText: string): boolean {
+  // Bare text is a label only in an explicitly identified code component.
+  // In particular, never bypass the element guard for a paragraph/list item.
+  if (!node.parentElement?.matches(CODE_COMPONENT)) return false;
   const resolvedLabel = resolveLanguageLabel(rawText);
   if (!resolvedLabel) {
     return false;
@@ -248,12 +261,6 @@ export function captureLanguageLabelFromTextNode(node: Node, rawText: string): b
     }
 
     break;
-  }
-
-  const parent = node.parentElement;
-  if (parent && findAssociatedPreElement(parent)) {
-    pendingCodeLanguageLabel = normalizeLanguageTag(resolvedLabel);
-    return true;
   }
 
   return false;
