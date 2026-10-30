@@ -152,6 +152,25 @@ describe('shared AppError factories', () => {
     }
   });
 
+  it('reports incomplete conversation collection as a recoverable localized failure', () => {
+    const error = extractionErrors.aiChatPreparationIncomplete({
+      type: 'ai_chat',
+      platform: 'grok',
+      messageCount: 8,
+      parserDiagnosticCodes: ['grok_transcript_budget_exhausted']
+    });
+
+    expect(error).toMatchObject({
+      code: 'EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE',
+      message: 'EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE',
+      recoverable: true,
+      userMessageDescriptor: { key: 'errorExtractionAiChatPreparationIncomplete' },
+      context: { messageCount: 8, parserDiagnosticCodes: ['grok_transcript_budget_exhausted'] }
+    });
+    expect(error.userMessage).toBeUndefined();
+    expect(error.userMessageDescriptor).not.toHaveProperty('values');
+  });
+
   it('keeps the current P06 shared error messages on technical codes when a descriptor exists', () => {
     const cause = new Error('boom');
     const cases = [

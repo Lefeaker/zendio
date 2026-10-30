@@ -279,6 +279,7 @@
   "errorExtractionNoMarkdown": "Content parsing failed. Refresh the page or try again later.",
   "errorExtractionAiChatParseEmpty": "AI chat parsing found no messages. Refresh the conversation and try again.",
   "errorExtractionAiChatParseRoleIncomplete": "AI chat parsing found messages, but their roles look incomplete. Refresh the conversation and try again.",
+  "errorExtractionAiChatPreparationIncomplete": "No se ha podido leer toda la conversación; puede que aún se esté cargando. Espera a que termine la respuesta y vuelve a intentarlo.",
   "errorExtractionUnsupportedContent": "This page is not supported for clipping yet.",
   "errorExtractionDispatchFailure": "Sending the result failed. It will retry automatically; contact us if the problem continues.",
   "errorI18nLanguageLoadFailed": "Language settings could not be loaded. The default language is being used.",

@@ -46,6 +46,14 @@ src/third_party/ai-chat-exporter/
 7. Add product-surface metadata in `platformProductSurface.ts`: Options URL, optional product label, and fallback-title policy when the platform needs one.
 8. Add an `AI_CHAT_DOCUMENT_PREPARERS` entry in `src/content/extractors/aiChatDocumentPreparer.ts` only when the platform needs live-page preparation such as virtual-list scrolling. Do not put live DOM preparation inside parser modules.
 
+Live preparation must restore the original scroll position on both success and failure.
+If loading, a collection limit, or a missing message window prevents a complete snapshot,
+throw `extractionErrors.aiChatPreparationIncomplete` rather than exporting a partial
+conversation. Its recoverable `EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE` code has a
+localized message distinct from missing message roles. Keep platform diagnostics in
+the internal context; never expose raw page content or arbitrary error parameters in
+the public failure response.
+
 ## Product Surface Sync
 
 - Options/Stitch displays supported platform labels and links from `getAIChatProductSurfacePlatforms()` in `platformProductSurface.ts`.
