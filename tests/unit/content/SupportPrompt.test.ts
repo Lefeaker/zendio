@@ -331,6 +331,75 @@ describe('SupportPrompt', () => {
     expect(shadow?.querySelector('[data-role="status-detail"]')?.textContent).toBe('extra detail');
   });
 
+  it.each(['en', 'zh-CN', 'de'] as const)(
+    'preserves resolved progress and failure copy with the real %s translator',
+    async (language) => {
+      const messages = await getMessagesForLanguage(language);
+      getContentI18nResourceMock.mockReturnValue(
+        createI18nResource({ language, messages, fallbackChain: [] })
+      );
+      const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
+      const prompt = new SupportPrompt(document);
+      const preparing = { value: 8, message: { key: 'supportProgressPreparingPageClip' } };
+      await prompt.show({
+        status: 'progress',
+        progress: preparing
+      });
+      expect(
+        getPromptHost().shadowRoot?.querySelector('[data-role="status-text"]')?.textContent
+      ).toBe(messages.supportProgressPreparingPageClip);
+      expect(
+        getPromptHost().shadowRoot?.querySelector('[data-role="task-progress"]')?.classList
+      ).toContain('is-progress');
+
+      for (const [code, key] of [
+        ['EXTRACTION_AI_CHAT_PARSE_EMPTY', 'errorExtractionAiChatParseEmpty'],
+        ['EXTRACTION_AI_CHAT_PARSE_ROLE_INCOMPLETE', 'errorExtractionAiChatParseRoleIncomplete'],
+        ['EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE', 'errorExtractionAiChatPreparationIncomplete']
+      ] as const) {
+        await prompt.show({
+          status: 'failure',
+          error: {
+            code,
+            message: 'Technical parser failure',
+            domain: 'extraction',
+            severity: ErrorSeverity.ERROR,
+            recoverable: false,
+            userMessageDescriptor: { key },
+            context: { contextMessage: 'Parser diagnostic detail' }
+          }
+        });
+        const failureText = getPromptHost().shadowRoot?.querySelector(
+          '[data-role="status-text"]'
+        )?.textContent;
+        expect(failureText).toContain(messages[key]);
+        expect(failureText).toContain(code);
+        expect(failureText).not.toContain('Technical parser failure');
+        expect(
+          getPromptHost().shadowRoot?.querySelector('[data-role="status-detail"]')?.textContent
+        ).toBe('Parser diagnostic detail');
+        expect(
+          getPromptHost().shadowRoot?.querySelector('[data-role="task-progress"]')?.classList
+        ).toContain('is-failure');
+      }
+
+      await prompt.show({
+        status: 'progress',
+        progress: preparing
+      });
+      expect(
+        getPromptHost().shadowRoot?.querySelector('[data-role="status-text"]')?.textContent
+      ).toBe(messages.supportProgressPreparingPageClip);
+      expect(getPromptHost().shadowRoot?.querySelector('[data-role="status-detail"]')).toBeNull();
+      await prompt.show({ status: 'success' });
+      expect(
+        getPromptHost().shadowRoot?.querySelector('[data-role="status-text"]')?.textContent
+      ).toBe(messages.supportPromptStatusSuccess);
+      expect(document.querySelectorAll('#aiob-support-prompt')).toHaveLength(1);
+      prompt.destroy();
+    }
+  );
+
   it('uses catalog-derived fallback messages when content i18n fails before loading', async () => {
     ensureContentI18nMock.mockRejectedValueOnce(new Error('content i18n unavailable'));
     const actualFallbacks = await vi.importActual<

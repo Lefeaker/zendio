@@ -102,7 +102,8 @@ vi.mock('../../../src/background/application/clipProcessor', () => ({
     );
   }
 }));
-vi.mock('../../../src/shared/errors', () => ({
+vi.mock('../../../src/shared/errors', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../src/shared/errors')>()),
   errorHandler: { handle: handleErrorMock },
   isAppError: isAppErrorMock,
   normalizeToAppError: normalizeToAppErrorMock,
@@ -120,6 +121,7 @@ describe('runtime message listener', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    isAppErrorMock.mockReturnValue(false);
     processClipPayloadMock.mockResolvedValue({ filePath: 'Video/example.md' });
     readClipProcessingFailureCategoryMock.mockImplementation((error: UntrustedValue) =>
       readMockFailureCategory(error)
@@ -530,6 +532,95 @@ describe('runtime message listener', () => {
     );
     const dispatchOptions = dispatchFailedMock.mock.calls[0]?.[2];
     expect(dispatchOptions?.cause).toBeInstanceOf(Error);
+  });
+
+  it.each([
+    ['EXTRACTION_AI_CHAT_PARSE_EMPTY', 'errorExtractionAiChatParseEmpty'],
+    ['EXTRACTION_AI_CHAT_PARSE_ROLE_INCOMPLETE', 'errorExtractionAiChatParseRoleIncomplete'],
+    ['EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE', 'errorExtractionAiChatPreparationIncomplete']
+  ])('updates the originating tab with a public failure for %s', async (code, key) => {
+    const dependencies = createDependencies();
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(dependencies);
+    isAppErrorMock.mockReturnValue(true);
+    await listener?.(
+      {
+        type: 'CLIP_ERROR',
+        error: {
+          code,
+          message: 'PRIVATE_MESSAGE',
+          domain: 'extraction',
+          severity: 'error',
+          recoverable: false,
+          userMessageDescriptor: { key: 'PRIVATE_KEY', values: { secret: 'PRIVATE_VALUE' } },
+          context: { contextMessage: 'PRIVATE_DETAIL' },
+          cause: 'PRIVATE_CAUSE'
+        }
+      },
+      { tabId: 7 }
+    );
+    await vi.waitFor(() =>
+      expect(dependencies.clipPipeline.sendSupportPrompt).toHaveBeenCalledWith(7, {
+        type: 'SHOW_SUPPORT_PROMPT',
+        status: 'failure',
+        error: {
+          code,
+          message: code,
+          domain: 'background',
+          severity: 'error',
+          recoverable: true,
+          userMessageDescriptor: { key }
+        },
+        progress: { value: 100, variant: 'failure' }
+      })
+    );
+    expect(JSON.stringify(dependencies.clipPipeline.sendSupportPrompt.mock.calls)).not.toContain(
+      'PRIVATE'
+    );
+  });
+
+  it('ends page progress independently of slow system failure notifications', async () => {
+    let releaseNotification!: () => void;
+    notifyClipFailureMock.mockReturnValueOnce(
+      new Promise<undefined>((resolve) => {
+        releaseNotification = () => resolve(undefined);
+      })
+    );
+    const dependencies = createDependencies();
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(dependencies);
+    const response = listener?.({ type: 'CLIP_ERROR', error: 'PRIVATE_ERROR' }, { tabId: 12 });
+    try {
+      await vi.waitFor(() =>
+        expect(dependencies.clipPipeline.sendSupportPrompt.mock.calls).toMatchObject([
+          [
+            12,
+            {
+              status: 'failure',
+              error: {
+                code: 'CLIP_EXTRACTION_FAILED',
+                userMessageDescriptor: { key: 'saveFailureExtraction' }
+              }
+            }
+          ]
+        ])
+      );
+    } finally {
+      releaseNotification();
+      await response;
+    }
+  });
+
+  it('does not target another page when a clip error has no sending tab', async () => {
+    const dependencies = createDependencies();
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(dependencies);
+    await listener?.({ type: 'CLIP_ERROR', error: 'boom' }, {});
+    expect(dependencies.clipPipeline.sendSupportPrompt).not.toHaveBeenCalled();
+    expect(notifyClipFailureMock).toHaveBeenCalled();
   });
 
   const clipAcknowledgements: ClipResultResponse[] = [
