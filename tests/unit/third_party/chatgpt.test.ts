@@ -33,6 +33,8 @@ describe('ChatGPT message boundaries', () => {
     expect(result.messages[1]?.md).toBe('ZENDIO_TEST_OK');
     expect(result.messages[2]?.md).toContain('继续做格式测试');
     expect(result.messages[3]?.md).toContain('const x = 1;');
+    expect(result.messages[3]?.md).toMatch(/```javascript\nconst x = 1;/i);
+    expect(result.messages[3]?.md).not.toMatch(/(?:^|\n)JavaScript\s*\n\s*```/);
     expect(result.messages[3]?.md).toContain('$x^2$');
     expect(
       result.messages.every(

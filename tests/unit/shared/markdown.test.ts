@@ -584,6 +584,20 @@ describe('code labels do not consume surrounding prose', () => {
 });
 
 describe('code-language inference keeps DOM provenance', () => {
+  it('uses the semantic code-block action header without consuming ordinary language-name prose', () => {
+    const markdown = chatHtmlToMarkdown(`
+      <div data-code-block="true">
+        <p>Python</p>
+        <div class="ActionBar-KWWAct" data-markdown-copy="exclude">
+          <div>JavaScript</div><div data-code-block-controls="true"><button>Copy code</button></div>
+        </div>
+        <div class="relative"><div><pre><code>const x = 1;</code></pre></div></div>
+      </div>
+    `);
+    expect(markdown).toBe('Python\n\n```JavaScript\nconst x = 1;\n```');
+    expect(markdown).not.toContain('Copy code');
+  });
+
   it.each([
     '<p>Python</p><pre><code>print(1)</code></pre>',
     '<p><span>Python</span></p><pre><code>print(1)</code></pre>',
