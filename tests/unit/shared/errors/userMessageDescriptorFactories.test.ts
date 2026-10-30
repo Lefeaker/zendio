@@ -7,8 +7,10 @@ import {
   i18nErrors,
   notificationErrors,
   optionsErrors,
-  restErrors
+  restErrors,
+  type AppError
 } from '@shared/errors';
+import type { Messages } from '@i18n/messages';
 
 describe('shared AppError factories', () => {
   beforeEach(() => {
@@ -21,7 +23,7 @@ describe('shared AppError factories', () => {
 
   it('emits descriptor-backed user messages for the full P18 factory set', () => {
     const cause = new Error('boom');
-    const cases = [
+    const cases: Array<{ error: AppError; key: keyof Messages }> = [
       {
         error: chromeApiErrors.runtimeError('Tabs query failed', { api: 'tabs' }, cause),
         key: 'errorChromeApiRuntimeError'
@@ -144,7 +146,7 @@ describe('shared AppError factories', () => {
         error: restErrors.vaultUnavailable({}, { cause }),
         key: 'errorRestVaultUnavailable'
       }
-    ] as const;
+    ];
 
     for (const { error, key } of cases) {
       expect(error.userMessage).toBeUndefined();
@@ -173,7 +175,7 @@ describe('shared AppError factories', () => {
 
   it('keeps the current P06 shared error messages on technical codes when a descriptor exists', () => {
     const cause = new Error('boom');
-    const cases = [
+    const cases: Array<{ error: AppError; message: string }> = [
       {
         error: classifierErrors.timeout({ provider: 'openai' }, { cause }),
         message: 'CLASSIFIER_TIMEOUT'
@@ -231,7 +233,7 @@ describe('shared AppError factories', () => {
         error: restErrors.vaultUnavailable({}, { cause }),
         message: 'REST_VAULT_UNAVAILABLE'
       }
-    ] as const;
+    ];
 
     for (const { error, message } of cases) {
       expect(error.message).toBe(message);

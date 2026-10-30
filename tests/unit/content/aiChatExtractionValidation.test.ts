@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import { validateAIChatExtraction } from '../../../src/content/extractors/aiChatExtractionValidation';
 import type { AppError } from '../../../src/shared/errors/types';
-import type { ParsedMessage } from '../../../src/third_party/ai-chat-exporter/types';
+import type {
+  ParsedMessage,
+  ParseDiagnostic
+} from '../../../src/third_party/ai-chat-exporter/types';
 
 type ValidationMessage = Pick<ParsedMessage, 'id' | 'role' | 'timestamp'> & {
   text: string;
@@ -169,7 +172,7 @@ describe('parser diagnostics at the extraction boundary', () => {
     });
   });
 
-  it.each(['warning', 'info'] as const)(
+  it.each<ParseDiagnostic['severity']>(['warning', 'info'])(
     'does not reject an otherwise complete result for a %s diagnostic',
     (severity) => {
       expect(checkDiagnostic('optional_metadata_unavailable', severity)).toBeUndefined();

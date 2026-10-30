@@ -40,7 +40,9 @@ const schema: SettingsSchema = {
               actions: [
                 {
                   kind: 'badge',
-                  label: translate(ctx, 'schemaCaptureSourcesAiSupportedPlatformsBadge'),
+                  label: translate(ctx, 'schemaCaptureSourcesAiSupportedPlatformsBadge', {
+                    count: ctx.appData.captureSources.aiPlatforms.length
+                  }),
                   variant: 'success'
                 }
               ],

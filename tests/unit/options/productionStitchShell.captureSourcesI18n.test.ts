@@ -150,7 +150,10 @@ describe('mountProductionStitchShell capture sources i18n', () => {
       { text: 'Kimi', href: 'https://www.kimi.com/' },
       { text: 'Doubao', href: 'https://www.doubao.com/' },
       { text: 'Monica', href: 'https://monica.im/' },
-      { text: 'Perplexity', href: 'https://www.perplexity.ai/' }
+      { text: 'Perplexity', href: 'https://www.perplexity.ai/' },
+      { text: 'Grok', href: 'https://grok.com/' }
     ]);
+    expect(captureSourcesPanel.textContent).toContain('11 supported platforms');
+    expect(captureSourcesPanel.textContent).not.toContain('{count}');
   });
 });

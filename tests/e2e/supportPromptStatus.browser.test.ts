@@ -25,7 +25,8 @@ const test = testWithExtension.extend({
   }
 });
 
-for (const language of ['en', 'zh-CN'] as const) {
+const languages: Array<'en' | 'zh-CN'> = ['en', 'zh-CN'];
+languages.forEach((language) => {
   test(`${language}: extraction failure ends progress and retry succeeds only after the write acknowledgement`, async ({
     context,
     extensionPage
@@ -148,4 +149,4 @@ for (const language of ['en', 'zh-CN'] as const) {
       );
     }
   });
-}
+});

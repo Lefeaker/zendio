@@ -5,7 +5,8 @@ import type { ConnectionTestResult } from '../../../src/shared/types/connection'
 import type { CaptureVisibleTabScreenshotResponse } from '../../../src/shared/types/videoScreenshotMessages';
 import type { VideoScreenshotCacheResponse } from '../../../src/content/video/videoScreenshotCacheMessages';
 import type { StorageService } from '../../../src/platform/interfaces/storage';
-import type { MessagePayload } from '../../../src/platform/interfaces/messaging';
+import type { MessageListener } from '../../../src/platform/interfaces/messaging';
+import type { RuntimeMessageListenerDependencies } from '../../../src/background/listeners/runtimeMessageDependencies';
 import type { TabsService } from '../../../src/platform/interfaces/tabs';
 import { createSessionDraftStoragePolicy } from '../../../src/shared/sessionDrafts';
 import type { SessionDraftSaveRequest } from '../../../src/shared/sessionDrafts';
@@ -111,12 +112,7 @@ vi.mock('../../../src/shared/errors', async (importOriginal) => ({
 }));
 
 describe('runtime message listener', () => {
-  let listener:
-    | ((
-        message: unknown,
-        sender: { tabId?: number; frameId?: number; windowId?: number }
-      ) => Promise<unknown>)
-    | undefined;
+  let listener: MessageListener | undefined;
 
   beforeEach(() => {
     vi.resetModules();
@@ -190,9 +186,9 @@ describe('runtime message listener', () => {
           )
       ),
       handleOptionsMutationMessage: vi.fn<
-        (message: unknown) => Promise<MessagePayload | undefined>
+        RuntimeMessageListenerDependencies['handleOptionsMutationMessage']
       >((_message) => Promise.resolve(undefined)),
-      handleUsageStatsMessage: vi.fn<(message: unknown) => Promise<MessagePayload | undefined>>(
+      handleUsageStatsMessage: vi.fn<RuntimeMessageListenerDependencies['handleUsageStatsMessage']>(
         (_message) => Promise.resolve(undefined)
       ),
       sessionDraftStore,

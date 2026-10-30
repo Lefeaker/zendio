@@ -86,6 +86,8 @@ The current-DOM matrix is driven by `fixtureManifest.ts`:
 | fixture | source capture date | platform | expected parser | expected coverage sentinel | privacy status |
 | --- | --- | --- | --- | --- | --- |
 | `chatgpt.html` | `legacy-unknown` | ChatGPT | `chatgpt` | title `Test Conversation`; assistant text `How can I help you today` | sanitized legacy fixture |
+| `current-dom/chatgpt-current-2026-10-31.html` | `2026-10-31` | ChatGPT | `chatgpt` | four explicit-role messages; short Chinese lists, table, code and math preserved | sanitized fixture |
+| `current-dom/grok-current-2026-10-31.html` | `2026-10-31` | Grok | `grok` | four messages; complete multi-block replies; no thinking or action controls | sanitized fixture |
 | `claude.html` | `legacy-unknown` | Claude | `claude` | title `Planning Session`; model `Claude Sonnet 3.5` | sanitized legacy fixture |
 | `claude-code.html` | `legacy-unknown` | Claude | `claude` | keeps `typescript` and `bash` fences; removes `Copy code` | sanitized legacy fixture |
 | `copilot.html` | `legacy-unknown` | Copilot | `copilot` | title `Travel Ideas`; assistant role present | sanitized legacy fixture |

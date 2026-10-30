@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AI chat exporter now uses a modular parser registry plus layered lightweight platform metadata. The current supported product surface is ChatGPT, Claude, Copilot, Gemini, Tongyi/Qianwen, DeepSeek, Kimi, Doubao, Monica, and Perplexity. Each platform has its own parser module located in `src/third_party/ai-chat-exporter/platforms/`. Shared helpers live under `src/third_party/ai-chat-exporter/shared/`, `parseChatDOM` routes requests through the parser registry defined in `registry.ts`, platform identity metadata lives in `platformIdentity.ts`, product-facing metadata lives in `platformProductSurface.ts`, and `platformRegistry.ts` remains only as a compatibility facade.
+The AI chat exporter now uses a modular parser registry plus layered lightweight platform metadata. The current supported product surface is ChatGPT, Claude, Copilot, Gemini, Tongyi/Qianwen, DeepSeek, Kimi, Doubao, Monica, Perplexity, and Grok. Each platform has its own parser module located in `src/third_party/ai-chat-exporter/platforms/`. Shared helpers live under `src/third_party/ai-chat-exporter/shared/`, `parseChatDOM` routes requests through the parser registry defined in `registry.ts`, platform identity metadata lives in `platformIdentity.ts`, product-facing metadata lives in `platformProductSurface.ts`, and `platformRegistry.ts` remains only as a compatibility facade.
 
 ```
 src/third_party/ai-chat-exporter/
@@ -27,6 +27,7 @@ src/third_party/ai-chat-exporter/
     ├── deepseek.ts
     ├── doubao.ts
     ├── gemini.ts
+    ├── grok.ts
     ├── kimi.ts
     ├── monica.ts
     ├── perplexity.ts
@@ -56,7 +57,7 @@ the public failure response.
 
 ## Product Surface Sync
 
-- Options/Stitch displays supported platform labels and links from `getAIChatProductSurfacePlatforms()` in `platformProductSurface.ts`.
+- Options/Stitch displays supported platform labels and links from `getAIChatProductSurfacePlatforms()` in `platformProductSurface.ts`. The localized supported-platform badge uses the length of that displayed list rather than a handwritten count.
 - URL host detection and aliases come from `platformIdentity.ts`; do not add platform detection switches in `aiChatExtractor.ts`.
 - Fallback title policy comes from `getAIChatFallbackTitlePolicy()`. Product-surface fallback titles must use catalog message keys; neutral source-site fallback tokens stay inside platform parser modules.
 - AI chat templates rely on exported metadata such as `meta.platform`; default domain mappings stay user-owned and do not add AI platform host aliases by default. This avoids silently changing vault routing for existing users.
@@ -78,9 +79,26 @@ When a platform DOM drift is found:
 
 ## Updating Shared Logic
 
+ChatGPT's current DOM uses `h4[data-conversation-role]` and separate user/assistant
+content attributes; one `[data-turn-key]` contains both roles. Preserve explicit
+legacy role attributes/headings, but do not infer roles from position or arbitrary
+article text. Keep multiple content blocks and repeated message text in order.
+
+Grok support targets text conversations on `grok.com`, including its public share
+transcripts. It does not claim X-embedded Grok, Imagine, Canvas or attachment export.
+Virtual transcripts require the Grok document preparer: collect overlapping windows
+by response ID, require both transcript boundaries, and restore the original scroll
+position. Loading, response generation, gaps or collection limits must fail before
+saving rather than produce a truncated note. Parser-only fixtures cannot certify
+that preparation or file writing succeeded.
+
+Model metadata must come from an explicit model control or label. In particular,
+Tongyi must not interpret account nicknames, conversation prose or an unrelated
+global selection preference as the model used for the captured conversation.
+
 - Global constants belong in `shared/constants.ts`.
 - DOM cleanup utilities should live in `shared/dom.ts`; reuse them rather than duplicating selectors inside platform modules.
-- Markdown conversion helpers are centralised in `shared/markdown.ts`. When adding constructs (tables, KaTeX, custom components), extend this file and add regression tests.
+- Markdown conversion helpers are centralised in `shared/markdown.ts`. Add behavior regressions to `tests/unit/shared/markdown.test.ts`. Code-language labels require a directly associated code block and either an explicit language attribute or a recognized name inside an identified code-label/component. An ordinary paragraph remains content even when it is exactly a language name; lists and distant labels are not language declarations. Do not infer away content after the DOM has already been flattened into Markdown.
 - The profile parser engine in `shared/profileEngine.ts` is opt-in. It fails closed when a container role cannot be resolved; set `fallbackRole` explicitly only when the platform contract owns that behavior.
 - Per-platform helpers should use specific names such as `perplexityCandidates.ts` or `chineseFamilyHelpers.ts`. Do not add broad family facades unless they own real shared behavior used by multiple platforms.
 

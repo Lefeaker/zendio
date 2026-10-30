@@ -22,7 +22,7 @@
   "schemaCaptureSourcesAiChatGroupTitle": "AI 对话",
   "schemaCaptureSourcesAiConversationDescription": "查看支持的平台，打开已有对话进行导出。",
   "schemaCaptureSourcesAiConversationTitle": "AI 对话采集",
-  "schemaCaptureSourcesAiSupportedPlatformsBadge": "10 个已支持平台",
+  "schemaCaptureSourcesAiSupportedPlatformsBadge": "{count} 个已支持平台",
   "schemaCaptureSourcesAttachmentGuidanceLink": "Custom Attachment Location",
   "schemaCaptureSourcesAttachmentGuidancePrefix": "这些附件配置可与 Obsidian 插件 ",
   "schemaCaptureSourcesAttachmentGuidanceSuffix": " 配合使用，请保持 Obsidian 内该插件配置与这里的模板一致。",

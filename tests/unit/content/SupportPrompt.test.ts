@@ -219,10 +219,11 @@ describe('SupportPrompt', () => {
     expect(progressBar).toBeTruthy();
     expect(progressBar?.style.getPropertyValue('--task-progress-value')).toBe('42%');
     expect(progressBar?.classList.contains('is-progress')).toBe(true);
-    expect(header?.compareDocumentPosition(progressBar as Node)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING
-    );
-    expect(progressBar?.compareDocumentPosition(supportStrip as Node)).toBe(
+    if (!header || !progressBar || !supportStrip) {
+      throw new Error('Expected the progress header, bar and support strip to be mounted');
+    }
+    expect(header.compareDocumentPosition(progressBar)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(progressBar.compareDocumentPosition(supportStrip)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING
     );
   });
@@ -331,7 +332,7 @@ describe('SupportPrompt', () => {
     expect(shadow?.querySelector('[data-role="status-detail"]')?.textContent).toBe('extra detail');
   });
 
-  it.each(['en', 'zh-CN', 'de'] as const)(
+  it.each<I18nResource['language']>(['en', 'zh-CN', 'de'])(
     'preserves resolved progress and failure copy with the real %s translator',
     async (language) => {
       const messages = await getMessagesForLanguage(language);
@@ -352,11 +353,12 @@ describe('SupportPrompt', () => {
         getPromptHost().shadowRoot?.querySelector('[data-role="task-progress"]')?.classList
       ).toContain('is-progress');
 
-      for (const [code, key] of [
+      const failures: Array<[string, keyof I18nResource['messages']]> = [
         ['EXTRACTION_AI_CHAT_PARSE_EMPTY', 'errorExtractionAiChatParseEmpty'],
         ['EXTRACTION_AI_CHAT_PARSE_ROLE_INCOMPLETE', 'errorExtractionAiChatParseRoleIncomplete'],
         ['EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE', 'errorExtractionAiChatPreparationIncomplete']
-      ] as const) {
+      ];
+      for (const [code, key] of failures) {
         await prompt.show({
           status: 'failure',
           error: {

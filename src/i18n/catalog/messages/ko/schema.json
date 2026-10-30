@@ -22,7 +22,7 @@
   "schemaCaptureSourcesAiChatGroupTitle": "AI 채팅",
   "schemaCaptureSourcesAiConversationDescription": "지원 플랫폼을 확인하고 기존 대화를 열어 내보내세요.",
   "schemaCaptureSourcesAiConversationTitle": "AI 대화 캡처",
-  "schemaCaptureSourcesAiSupportedPlatformsBadge": "지원 플랫폼 10개",
+  "schemaCaptureSourcesAiSupportedPlatformsBadge": "지원 플랫폼 {count}개",
   "schemaCaptureSourcesAttachmentGuidanceLink": "Custom Attachment Location",
   "schemaCaptureSourcesAttachmentGuidancePrefix": "이 첨부 설정은 Obsidian 플러그인 ",
   "schemaCaptureSourcesAttachmentGuidanceSuffix": "과 함께 사용하고, Obsidian의 플러그인 설정을 여기의 템플릿과 일치하게 유지하세요.",
