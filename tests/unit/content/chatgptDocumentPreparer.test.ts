@@ -14,6 +14,10 @@ type Scenario = {
   stuckLoading?: boolean;
   viewportUnavailable?: boolean;
   lastHeight?: number;
+  changingUi?: 'hidden' | 'aria-hidden' | 'button';
+  contentChanges?: boolean;
+  semanticChanges?: 'code' | 'language' | 'math';
+  codeSource?: 'generic-header' | 'language-change' | 'content-change';
 };
 
 function virtualHistory(scenario: Scenario = {}) {
@@ -86,6 +90,41 @@ function virtualHistory(scenario: Scenario = {}) {
           role === 'user' ? 'true' : 'assistant-message'
         );
         body.textContent = role === 'user' ? 'Repeated prompt' : `ANSWER_${index}`;
+        if (role === 'assistant' && index === 2 && scenario.codeSource) {
+          const changed = loadedStart === 0 && top > 0;
+          const label =
+            scenario.codeSource === 'generic-header'
+              ? '代码'
+              : changed && scenario.codeSource === 'language-change'
+                ? 'Python'
+                : 'JavaScript';
+          const header =
+            scenario.codeSource === 'generic-header' && !changed
+              ? ''
+              : `<div data-markdown-copy="exclude">${label}<button>Copy code</button></div>`;
+          const code =
+            changed && scenario.codeSource === 'content-change' ? 'const x = 2;' : 'const x = 1;';
+          body.innerHTML += `<div data-code-block="true">${header}<div data-code-block-source="true"><code>${code}</code></div></div>`;
+        }
+        if (role === 'assistant' && index === 2 && scenario.semanticChanges) {
+          const changed = loadedStart === 0 && top > 0;
+          if (scenario.semanticChanges === 'code') {
+            body.innerHTML = `<pre><code>const x = ${changed ? 2 : 1};</code></pre>`;
+          } else if (scenario.semanticChanges === 'language') {
+            body.innerHTML = `<div data-code-block="true"><span>${changed ? 'Python' : 'JavaScript'}</span><pre><code>123</code></pre></div>`;
+          } else {
+            body.innerHTML = `<span class="katex"><span class="katex-mathml"><math><semantics><annotation encoding="application/x-tex">x^${changed ? 3 : 2}</annotation></semantics></math></span><span aria-hidden="true">visual math</span></span>`;
+          }
+        }
+        if (role === 'assistant' && loadedStart === 0 && top > 0 && index === 2) {
+          if (scenario.contentChanges) body.textContent = 'CHANGED_ANSWER';
+          if (scenario.changingUi) {
+            const control = doc.createElement(scenario.changingUi === 'button' ? 'button' : 'span');
+            if (scenario.changingUi !== 'button') control.setAttribute(scenario.changingUi, 'true');
+            control.textContent = 'TRANSIENT_UI';
+            body.append(control);
+          }
+        }
         message.append(heading, body);
         turn.append(message);
       }
@@ -183,6 +222,62 @@ describe('ChatGPT long history preparation', () => {
     expect(restored?.getBoundingClientRect().top).toBe(offset);
     expect(owner.scrollTop).not.toBe(700);
   });
+
+  it.each<{ changingUi: Scenario['changingUi'] }>([
+    { changingUi: 'hidden' },
+    { changingUi: 'aria-hidden' },
+    { changingUi: 'button' }
+  ])('ignores changing $changingUi text excluded from exported content', async ({ changingUi }) => {
+    const { doc, owner } = virtualHistory({ changingUi });
+    const result = await extractor().extract({ document: doc, url: doc.URL });
+    expect(result.meta?.messageCount).toBe(12);
+    expect(result.markdown).not.toContain('TRANSIENT_UI');
+    for (let index = 0; index < 6; index += 1) expect(result.markdown).toContain(`ANSWER_${index}`);
+    expect(owner.scrollTop).toBe(owner.scrollHeight - owner.clientHeight);
+  });
+
+  it('still rejects changed conversation text in an overlapping turn', async () => {
+    const { doc, owner } = virtualHistory({ contentChanges: true });
+    await expect(prepareChatGPTDocumentForExtraction(doc)).rejects.toMatchObject({
+      code: 'EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE',
+      context: { parserDiagnosticCodes: ['chatgpt_history_content_changed'] }
+    });
+    expect(owner.scrollTop).toBe(owner.scrollHeight - owner.clientHeight);
+  });
+
+  it('ignores a generic header mounting around unchanged semantic code and exports a fenced block', async () => {
+    const { doc } = virtualHistory({ codeSource: 'generic-header' });
+    const result = await extractor().extract({ document: doc, url: doc.URL });
+    expect(result.meta?.messageCount).toBe(12);
+    expect(result.markdown).toContain('```\nconst x = 1;\n```');
+    expect(result.markdown).not.toContain('代码');
+  });
+
+  it.each<{ codeSource: Scenario['codeSource'] }>([
+    { codeSource: 'language-change' },
+    { codeSource: 'content-change' }
+  ])('rejects $codeSource within semantic code blocks', async ({ codeSource }) => {
+    const { doc } = virtualHistory({ codeSource });
+    await expect(prepareChatGPTDocumentForExtraction(doc)).rejects.toMatchObject({
+      code: 'EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE',
+      context: { parserDiagnosticCodes: ['chatgpt_history_content_changed'] }
+    });
+  });
+
+  it.each<{ semanticChanges: Scenario['semanticChanges'] }>([
+    { semanticChanges: 'code' },
+    { semanticChanges: 'language' },
+    { semanticChanges: 'math' }
+  ])(
+    'keeps $semanticChanges content changes in the turn signature',
+    async ({ semanticChanges }) => {
+      const { doc } = virtualHistory({ semanticChanges });
+      await expect(prepareChatGPTDocumentForExtraction(doc)).rejects.toMatchObject({
+        code: 'EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE',
+        context: { parserDiagnosticCodes: ['chatgpt_history_content_changed'] }
+      });
+    }
+  );
 
   it('shares one same-document preparation owner and allows a fresh preparation after it settles', async () => {
     const { doc } = virtualHistory();

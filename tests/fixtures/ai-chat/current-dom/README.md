@@ -131,6 +131,14 @@ Before an assistant root exists, the observed busy status is scoped under
 page busy status does not block export. A submitted last user turn without an
 assistant answer is incomplete even after the busy status disappears.
 
+`chatgpt-code-source-2026-11-01.html` reconstructs the semantic code-block shape
+observed during live long-history verification, with neutral replacement text.
+Inside `data-code-block="true"`, `data-code-block-source="true"` can contain a
+`code` element without `pre`. Its separate action header can mount later and show
+the generic label `代码`. The focused fixture preserves this shape, a real
+language label, existing `pre` nesting, surrounding prose and math. It does not
+replace the earlier capture or retain private conversation content.
+
 ## Grok signed-in transcript rows
 
 `grok-gateway-current-2026-10-31.html` preserves a signed-in two-round test

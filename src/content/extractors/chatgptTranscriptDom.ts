@@ -1,3 +1,5 @@
+import { chatGPTContentSignature } from '../../third_party/ai-chat-exporter/shared/chatgptCodeBlocks';
+
 export const CHATGPT_SCROLL_OWNER = '[data-app-action-timeline-scroll]';
 const TURN_SELECTOR = '[data-turn-key]';
 const HIDDEN = '[hidden], [aria-hidden="true"]';
@@ -41,7 +43,7 @@ export function readChatGPTTurns(owner: HTMLElement): ChatGPTTurn[] {
       key: element.getAttribute('data-turn-key') ?? '',
       element,
       signature: Array.from(element.querySelectorAll(BODY_SELECTOR))
-        .map((body) => body.textContent ?? '')
+        .map(chatGPTContentSignature)
         .join('\u0000'),
       top: owner.scrollTop + element.getBoundingClientRect().top - ownerTop
     }));

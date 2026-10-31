@@ -310,6 +310,20 @@ export const AI_CHAT_FIXTURE_MANIFEST: readonly AIChatFixtureMetadata[] = [
     status: 'active'
   },
   {
+    file: 'current-dom/chatgpt-code-source-2026-11-01.html',
+    platform: 'chatgpt',
+    sourceCaptureDate: '2026-11-01',
+    captureKind: 'focused-regression',
+    expectedTitle: 'ChatGPT Semantic Code Source',
+    expectedMessageCount: 4,
+    expectedRoles: ['user', 'assistant', 'user', 'assistant'],
+    sentinels: ['```JavaScript', 'console.log(x);', 'line one', '```typescript', '$x^2$', '普通段落中的代码。'],
+    absentSentinels: ['Copy code'],
+    privacyStatus: 'sanitized',
+    ownerMilestone: 'issue-91-chatgpt-code-source-2026-11-01',
+    status: 'active'
+  },
+  {
     file: 'current-dom/claude-current-2026-06-24.html',
     platform: 'claude',
     sourceCaptureDate: '2026-06-24',

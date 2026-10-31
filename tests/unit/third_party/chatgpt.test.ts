@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { chatgptParser } from '../../../src/third_party/ai-chat-exporter/platforms/chatgpt';
 import { extractAIChat } from '../../../src/content/extractors/aiChatExtractor';
+import { chatGPTContentSignature } from '../../../src/third_party/ai-chat-exporter/shared/chatgptCodeBlocks';
 
 function parse(html: string) {
   return chatgptParser.parse(new DOMParser().parseFromString(html, 'text/html'));
@@ -17,6 +18,66 @@ function message(role: string, content: string): string {
 }
 
 describe('ChatGPT message boundaries', () => {
+  it.each(['hidden', 'aria-hidden="true"', 'style="display:none"'])(
+    'keeps %s semantic code sources excluded',
+    (attribute) => {
+      const codeBlock = `<div data-code-block="true"><div data-markdown-copy="exclude">JavaScript</div><div data-code-block-source="true" ${attribute}><code>EXCLUDED_CODE</code></div></div>`;
+      const result = parse(
+        message('user', 'Question') + message('assistant', `<p>Visible answer.</p>${codeBlock}`)
+      );
+      expect(result.messages[1]?.md).toContain('Visible answer.');
+      expect(result.messages[1]?.md).not.toContain('EXCLUDED_CODE');
+      const doc = new DOMParser().parseFromString(codeBlock, 'text/html');
+      const before = chatGPTContentSignature(doc.body);
+      doc.querySelector('code')?.setAttribute('data-language', 'ruby');
+      expect(chatGPTContentSignature(doc.body)).toBe(before);
+    }
+  );
+
+  it.each(['data-language', 'data-code-language', 'data-lang'])(
+    'preserves existing pre %s metadata ahead of a conflicting action label',
+    (attribute) => {
+      const codeBlock = `<div data-code-block="true"><div data-markdown-copy="exclude">JavaScript</div><div data-code-block-source="true"><pre ${attribute}="python"><code>print(1)</code></pre></div></div>`;
+      const result = parse(message('user', 'Question') + message('assistant', codeBlock));
+      expect(result.messages[1]?.md).toBe('```python\nprint(1)\n```');
+      const doc = new DOMParser().parseFromString(codeBlock, 'text/html');
+      const before = chatGPTContentSignature(doc.body);
+      doc.querySelector('[data-markdown-copy]')?.replaceChildren('TypeScript');
+      expect(chatGPTContentSignature(doc.body)).toBe(before);
+      doc.querySelector('pre')?.setAttribute(attribute, 'ruby');
+      expect(chatGPTContentSignature(doc.body)).not.toBe(before);
+    }
+  );
+
+  it('normalizes the observed semantic code source without changing the live DOM or ordinary prose', () => {
+    const html = readFileSync(
+      join(process.cwd(), 'tests/fixtures/ai-chat/current-dom/chatgpt-code-source-2026-11-01.html'),
+      'utf8'
+    );
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const before = doc.body.innerHTML;
+    const result = chatgptParser.parse(doc);
+    expect(result.messages.map((item) => item.role)).toEqual([
+      'user',
+      'assistant',
+      'user',
+      'assistant'
+    ]);
+    expect(result.messages[1]?.md).toContain('Python\n\n普通段落中的代码。');
+    expect(result.messages[1]?.md).toMatch(/```javascript\nconst x = 1;\nconsole\.log\(x\);\n```/i);
+    expect(result.messages[3]?.md).toContain('```\nline one\nline two\n```');
+    expect(result.messages[3]?.md).toContain('```typescript\nconst oldShape = true;\n```');
+    expect(result.messages[3]?.md).toContain('$x^2$');
+    expect(result.messages[3]?.md).not.toMatch(/(?:^|\n)代码(?:\n|$)/);
+    expect(
+      result.messages
+        .map((item) => item.md)
+        .join('\n')
+        .match(/```/g)
+    ).toHaveLength(6);
+    expect(doc.body.innerHTML).toBe(before);
+  });
+
   it('reads both roles in each current live turn without article or legacy role attributes', () => {
     const html = readFileSync(
       join(process.cwd(), 'tests/fixtures/ai-chat/current-dom/chatgpt-current-2026-10-31.html'),

@@ -1,4 +1,5 @@
 import { chatElementToMarkdown } from '../shared/markdown';
+import { normalizeChatGPTCodeBlocks } from '../shared/chatgptCodeBlocks';
 import type { ParsedMessage, ParsedResult } from '../types';
 
 const ROLE_HEADING = 'h4[data-conversation-role]';
@@ -73,6 +74,7 @@ function cloneMessageContent(root: MessageRoot): HTMLElement {
   for (const element of content.length > 0 ? content : [root.element]) {
     container.append(element.cloneNode(true));
   }
+  normalizeChatGPTCodeBlocks(container);
   container.querySelectorAll(`${CHROME}, ${ROLE_HEADING}`).forEach((node) => node.remove());
   container.querySelectorAll('h5').forEach((heading) => {
     if (roleFromLabel(heading.textContent ?? '')) heading.remove();

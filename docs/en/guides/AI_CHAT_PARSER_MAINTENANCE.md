@@ -190,3 +190,13 @@ a route change or a now-unmounted anchor after height changes can prevent full
 restoration, but never turns the failed scan into a successful partial export. The unit regression includes the real extractor, dynamic
 pagination, height growth after the original anchor, duplicate message text,
 concurrent callers, failures and same-Document navigation.
+
+The ChatGPT-specific shared `chatgptCodeBlocks.ts` helper recognizes the observed
+`data-code-block-source="true" > code` component inside `data-code-block="true"`.
+The parser normalizes only its own clone to `pre`/`code`, retaining code text and
+explicit language metadata. A recognized language in the component's excluded
+action header becomes fence metadata; generic action labels are not prose.
+Existing `pre` blocks do not acquire nested fences. The history signature reuses
+this component recognition, ignores only its action header and ordinary excluded
+UI, and keeps language metadata separately so meaningful code/language changes
+still reject. It does not run full Markdown conversion during scroll sampling.
