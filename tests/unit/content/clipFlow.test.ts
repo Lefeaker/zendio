@@ -6,6 +6,7 @@ import type { ContentRuntimeState } from '@content/runtime/contentRuntimeState';
 import type { ContentSelectionTracker } from '@content/runtime/contentSelectionTracker';
 import type { SelectionPromptLifecycleHandlers } from '@content/runtime/clipFlowTypes';
 import { SelectionModifierTrigger } from '@content/clipper/services/selectionModifierTrigger';
+import { createClipSaveFailure } from '@shared/types/clipResult';
 
 type TrackUsageEventMessage = {
   type: 'ANALYTICS_EVENT';
@@ -271,6 +272,61 @@ describe('clipFlow support progress', () => {
     });
     expectPrivacySafeAnalytics(trackEvents);
   });
+
+  it.each<'validation' | 'partial'>(['validation', 'partial'])(
+    'ends progress after %s save feedback without reporting another extraction failure',
+    async (kind) => {
+      const failure = createClipSaveFailure(
+        kind === 'validation' ? 'failed' : 'unknown',
+        kind === 'validation' ? 'validation' : 'write',
+        kind === 'validation' ? 'prepare' : 'attachments',
+        kind === 'partial'
+          ? {
+              operationId: 'op_image123',
+              planId: 'a'.repeat(64),
+              storageTarget: 'downloads',
+              total: 2,
+              phase: 'attachments',
+              confirmed: [{ id: 'image-one', outputPath: 'images/one.png' }]
+            }
+          : undefined
+      );
+      const send = vi.fn().mockResolvedValue(failure);
+      const showSupportProgress = vi.fn();
+      const flow = initClipFlow({
+        document,
+        messaging: { send },
+        runtimeState: createRuntimeState('full'),
+        selectionTracker: createSelectionTracker(createSelection()),
+        selectionController: {
+          handleSelectionClip: vi.fn(),
+          handleVideoSelectionClip: vi.fn()
+        },
+        extractorRegistry: {
+          register: vi.fn(),
+          list: vi.fn().mockResolvedValue([]),
+          extract: vi.fn().mockResolvedValue({
+            type: 'ai_chat',
+            title: 'Image conversation',
+            markdown: '# Image conversation',
+            meta: {}
+          })
+        },
+        showSupportProgress
+      });
+
+      await flow.handleClip();
+
+      expect(showSupportProgress).toHaveBeenLastCalledWith({
+        value: 100,
+        variant: 'failure',
+        message: failure.message
+      });
+      expect(send.mock.calls.some(([message]) => hasMessageType(message, 'CLIP_ERROR'))).toBe(
+        false
+      );
+    }
+  );
 
   it('emits extraction_failed analytics without displacing the existing clip error path', async () => {
     const send = createSendMock();

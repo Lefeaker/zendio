@@ -279,6 +279,7 @@
   "errorExtractionNoMarkdown": "Content parsing failed. Refresh the page or try again later.",
   "errorExtractionAiChatParseEmpty": "AI chat parsing found no messages. Refresh the conversation and try again.",
   "errorExtractionAiChatParseRoleIncomplete": "AI chat parsing found messages, but their roles look incomplete. Refresh the conversation and try again.",
+  "errorExtractionAiChatImagesIncomplete": "会話の一部の画像を保存できませんでした。画像が読み込まれ、ダウンロードできることを確認して再試行してください。ノートは保存されていません。",
   "errorExtractionAiChatPreparationIncomplete": "会話を完全に読み取れませんでした。読み込み中の可能性があります。応答の完了を待ってから再試行してください。",
   "errorExtractionUnsupportedContent": "This page is not supported for clipping yet.",
   "errorExtractionDispatchFailure": "Sending the result failed. It will retry automatically; contact us if the problem continues.",

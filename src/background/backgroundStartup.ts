@@ -132,7 +132,7 @@ export function startBackgroundRuntime(dependencies: BackgroundStartupDependenci
       dependencies.runtime,
       dependencies.storage,
       createSessionDraftRuntimeDependencies(dependencies),
-      { optionsMutationCoordinator }
+      { optionsMutationCoordinator, scripting: dependencies.scripting }
     )
   );
 

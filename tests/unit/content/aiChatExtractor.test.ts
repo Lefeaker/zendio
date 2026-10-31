@@ -10,8 +10,8 @@ import type { ParseConfig, ParsedResult } from '../../../src/third_party/ai-chat
 import type { buildChatMarkdown } from '@content/formatters/markdown';
 import { DEFAULT_OPTIONS } from '@shared/config/defaultOptions';
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
-const mockParseChatDOMAsync = vi.fn(
-  async (_platform: string, _doc: Document, _config?: ParseConfig): Promise<ParsedResult> => ({
+const mockParseChatDOM = vi.fn(
+  (_platform: string, _doc: Document, _config?: ParseConfig): ParsedResult => ({
     title: 'Chat Session',
     messages: [
       { id: 'first', role: 'user', md: 'Hello AI', timestamp: '2024-01-01T00:00:00Z' },
@@ -101,7 +101,12 @@ vi.mock('@content/formatters/markdown', () => ({
 }));
 
 vi.mock('../../../src/third_party/ai-chat-exporter/runtimeRegistry', () => ({
-  parseChatDOMAsync: mockParseChatDOMAsync
+  resolveParserAsync: (platform: string) =>
+    Promise.resolve({
+      id: platform,
+      collectImages: () => [],
+      parse: (doc: Document, config?: ParseConfig) => mockParseChatDOM(platform, doc, config)
+    })
 }));
 
 vi.mock('../../../src/third_party/ai-chat-exporter/shared/markdown', () => ({
@@ -136,9 +141,9 @@ describe('extractAIChat', () => {
       optionsRepository: createOptionsRepository()
     });
 
-    expect(mockParseChatDOMAsync).toHaveBeenCalledWith(
+    expect(mockParseChatDOM).toHaveBeenCalledWith(
       'chatgpt',
-      document,
+      expect.any(Document),
       expect.objectContaining({ deepResearch: { pureMode: true } })
     );
 
@@ -163,7 +168,7 @@ describe('extractAIChat', () => {
   });
 
   it('rejects empty AI chat parse results before building markdown', async () => {
-    mockParseChatDOMAsync.mockResolvedValueOnce({
+    mockParseChatDOM.mockReturnValueOnce({
       title: 'Empty Chat',
       messages: [],
       assets: [],
@@ -200,7 +205,7 @@ describe('extractAIChat', () => {
   });
 
   it('rejects multi-message role-incomplete AI chat results before building markdown', async () => {
-    mockParseChatDOMAsync.mockResolvedValueOnce({
+    mockParseChatDOM.mockReturnValueOnce({
       title: 'Perplexity Role Drift',
       messages: [
         { id: 'u1', role: 'user', md: 'first private prompt' },
@@ -243,7 +248,7 @@ describe('extractAIChat', () => {
   });
 
   it('detects Kimi domains and forwards the correct platform', async () => {
-    mockParseChatDOMAsync.mockResolvedValueOnce({
+    mockParseChatDOM.mockReturnValueOnce({
       title: 'Catalog Kimi Title',
       messages: [
         { id: 'u1', role: 'user', md: 'hello kimi', timestamp: '2024-01-01T00:00:00Z' },
@@ -261,9 +266,9 @@ describe('extractAIChat', () => {
       }))
     });
 
-    expect(mockParseChatDOMAsync).toHaveBeenCalledWith(
+    expect(mockParseChatDOM).toHaveBeenCalledWith(
       'kimi',
-      document,
+      expect.any(Document),
       expect.objectContaining({
         deepResearch: { pureMode: true },
         fallbackTitle: 'Catalog Kimi Title'
@@ -286,9 +291,9 @@ describe('extractAIChat', () => {
       getMessages: vi.fn(async () => ({ ...baseFallbackMessages }))
     });
 
-    expect(mockParseChatDOMAsync).toHaveBeenCalledWith(
+    expect(mockParseChatDOM).toHaveBeenCalledWith(
       'tongyi',
-      document,
+      expect.any(Document),
       expect.objectContaining({
         deepResearch: { pureMode: true },
         fallbackTitle: 'Catalog Tongyi Title'
@@ -308,7 +313,7 @@ describe('extractAIChat', () => {
       })
     ).rejects.toThrow('Unsupported AI chat platform for https://example.com/not-ai-chat');
 
-    expect(mockParseChatDOMAsync).not.toHaveBeenCalled();
+    expect(mockParseChatDOM).not.toHaveBeenCalled();
   });
 
   it('fails fast when a required localized fallback title is missing', async () => {
@@ -326,7 +331,7 @@ describe('extractAIChat', () => {
       })
     ).rejects.toThrow('Missing localized AI chat fallback title for kimi');
 
-    expect(mockParseChatDOMAsync).not.toHaveBeenCalled();
+    expect(mockParseChatDOM).not.toHaveBeenCalled();
   });
 
   it('does not inject product-surface fallback titles for platforms with parser-owned neutral fallback', async () => {
@@ -341,14 +346,16 @@ describe('extractAIChat', () => {
       getMessages: vi.fn(() => Promise.resolve({ ...baseFallbackMessages }))
     });
 
-    expect(mockParseChatDOMAsync.mock.calls[0]?.[0]).toBe('doubao');
-    expect(mockParseChatDOMAsync.mock.calls[0]?.[1]).toBe(document);
-    expect(mockParseChatDOMAsync.mock.calls[0]?.[2]).toEqual({
+    expect(mockParseChatDOM.mock.calls[0]?.[0]).toBe('doubao');
+    expect(mockParseChatDOM.mock.calls[0]?.[1]).not.toBe(document);
+    expect(mockParseChatDOM.mock.calls[0]?.[2]).not.toHaveProperty('fallbackTitle');
+    expect(mockParseChatDOM.mock.calls[0]?.[2]).toMatchObject({
       deepResearch: { pureMode: true }
     });
-    expect(mockParseChatDOMAsync.mock.calls[1]?.[0]).toBe('monica');
-    expect(mockParseChatDOMAsync.mock.calls[1]?.[1]).toBe(document);
-    expect(mockParseChatDOMAsync.mock.calls[1]?.[2]).toEqual({
+    expect(mockParseChatDOM.mock.calls[1]?.[0]).toBe('monica');
+    expect(mockParseChatDOM.mock.calls[1]?.[1]).not.toBe(document);
+    expect(mockParseChatDOM.mock.calls[1]?.[2]).not.toHaveProperty('fallbackTitle');
+    expect(mockParseChatDOM.mock.calls[1]?.[2]).toMatchObject({
       deepResearch: { pureMode: true }
     });
   });

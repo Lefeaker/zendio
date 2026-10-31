@@ -51,10 +51,20 @@ export type DeepResearchConfig = {
 export type ParseConfig = {
   deepResearch?: DeepResearchConfig;
   fallbackTitle?: string;
+  imageResolver?: (node: HTMLElement) => string;
+};
+
+export type AIChatImageCandidate = {
+  node: HTMLElement;
+  messageRoot?: HTMLElement;
+  slotKey: string;
+  sourceUrl?: string;
+  alt?: string;
 };
 
 export interface ChatPlatformParser {
   id: PlatformId;
   aliases?: string[];
+  collectImages?(root: ParentNode, config?: ParseConfig): readonly AIChatImageCandidate[];
   parse(doc: Document, config?: ParseConfig): ParsedResult;
 }

@@ -1,4 +1,6 @@
 import { extractionErrors } from '../../shared/errors/extractionErrors';
+import type { AIChatImagePreparation } from './aiChatImagePreparation';
+import { aiChatSnapshotSignature } from './aiChatSnapshotSignature';
 
 const TRANSCRIPT_SELECTOR = '[data-transcript-renderer="plane"]';
 const MESSAGE_SELECTOR =
@@ -18,7 +20,11 @@ type ConversationOwner = {
 };
 const inFlightPreparations = new WeakMap<
   Document,
-  { owner: ConversationOwner; promise: Promise<Document> }
+  {
+    owner: ConversationOwner;
+    images: AIChatImagePreparation | undefined;
+    promise: Promise<Document>;
+  }
 >();
 
 type CollectedTurn = { key: string; element: HTMLElement };
@@ -71,18 +77,27 @@ function waitForPaint(doc: Document): Promise<void> {
   });
 }
 
-function signature(scroller: HTMLElement): string {
+function signature(scroller: HTMLElement, images?: AIChatImagePreparation): string {
   const rows = Array.from(scroller.querySelectorAll('[data-plane-row]'))
-    .map((row) => `${row.getAttribute('data-plane-row')}:${row.textContent?.length ?? 0}`)
+    .map(
+      (row) =>
+        `${row.getAttribute('data-plane-row')}:${Array.from(
+          row.querySelectorAll<HTMLElement>(MESSAGE_SELECTOR),
+          (message) => images?.contentSignature(message) ?? aiChatSnapshotSignature(message, 'grok')
+        ).join('|')}`
+    )
     .join('|');
   return rows ? `${scroller.scrollHeight}:${rows}` : '';
 }
 
-async function waitForWindow(scroller: HTMLElement): Promise<boolean> {
+async function waitForWindow(
+  scroller: HTMLElement,
+  images?: AIChatImagePreparation
+): Promise<boolean> {
   let previous = '';
   for (let attempt = 0; attempt < 4; attempt += 1) {
     await waitForPaint(scroller.ownerDocument);
-    const current = signature(scroller);
+    const current = signature(scroller, images);
     if (current && current === previous) return true;
     previous = current;
   }
@@ -113,7 +128,9 @@ function collectWindow(scroller: HTMLElement, messageCount: number): CollectedTu
 function mergeWindow(
   doc: Document,
   collected: Map<string, HTMLElement>,
-  turns: CollectedTurn[]
+  turns: CollectedTurn[],
+  signatures: Map<string, string>,
+  images?: AIChatImagePreparation
 ): void {
   if (collected.size > 0) {
     const keys = Array.from(collected.keys());
@@ -129,7 +146,17 @@ function mergeWindow(
     }
   }
   for (const turn of turns) {
-    collected.set(turn.key, doc.importNode(turn.element, true));
+    const previous = collected.get(turn.key);
+    const contentSignature =
+      images?.contentSignature(turn.element) ?? aiChatSnapshotSignature(turn.element, 'grok');
+    if (previous && signatures.get(turn.key) !== contentSignature)
+      failPreparation(doc, collected.size, 'grok_transcript_content_changed');
+    if (!previous)
+      collected.set(
+        turn.key,
+        images?.clone(turn.element, turn.key) ?? doc.importNode(turn.element, true)
+      );
+    signatures.set(turn.key, contentSignature);
   }
 }
 
@@ -147,7 +174,11 @@ function createPreparedDocument(
   return prepared;
 }
 
-async function collectGrokDocument(doc: Document, owner: ConversationOwner): Promise<Document> {
+async function collectGrokDocument(
+  doc: Document,
+  owner: ConversationOwner,
+  images?: AIChatImagePreparation
+): Promise<Document> {
   const { scope, scroller } = owner;
   if (scope?.querySelector('.grok-bot[data-state="working"]')) {
     failPreparation(doc, 0, 'grok_response_in_progress');
@@ -167,16 +198,18 @@ async function collectGrokDocument(doc: Document, owner: ConversationOwner): Pro
   const originalScrollTop = scroller.scrollTop;
   const deadline = performance.now() + MAX_DURATION_MS;
   const collected = new Map<string, HTMLElement>();
+  const signatures = new Map<string, string>();
   let position = 0;
 
   try {
     for (let windowIndex = 0; windowIndex < MAX_WINDOWS; windowIndex += 1) {
-      if (performance.now() >= deadline) break;
+      images?.assertCurrent();
+      if (performance.now() >= deadline + (images?.imageWaitMs ?? 0)) break;
       if (!isCurrentOwner(doc, owner)) {
         failPreparation(doc, collected.size, 'grok_conversation_changed');
       }
       setScrollTop(scroller, position);
-      const stable = await waitForWindow(scroller);
+      const stable = await waitForWindow(scroller, images);
       if (!isCurrentOwner(doc, owner)) {
         failPreparation(doc, collected.size, 'grok_conversation_changed');
       }
@@ -195,7 +228,10 @@ async function collectGrokDocument(doc: Document, owner: ConversationOwner): Pro
       }
       const turns = collectWindow(scroller, collected.size);
       if (turns.length === 0) failPreparation(doc, collected.size, 'grok_transcript_window_empty');
-      mergeWindow(doc, collected, turns);
+      mergeWindow(doc, collected, turns, signatures, images);
+      await images?.flush();
+      if (!isCurrentOwner(doc, owner))
+        failPreparation(doc, collected.size, 'grok_conversation_changed');
 
       const maxScrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
       if (scroller.scrollTop >= maxScrollTop - 1) {
@@ -222,7 +258,7 @@ async function collectGrokDocument(doc: Document, owner: ConversationOwner): Pro
   } finally {
     if (isCurrentOwner(doc, owner)) {
       setScrollTop(scroller, originalScrollTop);
-      await waitForWindow(scroller);
+      await waitForWindow(scroller, images);
       if (!isCurrentOwner(doc, owner)) {
         failPreparation(doc, collected.size, 'grok_conversation_changed');
       }
@@ -230,16 +266,19 @@ async function collectGrokDocument(doc: Document, owner: ConversationOwner): Pro
   }
 }
 
-export async function prepareGrokDocumentForExtraction(doc: Document): Promise<Document> {
+export async function prepareGrokDocumentForExtraction(
+  doc: Document,
+  images?: AIChatImagePreparation
+): Promise<Document> {
   const existing = inFlightPreparations.get(doc);
   if (existing) {
-    if (!isCurrentOwner(doc, existing.owner)) {
+    if (!isCurrentOwner(doc, existing.owner) || existing.images !== images) {
       failPreparation(doc, 0, 'grok_conversation_changed');
     }
     return existing.promise;
   }
   const owner = captureOwner(doc);
-  const preparation = collectGrokDocument(doc, owner)
+  const preparation = collectGrokDocument(doc, owner, images)
     .then((prepared) => {
       if (!isCurrentOwner(doc, owner)) failPreparation(doc, 0, 'grok_conversation_changed');
       return prepared;
@@ -247,6 +286,6 @@ export async function prepareGrokDocumentForExtraction(doc: Document): Promise<D
     .finally(() => {
       inFlightPreparations.delete(doc);
     });
-  inFlightPreparations.set(doc, { owner, promise: preparation });
+  inFlightPreparations.set(doc, { owner, images, promise: preparation });
   return preparation;
 }

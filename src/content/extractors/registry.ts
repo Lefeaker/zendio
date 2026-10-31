@@ -5,6 +5,7 @@ import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepos
 import { resolveRepository } from '../../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../../shared/di/tokens';
 import { isAIChat } from '../detect';
+import type { MessagingService } from '../../platform/interfaces/messaging';
 
 type ExtractorSource =
   | ContentExtractor
@@ -119,6 +120,7 @@ export function createExtractorRegistry(): ExtractorRegistryApi {
 
 export interface DefaultExtractorRegistryDependencies {
   optionsRepository?: IOptionsRepository;
+  messaging?: Pick<MessagingService, 'send'>;
 }
 
 export function createDefaultExtractorRegistry(
@@ -137,7 +139,8 @@ export function createDefaultExtractorRegistry(
     async load() {
       const { createAIChatExtractor } = await import('./aiChatExtractor');
       return createAIChatExtractor({
-        optionsRepository
+        optionsRepository,
+        ...(dependencies.messaging ? { messaging: dependencies.messaging } : {})
       });
     }
   });

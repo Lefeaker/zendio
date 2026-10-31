@@ -202,6 +202,39 @@ describe('runtime message listener', () => {
     };
   }
 
+  it('routes image requests with the trusted sender and rejects extra privilege fields', async () => {
+    const fetchAIChatImage = vi.fn(() =>
+      Promise.resolve({
+        id: 'image',
+        fileName: 'image.png',
+        mimeType: 'image/png',
+        content: { encoding: 'base64' as const, data: 'YQ==', byteLength: 1 }
+      })
+    );
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener({ ...createDependencies(), fetchAIChatImage });
+    const request = {
+      type: 'FETCH_AI_CHAT_IMAGE',
+      url: 'https://chatgpt.com/image.png',
+      sourceUrl: 'https://chatgpt.com/c/test',
+      platform: 'chatgpt'
+    };
+    const sender = {
+      id: 'extension-id',
+      tabId: 3,
+      frameId: 0,
+      documentId: 'document-id',
+      url: request.sourceUrl
+    };
+    await expect(listener?.(request, sender)).resolves.toMatchObject({ id: 'image' });
+    expect(fetchAIChatImage).toHaveBeenCalledWith(request, sender);
+    await expect(
+      listener?.({ ...request, headers: { Authorization: 'untrusted' } }, sender)
+    ).rejects.toThrow('AI_CHAT_IMAGE_REQUEST_INVALID');
+    expect(fetchAIChatImage).toHaveBeenCalledTimes(1);
+  });
+
   it.each([undefined, 'document-4-2'])(
     'derives strict draft ownership from sender document %s',
     async (documentId) => {

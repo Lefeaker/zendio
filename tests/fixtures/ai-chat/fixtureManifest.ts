@@ -8,7 +8,7 @@ export type AIChatFixtureCaptureKind =
 export type AIChatFixturePrivacyStatus = 'sanitized' | 'legacy-sanitized';
 export type AIChatFixtureStatus = 'active' | 'pending';
 export type AIChatFixtureRole = 'user' | 'assistant' | 'system';
-export type AIChatFixtureValidationExpectation = 'pass' | 'role-incomplete';
+export type AIChatFixtureValidationExpectation = 'pass' | 'role-incomplete' | 'parse-empty';
 
 export type AIChatFixtureMetadata = {
   file: string;
@@ -338,6 +338,20 @@ export const AI_CHAT_FIXTURE_MANIFEST: readonly AIChatFixtureMetadata[] = [
     status: 'active'
   },
   {
+    file: 'current-dom/claude-upload-failed-current-2026-10-31.html',
+    platform: 'claude',
+    sourceCaptureDate: '2026-10-31',
+    captureKind: 'current-dom-sanitized',
+    expectedTitle: 'Zendio image compatibility test',
+    expectedMessageCount: 0,
+    expectedRoles: [],
+    expectedValidation: 'parse-empty',
+    sentinels: [],
+    privacyStatus: 'sanitized',
+    ownerMilestone: 'ai-chat-images-claude-failure-2026-10-31',
+    status: 'active'
+  },
+  {
     file: 'current-dom/copilot-current-synthetic.html',
     platform: 'copilot',
     sourceCaptureDate: '2026-06-24',
@@ -619,6 +633,20 @@ export const AI_CHAT_FIXTURE_MANIFEST: readonly AIChatFixtureMetadata[] = [
     absentSentinels: ['SUGGESTED_FOLLOWUP'],
     privacyStatus: 'sanitized',
     ownerMilestone: 'issue-90-signed-in',
+    status: 'active'
+  },
+  {
+    file: 'current-dom/grok-generated-image-current-2026-10-31.html',
+    platform: 'grok',
+    sourceCaptureDate: '2026-10-31',
+    captureKind: 'current-dom-sanitized',
+    expectedTitle: 'Grok image-only response',
+    expectedMessageCount: 2,
+    expectedRoles: ['user', 'assistant'],
+    sentinels: ['GROK_SYNTHETIC_IMAGE_PROMPT', '![生成的图像](/sanitized/grok-generated-image.jpg)'],
+    absentSentinels: ['THINKING_CONTROL', 'DOWNLOAD_CONTROL'],
+    privacyStatus: 'sanitized',
+    ownerMilestone: 'ai-chat-images-dom-evidence',
     status: 'active'
   },
   {

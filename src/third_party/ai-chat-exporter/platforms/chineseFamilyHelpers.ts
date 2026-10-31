@@ -1,5 +1,10 @@
-import { collectOrderedElements, normalizeText } from '../shared/dom';
+import { collectOrderedElements } from '../shared/dom';
 import type { ParsedMessage } from '../types';
+import {
+  hasMessageContent,
+  queryMessageElements,
+  removePreservingMessageImages
+} from '../shared/messageImages';
 
 export type ChineseFamilyMessageRole = Extract<ParsedMessage['role'], 'user' | 'assistant'>;
 
@@ -20,7 +25,7 @@ export function collectChineseFamilyMessageContainers(
 
   for (const candidate of collectOrderedElements(root, selectors)) {
     if (options.shouldSkip?.(candidate)) continue;
-    if (!normalizeText(candidate.textContent ?? '')) continue;
+    if (!hasMessageContent(candidate)) continue;
     if (containers.some((container) => container.contains(candidate))) continue;
     if (containers.some((container) => candidate.contains(container))) continue;
     containers.push(candidate);
@@ -43,9 +48,9 @@ export function collectPreferredChineseFamilyMessageContainers(
   const containers: ContainerRecord[] = [];
   const getPriority = options.getPriority ?? (() => 0);
 
-  for (const candidate of Array.from(root.querySelectorAll<HTMLElement>(selector))) {
+  for (const candidate of queryMessageElements(root, selector)) {
     if (options.shouldSkip?.(candidate)) continue;
-    if (!normalizeText(candidate.textContent ?? '')) continue;
+    if (!hasMessageContent(candidate)) continue;
 
     const priority = getPriority(candidate);
     const containingIndex = containers.findIndex((record) => record.element.contains(candidate));
@@ -88,8 +93,8 @@ export function pickFirstNonEmptyChineseFamilyElement(
   selectors: readonly string[]
 ): HTMLElement | null {
   for (const selector of selectors) {
-    for (const element of Array.from(root.querySelectorAll<HTMLElement>(selector))) {
-      if (normalizeText(element.textContent ?? '')) {
+    for (const element of queryMessageElements(root, selector)) {
+      if (hasMessageContent(element)) {
         return element;
       }
     }
@@ -134,6 +139,6 @@ export function removeChineseFamilyChrome(
   selectors: readonly string[]
 ): void {
   for (const selector of selectors) {
-    fragment.querySelectorAll(selector).forEach((element) => element.remove());
+    fragment.querySelectorAll(selector).forEach(removePreservingMessageImages);
   }
 }

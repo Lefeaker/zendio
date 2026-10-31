@@ -1,5 +1,11 @@
 import { getErrorHandler, extractionErrors, type AppError } from '../../shared/errors';
-import type { MessagePayload, MessagingService } from '../../platform/interfaces/messaging';
+import type { MessagingService } from '../../platform/interfaces/messaging';
+import {
+  awaitClipSaveResult,
+  createClipSaveFailure,
+  type ClipSaveResult
+} from '../../shared/types/clipResult';
+import { isClipResultWithinTransportBudget } from '../../shared/attachments/clipPayloadBudget';
 import type { ClipFlowResult } from './clipFlowTypes';
 
 export async function emitClipError(
@@ -28,7 +34,7 @@ export async function sendClipResult(
   messaging: Pick<MessagingService, 'send'>,
   result: ClipFlowResult,
   url: string
-): Promise<void> {
+): Promise<ClipSaveResult> {
   if (!result.markdown) {
     const noMarkdownContext: { url: string; type?: string } = { url };
     const resultType = result.type;
@@ -38,15 +44,11 @@ export async function sendClipResult(
     throw extractionErrors.noMarkdown(noMarkdownContext);
   }
 
-  try {
-    await messaging.send({ type: 'CLIP_RESULT', payload: result as MessagePayload });
-  } catch (sendError) {
-    const message = sendError instanceof Error ? sendError.message : String(sendError);
-    const dispatchContext: { url: string; type?: string } = { url };
-    const resultType = result.type;
-    if (resultType !== undefined) {
-      dispatchContext.type = resultType;
-    }
-    throw extractionErrors.dispatchFailure(message, dispatchContext);
+  const payload = { ...result, markdown: result.markdown };
+  if (!isClipResultWithinTransportBudget(payload)) {
+    return createClipSaveFailure('failed', 'validation', 'prepare');
   }
+
+  // A missing write acknowledgement cannot establish that nothing was saved.
+  return awaitClipSaveResult(() => messaging.send({ type: 'CLIP_RESULT', payload }));
 }

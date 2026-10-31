@@ -2,6 +2,9 @@ import * as profileEngine from '../shared/profileEngine';
 import type { ParserProfile } from '../shared/profileTypes';
 import type { ChatPlatformParser, ParseConfig } from '../types';
 
+import { collectMessageImages, queryMessageElements } from '../shared/messageImages';
+
+const MONICA_IMAGE_EXCLUSIONS = '[class*="toolbar"], [class*="reply-header"]';
 const MONICA_MESSAGE_SELECTOR = '[class*="chat-message--"]';
 const USER_CLASS_HINT = 'chat-question';
 const ASSISTANT_CLASS_HINT = 'chat-reply';
@@ -100,11 +103,18 @@ const monicaProfile: ParserProfile = {
       'code',
       'p'
     ]) ?? container,
+  imageExclusions: MONICA_IMAGE_EXCLUSIONS,
   cleanup: profileEngine.removeElements('[class*="toolbar"], [class*="reply-header"], button, svg')
 };
 
 export const monicaParser: ChatPlatformParser = {
   id: 'monica',
+  collectImages: (root) =>
+    collectMessageImages(
+      'monica',
+      queryMessageElements(root, MONICA_MESSAGE_SELECTOR),
+      MONICA_IMAGE_EXCLUSIONS
+    ),
   parse: (doc, config: ParseConfig | undefined) =>
     profileEngine.parseWithProfile(doc, monicaProfile, config)
 };

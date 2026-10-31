@@ -39,7 +39,8 @@ src/third_party/ai-chat-exporter/
 1. Duplicate an existing platform module as a starting point (e.g. `chatgpt.ts`).
 2. Update selectors and model metadata extraction inside the new file. Make sure to:
    - Emit `ParsedResult` with sanitized Markdown via `chatHtmlToMarkdown`.
-   - Record platform-specific assets (images, attachments) if available.
+   - Implement `collectImages(root, config)` using the same message/content ownership as `parse`, including image-only messages and message galleries.
+   - Pass the per-parse `config.imageResolver` through shared Markdown conversion. Do not fetch images in a parser or install a global resolver.
 3. Export the parser as `const <platform>Parser: ChatPlatformParser`.
 4. Register the parser in `registry.ts` by importing it and adding it to `registeredParsers`.
 5. Register the runtime parser in `runtimePlatformParsers.ts`; keep it behind the existing `runtimeRegistry.ts` lazy boundary.
@@ -84,8 +85,9 @@ content attributes; one `[data-turn-key]` contains both roles. Preserve explicit
 legacy role attributes/headings, but do not infer roles from position or arbitrary
 article text. Keep multiple content blocks and repeated message text in order.
 
-Grok support targets text conversations on `grok.com`, including its public share
-transcripts. It does not claim X-embedded Grok, Imagine, Canvas or attachment export.
+Grok support targets conversations on `grok.com`, including its public share
+transcripts and images inside conversation messages. It does not claim X-embedded
+Grok, the separate Imagine workspace, or arbitrary non-image attachments.
 Virtual transcripts require the Grok document preparer: collect overlapping windows
 by stable `response:` (public share) or `gateway:` (signed-in) row ID, require
 `transcript:top-inset` and the observed `bottom-spacing` or `submit-spacer` end
@@ -204,3 +206,90 @@ Existing `pre` blocks do not acquire nested fences. The history signature reuses
 this component recognition, ignores only its action header and ordinary excluded
 UI, and keeps language metadata separately so meaningful code/language changes
 still reject. It does not run full Markdown conversion during scroll sampling.
+
+## Message image files
+
+The production extractor saves message images for all eleven registered platforms
+through `meta.attachments`. The historical top-level `assets` field is not the
+attachment transport. Uploaded and generated images share this path. Avatars,
+source-card thumbnails and interface icons are excluded by message ownership.
+
+`aiChatPreparedExtraction` owns an ephemeral bundle containing a frozen document,
+image occurrences and binary attachments. Virtual ChatGPT, Grok and DeepSeek
+windows capture their live resource descriptors and clones together, then obtain
+bytes before scrolling can remove the window. Identical concurrent preparation
+requests share the complete bundle; parsing and final validation remain local to
+each caller. Source navigation, changed image content, a missing image source or
+incomplete collection rejects the export before any files are written. Changing
+non-content button labels does not change message content.
+
+Each image occurrence has a separate temporary reference. After building the final
+Markdown, the existing attachment lexer must find every expected occurrence once.
+Only then are these references mapped to content-hash attachment IDs. Identical
+bytes share a file named `ai-image-<sha256>.<extension>` while every original
+message position remains present. Literal Markdown inside code stays literal.
+
+The resource loader preserves fetched PNG, JPEG, GIF, WebP, AVIF and validated SVG
+bytes; it does not reencode a screenshot or a canvas. SVG support is a static
+subset: basic shapes/text, gradients, local references, common inline styles and
+static filters. Scripts, external resources, stylesheets, animations and
+unsupported XML/CSS constructs fail explicitly; this is not a full SVG sanitizer. A selected `currentSrc`
+resource is not a guarantee of the platform's original upload resolution. Explicit
+resource URLs may be used only when exposed by the page; never invent CDN paths
+or alter signed parameters. The same-origin content request uses browser-managed
+same-origin credentials; cross-origin requests omit credentials. The observed
+Grok asset path is a narrow exception: a source at `https://grok.com` requesting
+`https://assets.grok.com` uses browser-managed credentials and `cache: no-store`
+on its first content request. Other sources and similar-looking hosts do not
+inherit this policy, and explicit HTTP failures still do not trigger retries. A constrained
+anonymous background request is available only for a verified current source
+document and an allowed observed host after a network rejection. It is not a
+general fetch proxy. The observed Kimi signed image route on `https://www.kimi.com`
+(`/apiv2-files/sign-obj/` with unique `filename`, `sig` and `t=t` fields) is a
+narrow exception: a manual opaque redirect or network rejection may use the
+verified background owner. That owner anonymously follows the official signed
+route and requires the final origin `https://prod-chat-kimi.tos-cn-beijing.volces.com`
+before reading the bounded body. Fetch cannot inspect intermediate hops in
+advance; this is trust in that specific official route, not unrestricted redirect
+validation. Every other background request retains manual redirect rejection.
+Explicit HTTP errors, bad content and size failures are not retried in another
+context. No cookie, debugger or webRequest permission is added.
+
+Limits are 50 distinct images, 15 MiB decoded bytes per image (20 MiB base64),
+48 MiB aggregate encoded image content, 48 MiB of retained unique source URL
+characters, 48 MiB of occurrence descriptor characters (including repeated URLs,
+alt text and picture sources), and 1,000 image occurrences. The occurrence bound
+is checked before cloning and before signature serialization. The complete
+CLIP_RESULT JSON is limited to 60 MiB of UTF-8, leaving room below Chromium's
+64 MiB transport ceiling described in the [Chrome messaging documentation](https://developer.chrome.com/docs/extensions/develop/concepts/messaging). Image acquisition uses two concurrent workers, a
+30-second resource deadline and an absolute 120-second preparation deadline.
+Existing DOM scan/window limits remain; only time spent waiting for image bytes
+is accounted separately from the DOM scan budget. Text-only exports make no
+image requests. Explicit lazy/original resource fields take precedence over
+placeholder images. A native lazy image without a selected currentSrc or an
+explicit resource must finish loading before export; this version does not guess
+srcset selection or automatically wait for such images. Missing, expired or
+inaccessible required images fail explicitly;
+there is no silent remote-link fallback or partial-image success.
+
+The existing attachment planner and writers own REST, native Downloads and local
+vault outputs. Files are confirmed before the note; actual download filenames
+(including native uniquify) determine the links. Downstream partial/unknown write
+results keep their existing meaning. Retrying after interruption is a new export;
+this feature adds no persistent replay journal or duplicate-free Downloads retry.
+
+Regression evidence must distinguish adapter fixtures, current sanitized DOM,
+installed-extension file writes and live service access. `imageAdapters.test.ts`
+covers all eleven adapters; `aiChatImageAttachments.browser.test.ts` starts at the
+production extractor and checks actual bytes and links at all three sinks. A
+passing parser fixture does not demonstrate access to a signed image CDN. The
+2026-10-31 Grok generated-image fixture is actual sanitized DOM. Live production
+module extraction has separately preserved its original JPEG bytes and local
+attachment reference. Installed-extension destination writes require their own
+verification; fixture parsing, page resource access and final writes are distinct
+observations. The observed Kimi route supplies a 240×358 preview of the uploaded
+image; preserve its returned bytes without claiming the original upload resolution.
+Gemini blob URLs can be readable in the real extension isolated world even when
+page-MAIN fetch fails. Verify the actual execution world before adding a pixel
+conversion fallback. The exporter currently preserves the available original
+resource bytes and does not use a canvas fallback. Preserve that distinction when assessing future platform drift.

@@ -279,6 +279,7 @@
   "errorExtractionNoMarkdown": "Content parsing failed. Refresh the page or try again later.",
   "errorExtractionAiChatParseEmpty": "AI chat parsing found no messages. Refresh the conversation and try again.",
   "errorExtractionAiChatParseRoleIncomplete": "AI chat parsing found messages, but their roles look incomplete. Refresh the conversation and try again.",
+  "errorExtractionAiChatImagesIncomplete": "Non è stato possibile salvare alcune immagini della conversazione. Verifica che siano caricate e scaricabili, poi riprova. Non è stata salvata alcuna nota.",
   "errorExtractionAiChatPreparationIncomplete": "Non è stato possibile leggere tutta la conversazione, che potrebbe essere ancora in caricamento. Attendi la fine della risposta e riprova.",
   "errorExtractionUnsupportedContent": "This page is not supported for clipping yet.",
   "errorExtractionDispatchFailure": "Sending the result failed. It will retry automatically; contact us if the problem continues.",

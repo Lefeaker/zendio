@@ -84,7 +84,10 @@ export function initClipFlow(options: InitClipFlowOptions): ClipFlowHandlers {
       analytics?.emitExtractionCompleted(result);
 
       const { sendClipResult } = await import('./clipFlowDispatch');
-      await sendClipResult(messaging, result, url);
+      const saveResult = await sendClipResult(messaging, result, url);
+      if (!saveResult.success) {
+        showSupportProgress?.({ value: 100, variant: 'failure', message: saveResult.message });
+      }
     } catch (error) {
       const appError = normalizeToAppError(error, {
         code: 'CONTENT_CLIP_FAILURE',

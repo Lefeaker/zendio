@@ -1,11 +1,11 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
-import { extractChatGPTMessages } from './chatgptMessages';
-import type { ChatPlatformParser, ParsedResult } from '../types';
+import { extractChatGPTMessages, collectChatGPTImages } from './chatgptMessages';
+import type { ChatPlatformParser, ParsedResult, ParseConfig } from '../types';
 
 const CHATGPT_TITLE_REPLACE_TEXT = ' - ChatGPT';
 
-function extractChatGPTChatData(doc: Document): ParsedResult {
-  const extraction = extractChatGPTMessages(doc);
+function extractChatGPTChatData(doc: Document, config?: ParseConfig): ParsedResult {
+  const extraction = extractChatGPTMessages(doc, config);
   if (extraction.messages.length === 0) {
     return { title: DEFAULT_CHAT_TITLE, ...extraction, assets: [] };
   }
@@ -76,5 +76,6 @@ function extractChatGPTChatData(doc: Document): ParsedResult {
 
 export const chatgptParser: ChatPlatformParser = {
   id: 'chatgpt',
-  parse: (doc) => extractChatGPTChatData(doc)
+  collectImages: collectChatGPTImages,
+  parse: (doc, config) => extractChatGPTChatData(doc, config)
 };

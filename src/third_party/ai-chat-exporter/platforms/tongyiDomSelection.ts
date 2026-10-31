@@ -72,7 +72,7 @@ function getTongyiContainerPriority(element: HTMLElement): number {
   return 3;
 }
 
-export function collectTongyiMessageContainers(doc: Document): HTMLElement[] {
+export function collectTongyiMessageContainers(doc: ParentNode): HTMLElement[] {
   return collectPreferredChineseFamilyMessageContainers(doc, TONGYI_MESSAGE_CONTAINER_SELECTORS, {
     getPriority: getTongyiContainerPriority
   });

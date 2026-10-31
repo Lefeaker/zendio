@@ -125,3 +125,18 @@ export function hasUnresolvedClipAttachmentReferences(
   }
   return false;
 }
+
+/** Count real destinations, excluding code and escaped Markdown examples. */
+export function countClipAttachmentReferences(
+  markdown: string,
+  ids: readonly string[]
+): Map<string | undefined, number> {
+  const counts = new Map<string | undefined, number>();
+  for (const { id } of attachmentDestinations(
+    markdown,
+    [...ids].sort((a, b) => b.length - a.length)
+  )) {
+    counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+  return counts;
+}

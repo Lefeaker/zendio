@@ -1,6 +1,12 @@
 import { chatElementToMarkdown } from '../shared/markdown';
 import { normalizeChatGPTCodeBlocks } from '../shared/chatgptCodeBlocks';
-import type { ParsedMessage, ParsedResult } from '../types';
+import type { ParsedMessage, ParsedResult, ParseConfig } from '../types';
+import {
+  cloneMessageWithImages,
+  collectMessageImages,
+  queryMessageElements,
+  removePreservingMessageImages
+} from '../shared/messageImages';
 
 const ROLE_HEADING = 'h4[data-conversation-role]';
 const LEGACY_ROLE = '[data-message-author-role]';
@@ -13,6 +19,7 @@ const CONTENT_SELECTORS = [
   '.whitespace-pre-wrap',
   '[class*="whitespace-pre-wrap"]'
 ] as const;
+const IMAGE_EXCLUSIONS = `${ROLE_HEADING}, [data-testid*="toolbar" i], [class*="toolbar" i]`;
 const CHROME = '[data-testid*="toolbar" i], [class*="toolbar" i], button, [role="button"]';
 // These labels belong to the source website, not extension UI.
 const USER_LABELS = ['You said', 'You', '您说', '您', '你说', '你'] as const;
@@ -61,7 +68,6 @@ function topLevelMatches(root: HTMLElement, selector: string): HTMLElement[] {
 }
 
 function cloneMessageContent(root: MessageRoot): HTMLElement {
-  const container = root.element.ownerDocument.createElement('div');
   const semanticSelector =
     root.role === 'user'
       ? '[data-user-message-bubble]'
@@ -71,40 +77,29 @@ function cloneMessageContent(root: MessageRoot): HTMLElement {
     if (content.length > 0) break;
     content = topLevelMatches(root.element, selector);
   }
-  for (const element of content.length > 0 ? content : [root.element]) {
-    container.append(element.cloneNode(true));
-  }
+  const container = cloneMessageWithImages(
+    root.element,
+    content.length > 0 ? content : [root.element],
+    IMAGE_EXCLUSIONS
+  );
   normalizeChatGPTCodeBlocks(container);
-  container.querySelectorAll(`${CHROME}, ${ROLE_HEADING}`).forEach((node) => node.remove());
+  container.querySelectorAll(`${CHROME}, ${ROLE_HEADING}`).forEach(removePreservingMessageImages);
   container.querySelectorAll('h5').forEach((heading) => {
     if (roleFromLabel(heading.textContent ?? '')) heading.remove();
   });
   return container;
 }
 
-export function extractChatGPTMessages(doc: Document): MessageExtraction {
-  // The source turn remains in_progress after partial assistant text is mounted.
-  // A complete role pair therefore does not yet make a complete export.
-  if (
-    Array.from(
-      doc.querySelectorAll(
-        '[data-talvt-turn-state="in_progress"], [data-thread-user-message-navigation-content] [role="status"][aria-busy="true"]'
-      )
-    ).some((turn) => !turn.closest(HIDDEN))
-  ) {
-    return failure('chatgpt_generation_in_progress');
-  }
+function resolveMessageRoots(doc: ParentNode): MessageRoot[] | string {
   const roots: MessageRoot[] = [];
-  for (const candidate of Array.from(
-    doc.querySelectorAll<HTMLElement>(`article, ${LEGACY_ROLE}, ${ROLE_HEADING}`)
-  )) {
+  for (const candidate of queryMessageElements(doc, `article, ${LEGACY_ROLE}, ${ROLE_HEADING}`)) {
     if (candidate.closest(HIDDEN)) continue;
     const modern = candidate.matches(ROLE_HEADING);
     const explicitRole = candidate.getAttribute(
       modern ? 'data-conversation-role' : 'data-message-author-role'
     );
     if (explicitRole !== null && explicitRole !== 'user' && explicitRole !== 'assistant') {
-      return failure('chatgpt_role_unrecognized');
+      return 'chatgpt_role_unrecognized';
     }
     const element = modern ? candidate.parentElement : candidate;
     if (!element || roots.some((root) => root.element.contains(element))) continue;
@@ -113,7 +108,7 @@ export function extractChatGPTMessages(doc: Document): MessageExtraction {
     if (!modern && !candidate.matches(LEGACY_ROLE) && candidate.querySelector(LEGACY_ROLE))
       continue;
     if (modern && element.querySelectorAll(ROLE_HEADING).length !== 1) {
-      return failure('chatgpt_message_boundary_ambiguous');
+      return 'chatgpt_message_boundary_ambiguous';
     }
     if (
       explicitRole &&
@@ -124,7 +119,7 @@ export function extractChatGPTMessages(doc: Document): MessageExtraction {
           nested.getAttribute('data-message-author-role') !== explicitRole
       )
     ) {
-      return failure('chatgpt_message_boundary_ambiguous');
+      return 'chatgpt_message_boundary_ambiguous';
     }
     const role = explicitRole ?? legacyRole(element);
     if (!role) continue;
@@ -142,9 +137,38 @@ export function extractChatGPTMessages(doc: Document): MessageExtraction {
     )
   )) {
     if (!content.closest(HIDDEN) && !roots.some((root) => root.element.contains(content))) {
-      return failure('chatgpt_role_missing');
+      return 'chatgpt_role_missing';
     }
   }
+
+  return roots;
+}
+
+export function collectChatGPTImages(root: ParentNode) {
+  const roots = resolveMessageRoots(root);
+  return typeof roots === 'string'
+    ? []
+    : collectMessageImages(
+        'chatgpt',
+        roots.map((message) => message.element),
+        IMAGE_EXCLUSIONS
+      );
+}
+
+export function extractChatGPTMessages(doc: Document, config?: ParseConfig): MessageExtraction {
+  // The source turn remains in_progress after partial assistant text is mounted.
+  // A complete role pair therefore does not yet make a complete export.
+  if (
+    Array.from(
+      doc.querySelectorAll(
+        '[data-talvt-turn-state="in_progress"], [data-thread-user-message-navigation-content] [role="status"][aria-busy="true"]'
+      )
+    ).some((turn) => !turn.closest(HIDDEN))
+  ) {
+    return failure('chatgpt_generation_in_progress');
+  }
+  const roots = resolveMessageRoots(doc);
+  if (typeof roots === 'string') return failure(roots);
 
   if (roots[roots.length - 1]?.role === 'user') {
     return failure('chatgpt_message_content_incomplete');
@@ -153,7 +177,7 @@ export function extractChatGPTMessages(doc: Document): MessageExtraction {
   const messages: ParsedMessage[] = [];
   for (const root of roots) {
     const fragment = cloneMessageContent(root);
-    const rendered = chatElementToMarkdown(fragment);
+    const rendered = chatElementToMarkdown(fragment, config?.imageResolver);
     const markdown = (root.stripPrefix ? rendered.replace(ROLE_PREFIX, '') : rendered).trim();
     if (!markdown) {
       if (root.modern) return failure('chatgpt_message_content_incomplete');

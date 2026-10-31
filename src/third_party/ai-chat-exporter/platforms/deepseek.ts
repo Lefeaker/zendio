@@ -1,5 +1,9 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
-import { cloneHTMLElement } from '../shared/dom';
+import {
+  cloneMessageWithImages,
+  collectMessageImages,
+  messageImageElements
+} from '../shared/messageImages';
 import { chatElementToMarkdown } from '../shared/markdown';
 import type {
   ChatPlatformParser,
@@ -55,7 +59,7 @@ function normalizeText(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
-function collectDeepSeekMessageContainers(doc: Document): HTMLElement[] {
+function collectDeepSeekMessageContainers(doc: ParentNode): HTMLElement[] {
   return collectChineseFamilyMessageContainers(doc, DEEPSEEK_MESSAGE_CONTAINER_SELECTORS, {
     shouldSkip: (element) =>
       Boolean(element.closest('[class*="toolbar"], [class*="action"], nav, aside'))
@@ -185,14 +189,20 @@ function extractDeepSeekChatData(doc: Document, config?: ParseConfig): ParsedRes
     const role = resolveDeepSeekRole(container, index);
     const contentElem = pickDeepSeekContentElement(container);
 
-    const fragment = cloneHTMLElement(contentElem);
-    if (!fragment) continue;
+    const fragment = cloneMessageWithImages(
+      container,
+      [contentElem],
+      '.ds-markdown-cite, [class*="cite"], [class*="toolbar"], [class*="action"]'
+    );
 
     cleanupDeepSeekContent(fragment);
-    const markdown = chatElementToMarkdown(fragment);
+    const markdown = chatElementToMarkdown(fragment, config?.imageResolver);
     const normalizedMarkdown = normalizeText(markdown);
 
-    if (normalizedMarkdown && !seenMarkdown.has(normalizedMarkdown)) {
+    if (
+      normalizedMarkdown &&
+      (messageImageElements(fragment).length > 0 || !seenMarkdown.has(normalizedMarkdown))
+    ) {
       seenMarkdown.add(normalizedMarkdown);
       const html = fragment.innerHTML;
       messages.push({
@@ -220,5 +230,11 @@ function extractDeepSeekChatData(doc: Document, config?: ParseConfig): ParsedRes
 
 export const deepseekParser: ChatPlatformParser = {
   id: 'deepseek',
+  collectImages: (root) =>
+    collectMessageImages(
+      'deepseek',
+      collectDeepSeekMessageContainers(root),
+      '.ds-markdown-cite, [class*="cite"], [class*="toolbar"], [class*="action"]'
+    ),
   parse: (doc, config) => extractDeepSeekChatData(doc, config)
 };

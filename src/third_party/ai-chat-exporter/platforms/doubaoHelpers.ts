@@ -3,6 +3,7 @@ import {
   resolveChineseFamilyRoleFromAttributes
 } from './chineseFamilyHelpers';
 import type { ChineseFamilyMessageRole } from './chineseFamilyHelpers';
+import { hasMessageContent } from '../shared/messageImages';
 
 export function resolveDoubaoMessageRole(
   container: HTMLElement,
@@ -101,7 +102,7 @@ export function pickDoubaoContentElement(container: HTMLElement): HTMLElement | 
       (element) =>
         !element.closest('[data-thinking-box]') &&
         !element.querySelector('[data-thinking-box]') &&
-        Boolean(element.textContent?.trim())
+        hasMessageContent(element)
     )
     .sort((left, right) => (right.textContent?.length ?? 0) - (left.textContent?.length ?? 0));
 

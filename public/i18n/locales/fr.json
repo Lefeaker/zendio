@@ -240,6 +240,7 @@
     "errorContentMessagingFailed": "Communication failed. Please try the action again.",
     "errorContentShortcutUsageTrackingFailed": "Shortcut analytics failed, but the feature remains available.",
     "errorContentStorageOperationFailed": "Saving data failed. The extension will continue with default settings.",
+    "errorExtractionAiChatImagesIncomplete": "Certaines images de la conversation n’ont pas pu être enregistrées. Vérifiez qu’elles sont chargées et téléchargeables, puis réessayez. Aucune note n’a été enregistrée.",
     "errorExtractionAiChatParseEmpty": "AI chat parsing found no messages. Refresh the conversation and try again.",
     "errorExtractionAiChatParseRoleIncomplete": "AI chat parsing found messages, but their roles look incomplete. Refresh the conversation and try again.",
     "errorExtractionAiChatPreparationIncomplete": "La conversation n’a pas pu être lue entièrement et se charge peut-être encore. Attendez la fin de la réponse, puis réessayez.",

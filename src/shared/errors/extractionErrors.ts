@@ -123,6 +123,18 @@ export const extractionErrors = {
     };
   },
 
+  aiChatImagesIncomplete(context: AIChatPreparationIncompleteContext): AppError {
+    return {
+      code: STANDARDIZED_ERROR_CODES.EXTRACTION_AI_CHAT_IMAGES_INCOMPLETE,
+      domain: 'extraction',
+      message: STANDARDIZED_ERROR_CODES.EXTRACTION_AI_CHAT_IMAGES_INCOMPLETE,
+      severity: ErrorSeverity.ERROR,
+      recoverable: true,
+      userMessageDescriptor: { key: 'errorExtractionAiChatImagesIncomplete' },
+      context: { ...context, timestamp: Date.now() }
+    };
+  },
+
   unsupportedContent(context: ExtractionContext = {}): AppError {
     return {
       code: STANDARDIZED_ERROR_CODES.EXTRACTION_CONTENT_UNSUPPORTED,

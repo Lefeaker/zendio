@@ -1,6 +1,14 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
 import { chatElementToMarkdown } from '../shared/markdown';
+import { pickFirstElement } from '../shared/dom';
 import type { ChatPlatformParser, ParseConfig, ParsedMessage, ParsedResult } from '../types';
+
+import {
+  cloneMessageWithImages,
+  collectMessageImages,
+  queryMessageElements,
+  removePreservingMessageImages
+} from '../shared/messageImages';
 
 const KIMI_MESSAGE_CONTAINER_SELECTOR =
   '[class*="message"], [class*="Message"], [class*="chat-content-item"]';
@@ -50,20 +58,12 @@ const KIMI_INLINE_ACTION_TEXT_RE = /分享|复制/gi;
 const KIMI_BLOCK_HEADER_SELECTOR =
   '[class*="segment-block-header"], header[class*="table"], [class*="table-actions"]';
 
-function queryFirst(element: HTMLElement, selectors: string[]): HTMLElement | null {
-  for (const selector of selectors) {
-    const match = element.querySelector(selector);
-    if (match) return match as HTMLElement;
-  }
-  return null;
-}
-
 function sanitizeKimiContent(element: HTMLElement): HTMLElement {
   const ownerDocument = element.ownerDocument || document;
   const clone = element.cloneNode(true) as HTMLElement;
 
   for (const selector of KIMI_REMOVABLE_SECTION_SELECTORS) {
-    Array.from(clone.querySelectorAll(selector)).forEach((node) => node.remove());
+    Array.from(clone.querySelectorAll(selector)).forEach(removePreservingMessageImages);
   }
 
   Array.from(clone.querySelectorAll('span, button, a, div')).forEach((node) => {
@@ -161,7 +161,7 @@ function extractHeaderLabel(header: Element): string | undefined {
 }
 
 function extractKimiChatData(doc: Document, config?: ParseConfig): ParsedResult {
-  const messageContainers = Array.from(doc.querySelectorAll(KIMI_MESSAGE_CONTAINER_SELECTOR));
+  const messageContainers = queryMessageElements(doc, KIMI_MESSAGE_CONTAINER_SELECTOR);
   if (messageContainers.length === 0) {
     return { title: DEFAULT_CHAT_TITLE, messages: [], assets: [] };
   }
@@ -210,25 +210,20 @@ function extractKimiChatData(doc: Document, config?: ParseConfig): ParsedResult 
   const messages: ParsedMessage[] = [];
   let chatIndex = 1;
 
-  for (const container of messageContainers) {
-    const element = container as HTMLElement;
-    let role: 'user' | 'assistant' = 'assistant';
-    let contentElem: HTMLElement | null = null;
+  for (const element of messageContainers) {
+    const role = element.matches(KIMI_USER_MESSAGE_SELECTOR) ? 'user' : 'assistant';
+    const selectors =
+      role === 'user'
+        ? KIMI_USER_CONTENT_SELECTORS
+        : element.matches(KIMI_ASSISTANT_MESSAGE_SELECTOR)
+          ? KIMI_ASSISTANT_CONTENT_SELECTORS
+          : [];
+    const contentElem = pickFirstElement(element, selectors) ?? element;
 
-    if (element.matches(KIMI_USER_MESSAGE_SELECTOR)) {
-      role = 'user';
-      contentElem = queryFirst(element, KIMI_USER_CONTENT_SELECTORS);
-    } else if (element.matches(KIMI_ASSISTANT_MESSAGE_SELECTOR)) {
-      role = 'assistant';
-      contentElem = queryFirst(element, KIMI_ASSISTANT_CONTENT_SELECTORS);
-    }
-
-    if (!contentElem) {
-      contentElem = element;
-    }
-
-    const sanitizedContent = sanitizeKimiContent(contentElem);
-    const markdown = chatElementToMarkdown(sanitizedContent);
+    const sanitizedContent = sanitizeKimiContent(
+      cloneMessageWithImages(element, [contentElem], KIMI_REMOVABLE_SECTION_SELECTORS.join(','))
+    );
+    const markdown = chatElementToMarkdown(sanitizedContent, config?.imageResolver);
 
     if (markdown.trim()) {
       const html = sanitizedContent.innerHTML;
@@ -253,5 +248,11 @@ function extractKimiChatData(doc: Document, config?: ParseConfig): ParsedResult 
 
 export const kimiParser: ChatPlatformParser = {
   id: 'kimi',
+  collectImages: (root) =>
+    collectMessageImages(
+      'kimi',
+      queryMessageElements(root, KIMI_MESSAGE_CONTAINER_SELECTOR),
+      KIMI_REMOVABLE_SECTION_SELECTORS.join(',')
+    ),
   parse: (doc, config) => extractKimiChatData(doc, config)
 };

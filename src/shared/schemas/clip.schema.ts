@@ -8,6 +8,7 @@ import { hasUnresolvedClipAttachmentReferences } from '../attachments/clipAttach
 import { ClassificationResultSchema } from './classification.schema';
 import { AppErrorSchema } from './error.schema';
 import { ClipAttachmentProgressSchema } from '../types/clipResult';
+import { isClipResultWithinTransportBudget } from '../attachments/clipPayloadBudget';
 
 const MAX_META_STRING_LENGTH = 4096;
 const MAX_PREVIEW_LENGTH = 512;
@@ -133,6 +134,9 @@ export const ClipPayloadSchema = z
   })
   .strip()
   .superRefine((payload, context) => {
+    if (!isClipResultWithinTransportBudget(payload)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: 'CLIP_PAYLOAD_TOO_LARGE' });
+    }
     if (hasUnresolvedClipAttachmentReferences(payload.markdown, payload.meta?.attachments ?? [])) {
       context.addIssue({
         code: z.ZodIssueCode.custom,

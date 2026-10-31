@@ -151,3 +151,37 @@ and `transcript:bottom-spacing`. Both use stable IDs, explicit article roles and
 shape, an empty final assistant without a working indicator, unresolved message
 rows, structural follow-up text exclusion and restoration of the original scroll
 position. The virtual transcript tests exercise both row families across windows.
+
+## Message-image evidence
+
+`grok-generated-image-current-2026-10-31.html` is sanitized from a real generated
+image response: explicit assistant article, `response-content-markdown`, nested
+image tile and one HTTPS `img`, with a separate download control. Its response
+has no prose after removing that control. The prompt, image path and control
+labels are replaced with neutral values; the external source URL becomes a
+relative fixture path under the existing privacy policy. This is DOM/parser evidence only: the
+observed original image fetch and native download returned HTTP 403, so the
+fixture does not prove successful acquisition or attachment persistence.
+
+`../imageAdapterSynthetic.ts` supplies controlled 11-platform image ownership
+contracts. Those fixtures exercise image-only messages, outside-body galleries,
+button wrappers and excluded UI; they are not captures of each platform's
+current generated/uploaded image DOM. Remaining platforms still need that live
+evidence in addition to common byte-pipeline and installed-save acceptance.
+
+## Claude failed image upload capture
+
+`claude-upload-failed-current-2026-10-31.html` preserves the semantic
+`data-cds="UserMessage"` owner with `data-turn-key`, its sibling
+`MessageAttachments` / `file-thumbnail` image, and its nested `user-message`
+text body. It was captured from an owned neutral-image test in Chrome. The site
+reported both upload and send failure, with `data-state="failed"` on the user
+owner and image attachment; no successful assistant reply was observed. Source
+URLs and the turn identity are replaced with deterministic fixture values.
+
+This is an explicit rejection fixture: parsing must return no messages and the
+fatal `claude_message_failed` diagnostic, and validation must reject the batch.
+The focused Claude tests remove only the failed state and combine this shape
+with an existing assistant fixture to test sibling image ownership and an
+image-only user. Those variants are synthetic and do not certify a successful
+Claude upload or save.

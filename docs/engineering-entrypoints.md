@@ -651,3 +651,20 @@ justifications and applicable privacy disclosures, followed by certification.
 The local build/package commands do not perform those account or submission steps.
 Use public production telemetry configuration only when explicitly preparing a
 store release; a local build without it remains suitable for functional testing.
+
+### AI message image capture verification
+
+AI message images use the existing attachment writers; see the message-image
+contract in `en/guides/AI_CHAT_PARSER_MAINTENANCE.md`. The browser state suite also
+runs `aiChatImageAttachments.browser.test.ts`, which starts at the production AI
+extractor and inspects REST, native download and local-vault bytes and links.
+
+The feature adds three validated untrusted-message type boundaries: request guard,
+RPC reply, and reply validator. The verified predecessor counted1189 `unknown`
+uses (src667/tests522). The exact feature registration is overall1192/src670;
+the test budget stays522 and every `any`, assertion, non-null and suppression
+budget stays unchanged. Do not replace these `unknown` boundaries with unchecked
+trusted types or hide them in aliases to reduce the count. Future growth still
+fails the ratchet. Physical-line registrations separately cover the cohesive
+transcript/image owners and generated error catalog; runtime, byte, window and
+build chunk limits retain their existing policies.

@@ -3,6 +3,8 @@ import { chatElementToMarkdown } from '../shared/markdown';
 import type { ChatPlatformParser, ParseConfig, ParsedMessage, ParsedResult } from '../types';
 import { collectTongyiMessageContainers, pickTongyiContentElement } from './tongyiDomSelection';
 
+import { cloneMessageWithImages, collectMessageImages } from '../shared/messageImages';
+
 const TONGYI_USER_MESSAGE_SELECTOR =
   '[class*="user-message"], [class*="userMessage"], [class*="questionItem--"], [class*="message-select-wrapper-question"], [class*="chat-question-wrap"], [class*="qwen-chat-question"], [data-chat-question-wrap="true"], [data-role="user"]';
 const TONGYI_ASSISTANT_MESSAGE_SELECTOR =
@@ -94,8 +96,8 @@ function extractTongyiChatData(doc: Document, config?: ParseConfig): ParsedResul
     }
 
     const contentElem = pickTongyiContentElement(element, role);
-    const sanitized = sanitizeTongyiContent(contentElem);
-    const markdown = chatElementToMarkdown(sanitized);
+    const sanitized = sanitizeTongyiContent(cloneMessageWithImages(element, [contentElem]));
+    const markdown = chatElementToMarkdown(sanitized, config?.imageResolver);
 
     if (markdown.trim()) {
       const html = sanitized.innerHTML;
@@ -229,5 +231,6 @@ function sanitizeTongyiContent(element: HTMLElement): HTMLElement {
 
 export const tongyiParser: ChatPlatformParser = {
   id: 'tongyi',
+  collectImages: (root) => collectMessageImages('tongyi', collectTongyiMessageContainers(root)),
   parse: (doc, config) => extractTongyiChatData(doc, config)
 };

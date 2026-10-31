@@ -1,4 +1,8 @@
-import { cloneHTMLElement } from '../shared/dom';
+import {
+  cloneMessageWithImages,
+  hasMessageContent,
+  removePreservingMessageImages
+} from '../shared/messageImages';
 
 export type PerplexityMessageRole = 'user' | 'assistant';
 
@@ -38,7 +42,7 @@ const PERPLEXITY_CURRENT_ASSISTANT_ROOT_SELECTORS = [
   '[class*="max-w-threadContentWidth"]'
 ].join(',');
 
-const PERPLEXITY_SUPPRESSED_CONTAINER_SELECTOR = [
+export const PERPLEXITY_SUPPRESSED_CONTAINER_SELECTOR = [
   'aside',
   'nav',
   'footer',
@@ -109,7 +113,7 @@ export function pickPerplexityMessageBody(node: HTMLElement): HTMLElement | null
 }
 
 export function cleanupPerplexityBody(fragment: HTMLElement): void {
-  fragment.querySelectorAll(PERPLEXITY_CLEANUP_SELECTORS).forEach((element) => element.remove());
+  fragment.querySelectorAll(PERPLEXITY_CLEANUP_SELECTORS).forEach(removePreservingMessageImages);
 }
 
 export function isPerplexitySuppressedContainer(node: HTMLElement): boolean {
@@ -123,11 +127,10 @@ export function hasPerplexityMessageText(node: HTMLElement): boolean {
   const body = pickPerplexityMessageBody(node);
   if (!body) return false;
 
-  const clone = cloneHTMLElement(body);
-  if (!clone) return false;
+  const clone = cloneMessageWithImages(node, [body], PERPLEXITY_SUPPRESSED_CONTAINER_SELECTOR);
 
   cleanupPerplexityBody(clone);
-  return Boolean(clone.textContent?.trim());
+  return hasMessageContent(clone, PERPLEXITY_SUPPRESSED_CONTAINER_SELECTOR);
 }
 
 export function resolveCurrentAssistantRoot(node: HTMLElement): HTMLElement {

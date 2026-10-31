@@ -7,9 +7,14 @@ import { TextDecoder } from 'node:util';
 const ROOT = process.cwd();
 
 export const MAX_LINE_BUDGETS = new Map([
+  // Image capture stays with its transcript/resource owners; exact measured sizes.
+  // This registers semantic guards and static SVG validation, not runtime budget changes.
+  ['src/content/extractors/aiChatDocumentPreparer.ts', 322],
+  ['src/content/extractors/aiChatImagePreparation.ts', 283],
+  ['src/shared/attachments/aiChatImageBytes.ts', 308],
   // Grok traversal advances through already mounted rows while preserving overlap.
   // Register the cohesive owner's exact size; runtime and build limits stay fixed.
-  ['src/content/extractors/grokDocumentPreparer.ts', 252],
+  ['src/content/extractors/grokDocumentPreparer.ts', 291],
   // 2026-10-18: block/container source offsets remain in their existing lexer;
   // link grammar consumes this metadata without reserializing Markdown.
   ['src/shared/attachments/clipAttachmentMarkdown.ts', 270],
@@ -45,7 +50,7 @@ export const MAX_LINE_BUDGETS = new Map([
   // Compact review and first-run navigation add three catalog labels.
   // Options topics add 18 labels/descriptions; existing shell/navigation owners
   // below forward explicit section navigation to the guide.
-  ['src/i18n/generated/messages.generated.ts', 1371],
+  ['src/i18n/generated/messages.generated.ts', 1372],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
   ['src/i18n/generated/locales/es-ES.generated.ts', 777],
@@ -241,7 +246,7 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/content/reader/sessionDrafts.ts', 304],
   ['src/utils/trial-manager.ts', 363],
   ['src/content/runtime/localVaultPermissionFrame.ts', 345],
-  ['src/content/extractors/aiChatExtractor.ts', 299],
+  ['src/content/extractors/aiChatExtractor.ts', 305],
   ['src/content/ui/supportPromptMessages.ts', 301],
   // 2026-06-18 options support closeout: runtime support prompt toast lifecycle
   // was split into a dedicated controller with deterministic cleanup.

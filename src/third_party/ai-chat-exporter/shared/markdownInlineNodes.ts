@@ -1,10 +1,12 @@
 import type { MarkdownChildrenProcessor } from './markdownNodeTraversal';
+import type { ParseConfig } from '../types';
 
 export function renderInlineMarkdownNode(
   elem: HTMLElement,
   tagName: string,
   indent: string,
-  processChildren: MarkdownChildrenProcessor
+  processChildren: MarkdownChildrenProcessor,
+  imageResolver?: ParseConfig['imageResolver']
 ): string | null {
   if (tagName === 'source-footnote') {
     const sup = elem.querySelector('sup');
@@ -46,7 +48,7 @@ export function renderInlineMarkdownNode(
   }
 
   if (tagName === 'img') {
-    return renderImageNode(elem);
+    return imageResolver ? imageResolver(elem) : renderImageNode(elem);
   }
 
   if (
@@ -55,7 +57,15 @@ export function renderInlineMarkdownNode(
     elem.classList.contains('uploaded-image') ||
     elem.classList.contains('image-container')
   ) {
-    return renderCustomImageNode(elem);
+    if (
+      elem.querySelector('img') ||
+      (imageResolver &&
+        !elem.hasAttribute('data-aiob-message-image') &&
+        !elem.hasAttribute('data-aiob-image-token') &&
+        elem.querySelector('image-query, uploaded-image, .uploaded-image, .image-container'))
+    )
+      return processChildren(elem, indent);
+    return imageResolver ? imageResolver(elem) : renderCustomImageNode(elem);
   }
 
   return null;
@@ -180,6 +190,7 @@ function renderImageNode(elem: HTMLElement): string {
   if (!src) {
     src =
       elem.getAttribute('data-src') ||
+      elem.getAttribute('data-original') ||
       elem.getAttribute('data-original-src') ||
       elem.getAttribute('data-image-url') ||
       elem.getAttribute('data-url') ||
@@ -204,6 +215,7 @@ function renderCustomImageNode(elem: HTMLElement): string {
     const src =
       imgElement.getAttribute('src') ||
       imgElement.getAttribute('data-src') ||
+      imgElement.getAttribute('data-original') ||
       imgElement.getAttribute('data-original-src') ||
       '';
     const alt = imgElement.getAttribute('alt') || 'Image';
@@ -215,6 +227,8 @@ function renderCustomImageNode(elem: HTMLElement): string {
 
   const imageUrl =
     elem.getAttribute('data-image-url') ||
+    elem.getAttribute('data-original') ||
+    elem.getAttribute('data-original-src') ||
     elem.getAttribute('data-src') ||
     elem.getAttribute('data-url') ||
     elem.getAttribute('src') ||

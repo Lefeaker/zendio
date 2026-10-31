@@ -240,6 +240,7 @@
     "errorContentMessagingFailed": "通訊失敗，請重試操作",
     "errorContentShortcutUsageTrackingFailed": "快捷鍵使用統計記錄失敗，不影響功能使用",
     "errorContentStorageOperationFailed": "資料保存失敗，將使用預設設定繼續",
+    "errorExtractionAiChatImagesIncomplete": "部分對話圖片無法儲存。請確認圖片已載入且可下載後重試。本次未儲存筆記。",
     "errorExtractionAiChatParseEmpty": "AI 對話解析未找到訊息，請重新整理會話後再試。",
     "errorExtractionAiChatParseRoleIncomplete": "AI 對話解析找到訊息，但角色資訊不完整，請重新整理會話後再試。",
     "errorExtractionAiChatPreparationIncomplete": "未能完整讀取對話，可能仍在載入。請等待回覆完成後重試。",

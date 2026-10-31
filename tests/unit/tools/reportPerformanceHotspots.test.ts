@@ -88,6 +88,19 @@ describe('report-performance-hotspots', () => {
 
   it('keeps the exact normalized budget transitions and every other budget unchanged', () => {
     const registeredBudgets = readRegisteredBudgets();
+    // AI image capture adds cohesive owner registrations and one generated error key.
+    expect(registeredBudgets.get('src/content/extractors/aiChatDocumentPreparer.ts')).toBe(322);
+    registeredBudgets.delete('src/content/extractors/aiChatDocumentPreparer.ts');
+    expect(registeredBudgets.get('src/content/extractors/aiChatImagePreparation.ts')).toBe(283);
+    registeredBudgets.delete('src/content/extractors/aiChatImagePreparation.ts');
+    expect(registeredBudgets.get('src/shared/attachments/aiChatImageBytes.ts')).toBe(308);
+    registeredBudgets.delete('src/shared/attachments/aiChatImageBytes.ts');
+    expect(registeredBudgets.get('src/content/extractors/grokDocumentPreparer.ts')).toBe(291);
+    registeredBudgets.set('src/content/extractors/grokDocumentPreparer.ts', 252);
+    expect(registeredBudgets.get('src/i18n/generated/messages.generated.ts')).toBe(1372);
+    registeredBudgets.set('src/i18n/generated/messages.generated.ts', 1371);
+    expect(registeredBudgets.get('src/content/extractors/aiChatExtractor.ts')).toBe(305);
+    registeredBudgets.set('src/content/extractors/aiChatExtractor.ts', 299);
     // Geometry-based traversal adds one newly discovered source owner registration.
     expect(registeredBudgets.get('src/content/extractors/grokDocumentPreparer.ts')).toBe(252);
     registeredBudgets.delete('src/content/extractors/grokDocumentPreparer.ts');

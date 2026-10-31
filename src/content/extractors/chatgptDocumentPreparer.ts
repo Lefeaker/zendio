@@ -1,4 +1,5 @@
 import { extractionErrors } from '../../shared/errors/extractionErrors';
+import type { AIChatImagePreparation } from './aiChatImagePreparation';
 import {
   CHATGPT_SCROLL_OWNER,
   captureChatGPTViewport,
@@ -17,7 +18,12 @@ const MAX_DURATION_MS = 60_000;
 const MAX_WINDOWS = 200;
 const inFlight = new WeakMap<
   Document,
-  { url: string; owner: HTMLElement; promise: Promise<Document> }
+  {
+    url: string;
+    owner: HTMLElement;
+    images: AIChatImagePreparation | undefined;
+    promise: Promise<Document>;
+  }
 >();
 
 type StoredTurn = { element: HTMLElement; signature: string };
@@ -39,7 +45,8 @@ function mergeWindow(
   doc: Document,
   collected: Map<string, StoredTurn>,
   turns: ChatGPTTurn[],
-  positions: Map<string, number>
+  positions: Map<string, number>,
+  images?: AIChatImagePreparation
 ): void {
   if (
     turns.some((turn) => !turn.key || !turn.element.querySelector('h4[data-conversation-role]')) ||
@@ -65,7 +72,7 @@ function mergeWindow(
     }
     if (!previous)
       collected.set(turn.key, {
-        element: doc.importNode(turn.element, true),
+        element: images?.clone(turn.element, turn.key) ?? doc.importNode(turn.element, true),
         signature: turn.signature
       });
     positions.set(turn.key, turn.top);
@@ -91,7 +98,8 @@ function preparedDocument(
 async function collectChatGPTHistory(
   doc: Document,
   owner: HTMLElement,
-  url: string
+  url: string,
+  images?: AIChatImagePreparation
 ): Promise<Document> {
   const viewport = captureChatGPTViewport(owner);
   const initialKeys = readChatGPTTurns(owner).map((turn) => turn.key);
@@ -104,7 +112,8 @@ async function collectChatGPTHistory(
   const assertCurrent = () => {
     if (!stillCurrent()) incomplete(doc, collected, 'chatgpt_history_document_changed');
     if (chatGPTIsGenerating(owner)) incomplete(doc, collected, 'chatgpt_generation_in_progress');
-    if (performance.now() >= deadline)
+    images?.assertCurrent();
+    if (performance.now() >= deadline + (images?.imageWaitMs ?? 0))
       incomplete(doc, collected, 'chatgpt_history_budget_exhausted');
   };
   try {
@@ -136,7 +145,9 @@ async function collectChatGPTHistory(
       if (!turns || turns.length === 0 || chatGPTHistoryIsLoading(owner)) {
         incomplete(doc, collected, 'chatgpt_history_window_unstable');
       }
-      mergeWindow(doc, collected, turns, positions);
+      mergeWindow(doc, collected, turns, positions, images);
+      await images?.flush();
+      assertCurrent();
       const maxTop = Math.max(0, owner.scrollHeight - owner.clientHeight);
       const last = turns[turns.length - 1];
       if (!last) return incomplete(doc, collected, 'chatgpt_history_window_empty');
@@ -168,11 +179,15 @@ async function collectChatGPTHistory(
   }
 }
 
-export function prepareChatGPTDocumentForExtraction(doc: Document): Promise<Document> {
+export function prepareChatGPTDocumentForExtraction(
+  doc: Document,
+  images?: AIChatImagePreparation
+): Promise<Document> {
   const owner = findChatGPTScrollOwner(doc);
   const current = inFlight.get(doc);
   if (current) {
-    if (current.url === doc.URL && current.owner === owner) return current.promise;
+    if (current.url === doc.URL && current.owner === owner && current.images === images)
+      return current.promise;
     return Promise.reject(
       extractionErrors.aiChatPreparationIncomplete({
         type: 'ai_chat',
@@ -202,7 +217,9 @@ export function prepareChatGPTDocumentForExtraction(doc: Document): Promise<Docu
     return Promise.resolve(doc);
   }
   const url = doc.URL;
-  const promise = collectChatGPTHistory(doc, owner, url).finally(() => inFlight.delete(doc));
-  inFlight.set(doc, { url, owner, promise });
+  const promise = collectChatGPTHistory(doc, owner, url, images).finally(() =>
+    inFlight.delete(doc)
+  );
+  inFlight.set(doc, { url, owner, images, promise });
   return promise;
 }

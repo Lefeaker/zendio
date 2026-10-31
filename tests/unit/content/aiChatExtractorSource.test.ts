@@ -221,8 +221,8 @@ describe('AI chat extractor source identity', () => {
         }
       );
     } else {
-      const original = runtime.parseChatDOMAsync;
-      vi.spyOn(runtime, 'parseChatDOMAsync').mockImplementation(async (...args) => {
+      const original = runtime.resolveParserAsync;
+      vi.spyOn(runtime, 'resolveParserAsync').mockImplementation(async (...args) => {
         entered.open();
         await release.promise;
         return original(...args);
