@@ -21,7 +21,7 @@ const LANGUAGE_METADATA = '[data-language], [data-code-language], [data-lang]';
 const CODE_LABEL_CONTEXT =
   '[class*="language-"], [class*="language_"], [class*="code-label"], [class*="code-toolbar"]';
 const CODE_COMPONENT =
-  '[data-code-block="true"], [class*="code-container"], [class*="code-toolbar"], [class*="code-wrapper"], [class*="code-block"], [class*="code-shell"]';
+  '[data-code-block="true"], [data-testid="code-block"] > div, [class*="code-container"], [class*="code-toolbar"], [class*="code-wrapper"], [class*="code-block"], [class*="code-shell"]';
 
 const KNOWN_LANGUAGE_LABELS: Set<string> = new Set([
   'bash',

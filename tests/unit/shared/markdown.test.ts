@@ -584,6 +584,18 @@ describe('code labels do not consume surrounding prose', () => {
 });
 
 describe('code-language inference keeps DOM provenance', () => {
+  it('reads the observed Grok code header through its inner wrapper while retaining prose', () => {
+    const markdown = chatHtmlToMarkdown(`
+      <div data-testid="code-block"><div>
+        <p>Python</p>
+        <div><span>JavaScript</span><div><button>Copy code</button></div></div>
+        <div><pre role="group"><code>const x = 1;</code></pre></div>
+      </div></div>
+    `);
+    expect(markdown).toBe('Python\n\n```JavaScript\nconst x = 1;\n```');
+    expect(markdown).not.toContain('Copy code');
+  });
+
   it('uses the semantic code-block action header without consuming ordinary language-name prose', () => {
     const markdown = chatHtmlToMarkdown(`
       <div data-code-block="true">
