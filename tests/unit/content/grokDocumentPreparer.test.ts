@@ -6,7 +6,7 @@ import { prepareAIChatDocumentForExtraction } from '../../../src/content/extract
 import { createAIChatExtractor } from '../../../src/content/extractors/aiChatExtractor';
 import { grokParser } from '../../../src/third_party/ai-chat-exporter/platforms/grok';
 
-function createVirtualTranscript(rootId = 'grok-content-area') {
+function createVirtualTranscript(rootId = 'grok-content-area', rowPrefix = 'response') {
   const dom = new JSDOM(
     '<title>Virtual Grok | Shared Grok Conversation</title><div id="grok-content-area"><div data-testid="share-transcript-scroller" data-transcript-renderer="plane" aria-busy="false"></div></div>',
     { url: 'https://grok.com/share/sanitized' }
@@ -48,7 +48,7 @@ function createVirtualTranscript(rootId = 'grok-content-area') {
     if (first === 0) marker('transcript:top-inset');
     for (let index = first; index < last; index += 1) {
       const row = doc.createElement('div');
-      row.setAttribute('data-plane-row', `response:turn-${index}`);
+      row.setAttribute('data-plane-row', `${rowPrefix}:turn-${index}`);
       const message = doc.createElement('div');
       message.setAttribute('role', 'article');
       message.setAttribute('data-testid', index % 2 === 0 ? 'user-message' : 'assistant-message');
@@ -59,7 +59,9 @@ function createVirtualTranscript(rootId = 'grok-content-area') {
       row.appendChild(message);
       scroller.appendChild(row);
     }
-    if (last === 6) marker('transcript:bottom-spacing');
+    if (last === 6) {
+      marker(rowPrefix === 'gateway' ? 'transcript:submit-spacer' : 'transcript:bottom-spacing');
+    }
   };
   scroller.addEventListener('scroll', render);
   scroller.scrollTop = 1500;
@@ -68,10 +70,15 @@ function createVirtualTranscript(rootId = 'grok-content-area') {
 }
 
 describe('Grok virtual transcript preparation', () => {
-  it.each(['grok-content-area', 'grok-page-content'])(
-    'collects every stable response ID under %s, keeps repeated text, and restores the viewport',
-    async (rootId) => {
-      const { doc, scroller } = createVirtualTranscript(rootId);
+  it.each([
+    ['grok-content-area', 'response'],
+    ['grok-page-content', 'response'],
+    ['grok-content-area', 'gateway'],
+    ['grok-page-content', 'gateway']
+  ])(
+    'collects every stable ID under %s with %s rows, keeps repeated text, and restores the viewport',
+    async (rootId, rowPrefix) => {
+      const { doc, scroller } = createVirtualTranscript(rootId, rowPrefix);
       expect(grokParser.parse(doc).messages.map((message) => message.md)).toEqual([
         'SAME_PROMPT',
         'ANSWER_TWO',

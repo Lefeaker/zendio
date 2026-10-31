@@ -3,6 +3,11 @@ import { extractionErrors } from '../../shared/errors/extractionErrors';
 const TRANSCRIPT_SELECTOR = '[data-transcript-renderer="plane"]';
 const MESSAGE_SELECTOR =
   '[role="article"][data-testid="user-message"], [role="article"][data-testid="assistant-message"]';
+const STRUCTURAL_ROW_KEYS = new Set([
+  'transcript:top-inset',
+  'transcript:bottom-spacing',
+  'transcript:submit-spacer'
+]);
 const MAX_WINDOWS = 200;
 const MAX_DURATION_MS = 12_000;
 type ConversationOwner = {
@@ -67,7 +72,7 @@ function waitForPaint(doc: Document): Promise<void> {
 }
 
 function signature(scroller: HTMLElement): string {
-  const rows = Array.from(scroller.querySelectorAll('[data-plane-row^="response:"]'))
+  const rows = Array.from(scroller.querySelectorAll('[data-plane-row]'))
     .map((row) => `${row.getAttribute('data-plane-row')}:${row.textContent?.length ?? 0}`)
     .join('|');
   return rows ? `${scroller.scrollHeight}:${rows}` : '';
@@ -92,13 +97,12 @@ function setScrollTop(scroller: HTMLElement, position: number): void {
 
 function collectWindow(scroller: HTMLElement, messageCount: number): CollectedTurn[] {
   const turns: CollectedTurn[] = [];
-  for (const row of Array.from(
-    scroller.querySelectorAll<HTMLElement>('[data-plane-row^="response:"]')
-  )) {
-    const elements = row.querySelectorAll<HTMLElement>(MESSAGE_SELECTOR);
-    const element = elements[0];
+  for (const row of Array.from(scroller.querySelectorAll<HTMLElement>('[data-plane-row]'))) {
     const key = row.getAttribute('data-plane-row');
-    if (elements.length !== 1 || !element || !key || key === 'response:') {
+    const elements = row.querySelectorAll<HTMLElement>(MESSAGE_SELECTOR);
+    if (key && STRUCTURAL_ROW_KEYS.has(key) && elements.length === 0) continue;
+    const element = elements[0];
+    if (elements.length !== 1 || !element || !key || !/^(?:response|gateway):\S+$/.test(key)) {
       failPreparation(scroller.ownerDocument, messageCount, 'grok_transcript_message_unresolved');
     }
     turns.push({ key, element });
@@ -195,7 +199,11 @@ async function collectGrokDocument(doc: Document, owner: ConversationOwner): Pro
 
       const maxScrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
       if (scroller.scrollTop >= maxScrollTop - 1) {
-        if (!scroller.querySelector('[data-plane-row="transcript:bottom-spacing"]')) {
+        if (
+          !scroller.querySelector(
+            '[data-plane-row="transcript:bottom-spacing"], [data-plane-row="transcript:submit-spacer"]'
+          )
+        ) {
           failPreparation(doc, collected.size, 'grok_transcript_end_missing');
         }
         return createPreparedDocument(doc, collected, owner.title);

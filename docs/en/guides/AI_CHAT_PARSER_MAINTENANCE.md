@@ -87,10 +87,14 @@ article text. Keep multiple content blocks and repeated message text in order.
 Grok support targets text conversations on `grok.com`, including its public share
 transcripts. It does not claim X-embedded Grok, Imagine, Canvas or attachment export.
 Virtual transcripts require the Grok document preparer: collect overlapping windows
-by response ID, require both transcript boundaries, and restore the original scroll
+by stable `response:` (public share) or `gateway:` (signed-in) row ID, require
+`transcript:top-inset` and the observed `bottom-spacing` or `submit-spacer` end
+marker, and restore the original scroll
 position. Loading, response generation, gaps or collection limits must fail before
 saving rather than produce a truncated note. Parser-only fixtures cannot certify
-that preparation or file writing succeeded.
+that preparation or file writing succeeded. Only the three known structural rows
+are excluded from message collection; unknown or unhydrated rows must not silently
+disappear. Empty assistant content remains incomplete even without a working icon.
 
 Model metadata must come from an explicit model control or label. In particular,
 Tongyi must not interpret account nicknames, conversation prose or an unrelated

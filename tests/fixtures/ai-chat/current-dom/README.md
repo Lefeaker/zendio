@@ -130,3 +130,16 @@ Before an assistant root exists, the observed busy status is scoped under
 `aria-busy="true"` are checked only within that transcript owner. An unrelated
 page busy status does not block export. A submitted last user turn without an
 assistant answer is incomplete even after the busy status disappears.
+
+## Grok signed-in transcript rows
+
+`grok-gateway-current-2026-10-31.html` preserves a signed-in two-round test
+conversation captured in Chrome on 2026-10-31. Conversation IDs and prompts are
+replaced with deterministic values; list, table, code, math and forty numbered
+answer lines retain the observed DOM shape. Signed-in `gateway:` rows and the
+`transcript:submit-spacer` end marker differ from public-share `response:` rows
+and `transcript:bottom-spacing`. Both use stable IDs, explicit article roles and
+`transcript:top-inset`. The gateway extraction tests cover an overflowing live
+shape, an empty final assistant without a working indicator, unresolved message
+rows, structural follow-up text exclusion and restoration of the original scroll
+position. The virtual transcript tests exercise both row families across windows.
