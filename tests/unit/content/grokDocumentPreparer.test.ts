@@ -137,6 +137,55 @@ describe('Grok virtual transcript preparation', () => {
     expect(scroller.scrollTop).toBe(1500);
   });
 
+  it.each([false, true])(
+    'uses the rendered last row to cross a tall message, while rejecting real gaps (%s)',
+    async (missingOverlap) => {
+      const { doc, scroller } = createVirtualTranscript();
+      Object.defineProperty(scroller, 'scrollHeight', { value: 900500, configurable: true });
+      Object.defineProperty(scroller, 'getBoundingClientRect', {
+        value: () => new DOMRect(0, 120, 800, 500)
+      });
+      scroller.scrollTop = 450000;
+      const positions: number[] = [];
+      const tops = [0, 100, 200, 4000, 4100, 4200, 900500];
+      scroller.addEventListener('scroll', () => {
+        positions.push(scroller.scrollTop);
+        for (const row of scroller.querySelectorAll('[data-plane-row^="response:"]')) {
+          const index = Number(row.getAttribute('data-plane-row')?.split('turn-')[1]);
+          const top = tops[index];
+          const bottom = tops[index + 1];
+          if (top === undefined || bottom === undefined) throw new Error('Missing row geometry');
+          Object.defineProperty(row, 'getBoundingClientRect', {
+            value: () => new DOMRect(0, 120 + top - scroller.scrollTop, 800, bottom - top)
+          });
+        }
+        if (missingOverlap && scroller.scrollTop >= 750) {
+          scroller.querySelector('[data-plane-row="response:turn-2"]')?.remove();
+          scroller.querySelector('[data-plane-row="response:turn-3"]')?.remove();
+        }
+      });
+      const request = prepareAIChatDocumentForExtraction('grok', doc);
+      if (missingOverlap) {
+        await expect(request).rejects.toMatchObject({
+          code: 'EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE',
+          context: { parserDiagnosticCodes: ['grok_transcript_window_gap'] }
+        });
+      } else {
+        const parsed = grokParser.parse(await request);
+        expect(parsed.messages.map((message) => message.md)).toEqual([
+          'SAME_PROMPT',
+          'ANSWER_ONE',
+          'SAME_PROMPT',
+          'ANSWER_TWO',
+          'LAST_PROMPT',
+          'LAST_ANSWER'
+        ]);
+      }
+      expect(positions).toEqual(missingOverlap ? [0, 3850, 450000] : [0, 3850, 900000, 450000]);
+      expect(scroller.scrollTop).toBe(450000);
+    }
+  );
+
   it('rejects a disconnected message window instead of silently joining missing history', async () => {
     const { doc, scroller } = createVirtualTranscript();
     scroller.addEventListener('scroll', () => {

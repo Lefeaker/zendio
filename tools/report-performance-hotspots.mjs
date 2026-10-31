@@ -7,6 +7,9 @@ import { TextDecoder } from 'node:util';
 const ROOT = process.cwd();
 
 export const MAX_LINE_BUDGETS = new Map([
+  // Grok traversal advances through already mounted rows while preserving overlap.
+  // Register the cohesive owner's exact size; runtime and build limits stay fixed.
+  ['src/content/extractors/grokDocumentPreparer.ts', 252],
   // 2026-10-18: block/container source offsets remain in their existing lexer;
   // link grammar consumes this metadata without reserializing Markdown.
   ['src/shared/attachments/clipAttachmentMarkdown.ts', 270],

@@ -208,9 +208,14 @@ async function collectGrokDocument(doc: Document, owner: ConversationOwner): Pro
         }
         return createPreparedDocument(doc, collected, owner.title);
       }
+      const lastRow = turns.at(-1)?.element.closest('[data-plane-row]');
+      const rowAdvance =
+        (lastRow?.getBoundingClientRect().bottom ?? 0) -
+        scroller.getBoundingClientRect().top -
+        scroller.clientHeight / 2;
       position = Math.min(
         maxScrollTop,
-        scroller.scrollTop + Math.max(1, Math.floor(scroller.clientHeight * 0.75))
+        scroller.scrollTop + Math.max(1, Math.floor(scroller.clientHeight * 0.75), rowAdvance)
       );
     }
     return failPreparation(doc, collected.size, 'grok_transcript_budget_exhausted');

@@ -88,6 +88,9 @@ describe('report-performance-hotspots', () => {
 
   it('keeps the exact normalized budget transitions and every other budget unchanged', () => {
     const registeredBudgets = readRegisteredBudgets();
+    // Geometry-based traversal adds one newly discovered source owner registration.
+    expect(registeredBudgets.get('src/content/extractors/grokDocumentPreparer.ts')).toBe(252);
+    registeredBudgets.delete('src/content/extractors/grokDocumentPreparer.ts');
     // One new preparation error key extends the generated catalog, not runtime source budgets.
     expect(registeredBudgets.get('src/i18n/generated/messages.generated.ts')).toBe(1371);
     registeredBudgets.set('src/i18n/generated/messages.generated.ts', 1370);

@@ -95,6 +95,10 @@ saving rather than produce a truncated note. Parser-only fixtures cannot certify
 that preparation or file writing succeeded. Only the three known structural rows
 are excluded from message collection; unknown or unhydrated rows must not silently
 disappear. Empty assistant content remains incomplete even without a working icon.
+Scroll advances may use the last rendered message row's bottom edge to avoid
+repeatedly scanning a tall mounted row. Keep the half-viewport overlap, stable-key
+continuity check and existing time/window limits; mounted message count alone does
+not prove the transcript is complete.
 
 Model metadata must come from an explicit model control or label. In particular,
 Tongyi must not interpret account nicknames, conversation prose or an unrelated
