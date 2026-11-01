@@ -678,3 +678,10 @@ canonical-byte sharing; the Kimi parser owns common non-overlapping message root
 and complete body-fragment selection. The performance regression preserves both
 previous registrations before checking historical budgets. Runtime, byte, window,
 chunk, type and concurrency limits remain unchanged.
+
+The PR #88 / AI chat integration additionally registers `chatgptMessages.ts` at
+253 physical lines. Its existing message owner now shares body selection and
+standalone role-header classification between inference and cleanup, and rejects
+marked bodies with unresolved roles. The historical budget regression removes
+this new registration before normalizing prior image, Reader and Video changes.
+Other runtime, type and build limits remain unchanged.

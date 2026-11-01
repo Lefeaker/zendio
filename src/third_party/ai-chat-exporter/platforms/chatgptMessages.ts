@@ -9,7 +9,10 @@ import {
 } from '../shared/messageImages';
 
 const ROLE_HEADING = 'h4[data-conversation-role]';
+const LEGACY_HEADING = 'h5, .sr-only';
 const LEGACY_ROLE = '[data-message-author-role]';
+const SEMANTIC_CONTENT =
+  '[data-user-message-bubble], [data-markdown-text-style="assistant-message"]';
 const HIDDEN = '[hidden], [aria-hidden="true"], [style*="display: none"], [style*="display:none"]';
 const CONTENT_SELECTORS = [
   '[data-message-content-part="text"]',
@@ -34,6 +37,8 @@ type MessageRoot = {
   role: 'user' | 'assistant';
   modern: boolean;
   stripPrefix: boolean;
+  content: HTMLElement[];
+  roleHeader: boolean;
 };
 type MessageExtraction = Pick<ParsedResult, 'messages' | 'diagnostics'>;
 
@@ -46,15 +51,6 @@ function roleFromLabel(label: string): MessageRoot['role'] | null {
   if (USER_LABELS.some((native) => native.toLowerCase() === normalized)) return 'user';
   if (ASSISTANT_LABELS.some((native) => native.toLowerCase() === normalized)) return 'assistant';
   return null;
-}
-
-function legacyRole(element: HTMLElement): MessageRoot['role'] | null {
-  const heading = visibleDescendants(element, 'h5')[0];
-  const headingRole = roleFromLabel(heading ? visibleText(heading) : '');
-  if (headingRole) return headingRole;
-  if (element.classList.contains('user')) return 'user';
-  const prefix = visibleText(element).trim().match(ROLE_PREFIX);
-  return prefix ? roleFromLabel(prefix[1]) : null;
 }
 
 function failure(code: string): MessageExtraction {
@@ -78,32 +74,65 @@ function visibleText(root: HTMLElement): string {
 }
 
 function topLevelMatches(root: HTMLElement, selector: string): HTMLElement[] {
-  return Array.from(root.querySelectorAll<HTMLElement>(selector)).filter((element) => {
+  return visibleDescendants(root, selector).filter((element) => {
     const matchingParent = element.parentElement?.closest(selector);
     return !matchingParent || !root.contains(matchingParent);
   });
 }
 
-function cloneMessageContent(root: MessageRoot): HTMLElement {
-  const semanticSelector =
-    root.role === 'user'
-      ? '[data-user-message-bubble]'
-      : '[data-markdown-text-style="assistant-message"]';
-  let content = topLevelMatches(root.element, semanticSelector);
-  for (const selector of CONTENT_SELECTORS) {
-    if (content.length > 0) break;
-    content = topLevelMatches(root.element, selector);
+function selectContent(element: HTMLElement): HTMLElement[] {
+  const selectors = [SEMANTIC_CONTENT, ...CONTENT_SELECTORS];
+  if (element.matches(selectors.join(','))) return [element];
+  for (const selector of selectors) {
+    const content = topLevelMatches(element, selector);
+    if (content.length > 0) return content;
   }
+  return [];
+}
+
+function nativeRoleHeaders(element: HTMLElement): HTMLElement[] {
+  return visibleDescendants(element, LEGACY_HEADING).filter(
+    (heading) => !heading.closest(CHROME) && roleFromLabel(visibleText(heading))
+  );
+}
+
+function findRoleHeader(element: HTMLElement, content: HTMLElement[]): HTMLElement | undefined {
+  const siblings = Array.from(element.children).filter(
+    (child) => !child.matches(`${HIDDEN}, ${CHROME}`)
+  );
+  return nativeRoleHeaders(element).find((heading) =>
+    content.length > 0
+      ? !content.some((body) => body.contains(heading) || heading.contains(body))
+      : heading === siblings[0] && siblings.length > 1
+  );
+}
+
+function legacyPrefix(element: HTMLElement): RegExpMatchArray | null {
+  const walker = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) {
+    const parent = walker.currentNode.parentElement;
+    if (parent?.closest(HIDDEN) || !walker.currentNode.textContent?.trim()) continue;
+    if (parent?.closest('h1, h2, h3, h4, h5, h6, .sr-only, p, blockquote, pre, code, a'))
+      return null;
+    const text = visibleText(element).trim();
+    const prefix = text.match(ROLE_PREFIX);
+    return prefix && text.slice(prefix[0].length).trim() ? prefix : null;
+  }
+  return null;
+}
+
+function cloneMessageContent(root: MessageRoot): HTMLElement {
   const container = cloneMessageWithImages(
     root.element,
-    content.length > 0 ? content : [root.element],
+    root.content.length > 0 ? root.content : [root.element],
     IMAGE_EXCLUSIONS
   );
+  if (root.roleHeader && root.content.length === 0) {
+    const cloneRoot = container.querySelector<HTMLElement>(':scope > *');
+    if (cloneRoot) findRoleHeader(cloneRoot, [])?.remove();
+  }
   normalizeChatGPTCodeBlocks(container);
   container.querySelectorAll(`${CHROME}, ${ROLE_HEADING}`).forEach(removePreservingMessageImages);
-  container.querySelectorAll('h5').forEach((heading) => {
-    if (roleFromLabel(visibleText(heading))) heading.remove();
-  });
   return container;
 }
 
@@ -140,22 +169,31 @@ function resolveMessageRoots(doc: ParentNode): MessageRoot[] | string {
     ) {
       return 'chatgpt_message_boundary_ambiguous';
     }
-    const role = explicitRole ?? legacyRole(element);
-    if (!role) continue;
+    const content = selectContent(element);
+    const header = findRoleHeader(element, content);
+    const prefix = content.length === 0 && !header ? legacyPrefix(element) : null;
+    const classRole = element.classList.contains('user') ? 'user' : null;
+    const role =
+      explicitRole ??
+      roleFromLabel(header ? visibleText(header) : '') ??
+      classRole ??
+      (prefix ? roleFromLabel(prefix[1]) : null);
+    if (!role) {
+      if (content.length > 0 || nativeRoleHeaders(element).length > 0)
+        return 'chatgpt_role_missing';
+      continue;
+    }
     roots.push({
       element,
       role,
       modern,
-      stripPrefix:
-        !modern && explicitRole === null && visibleDescendants(element, 'h5').length === 0
+      content,
+      roleHeader: Boolean(header),
+      stripPrefix: !modern && explicitRole === null && !classRole && prefix !== null
     });
   }
 
-  for (const content of Array.from(
-    doc.querySelectorAll(
-      '[data-user-message-bubble], [data-markdown-text-style="assistant-message"]'
-    )
-  )) {
+  for (const content of Array.from(doc.querySelectorAll(SEMANTIC_CONTENT))) {
     if (!content.closest(HIDDEN) && !roots.some((root) => root.element.contains(content))) {
       return 'chatgpt_role_missing';
     }

@@ -17,6 +17,15 @@ function chatgptMessage(role: 'user' | 'assistant', html: string): string {
   return `<section><h4 data-conversation-role="${role}"></h4><div ${content}>${html}</div></section>`;
 }
 
+function legacyChatgptMessage(role: 'user' | 'assistant', html: string): string {
+  const label = role === 'user' ? 'You said:' : 'ChatGPT said:';
+  return `<article data-message-author-role="${role}"><h5>${label}</h5><div class="markdown">${html}</div></article>`;
+}
+
+function bodyRootChatgptMessage(role: 'user' | 'assistant', html: string): string {
+  return `<article class="markdown" data-message-author-role="${role}">${html}</article>`;
+}
+
 function conversation(html: string, url = 'https://chatgpt.com/c/audit'): Document {
   const doc = new DOMParser().parseFromString('<title>Image regression</title>', 'text/html');
   const base = doc.createElement('base');
@@ -44,6 +53,108 @@ afterEach(() => vi.unstubAllGlobals());
 // Only the image HTTP response is controlled. These cases exercise the complete
 // production preparation, parser, byte conversion and final reference validation.
 describe('AI image audit regressions through the production extractor', () => {
+  describe.each([
+    { name: 'modern body', message: chatgptMessage },
+    { name: 'legacy body', message: legacyChatgptMessage },
+    { name: 'message root that is itself the body', message: bodyRootChatgptMessage }
+  ])('ChatGPT role-label content in $name', ({ message }) => {
+    it.each(['user', 'assistant'])(
+      'retains native-looking headings in the %s body',
+      async (role) => {
+        const doc = conversation(
+          message('user', role === 'user' ? '<h5>You said:</h5><p>Question</p>' : 'Question') +
+            message(
+              'assistant',
+              role === 'assistant' ? '<h5>You said:</h5><p>Answer</p>' : 'Answer'
+            )
+        );
+        const original = doc.documentElement.outerHTML;
+        const result = await createAIChatExtractor().extract({ document: doc, url: doc.baseURI });
+        expect(result.meta.messageCount).toBe(2);
+        expect(result.markdown.match(/## You said:/gu)).toHaveLength(1);
+        expect(result.markdown).toContain('Question');
+        expect(result.markdown).toContain('Answer');
+        expect(doc.documentElement.outerHTML).toBe(original);
+      }
+    );
+
+    it('keeps a later answer consisting solely of a body heading, alongside an earlier image', async () => {
+      const doc = conversation(
+        message('user', `${image}First question`) +
+          message('assistant', 'First answer') +
+          message('user', 'Second question') +
+          message('assistant', '<h5>You said:</h5>')
+      );
+      const result = await createAIChatExtractor().extract({ document: doc, url: doc.baseURI });
+      expect(result.meta.messageCount).toBe(4);
+      expect(result.markdown.match(/^# \d+ (?:USER|ASSISTANT)$/gmu)).toEqual([
+        '# 1 USER',
+        '# 2 ASSISTANT',
+        '# 3 USER',
+        '# 4 ASSISTANT'
+      ]);
+      expect(result.markdown.split('# 4 ASSISTANT')[1]?.trim()).toBe('## You said:');
+      expect(result.markdown).toContain('Second question');
+      const files = result.meta.attachments ?? [];
+      expect(files).toHaveLength(1);
+      expect(
+        countClipAttachmentReferences(
+          result.markdown,
+          files.map((file) => file.id)
+        )
+      ).toEqual(new Map(files.map((file) => [file.id, 1])));
+    });
+  });
+
+  it('distinguishes standalone accessibility role chrome from identical body-owned text', async () => {
+    const doc = conversation(
+      '<article><div class="sr-only">You said:</div><p>Question</p></article>' +
+        '<article><h6 class="sr-only">ChatGPT said:</h6><p>Answer</p></article>' +
+        legacyChatgptMessage(
+          'user',
+          '<p>Second question</p><h6 class="sr-only">ChatGPT said:</h6>'
+        ) +
+        legacyChatgptMessage('assistant', 'Second answer')
+    );
+    const result = await createAIChatExtractor().extract({ document: doc, url: doc.baseURI });
+    expect(result.meta.messageCount).toBe(4);
+    const assistant = result.markdown.split('# 2 ASSISTANT')[1]?.split('# 3 USER')[0];
+    expect(assistant?.trim()).toBe('Answer');
+    expect(result.markdown.match(/ChatGPT said:/gu)).toHaveLength(1);
+    expect(result.markdown).toContain('> ## ChatGPT said:');
+    expect(result.markdown).not.toContain('You said:');
+  });
+
+  it.each([
+    '<article class="markdown"><h5>You said:</h5><p>UNOWNED_HEADING</p></article>',
+    '<article><div class="markdown"><p>You said: UNOWNED_PREFIX</p></div></article>'
+  ])(
+    'rejects an unassigned message body instead of returning only the earlier pair: %s',
+    async (unowned) => {
+      const doc = conversation(
+        legacyChatgptMessage('user', 'Question') +
+          legacyChatgptMessage('assistant', 'Answer') +
+          unowned
+      );
+      await expect(
+        createAIChatExtractor().extract({ document: doc, url: doc.baseURI })
+      ).rejects.toMatchObject({
+        code: 'EXTRACTION_AI_CHAT_PARSE_EMPTY'
+      });
+    }
+  );
+
+  it('does not mistake an unrelated article without message evidence for an unassigned turn', async () => {
+    const doc = conversation(
+      legacyChatgptMessage('user', 'Question') +
+        legacyChatgptMessage('assistant', 'Answer') +
+        '<article><p>Unrelated sidebar card</p></article>'
+    );
+    const result = await createAIChatExtractor().extract({ document: doc, url: doc.baseURI });
+    expect(result.meta.messageCount).toBe(2);
+    expect(result.markdown).not.toContain('Unrelated sidebar card');
+  });
+
   it('exports a visible ChatGPT answer despite a hidden role copy', async () => {
     const doc = conversation(
       chatgptMessage('user', 'Question') +

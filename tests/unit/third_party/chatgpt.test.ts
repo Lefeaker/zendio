@@ -17,6 +17,99 @@ function message(role: string, content: string): string {
   return `<div><h4 data-conversation-role="${role}"><span>Role label:</span><span aria-hidden="true">Print label</span></h4><div ${body}>${content}</div><button>Copy</button></div>`;
 }
 
+const extract = (doc: Document) =>
+  extractAIChat(doc, 'https://chatgpt.com/c/sanitized-streaming', {
+    getMessages: () =>
+      Promise.resolve({
+        exportAiChatFallbackTitleDeepseek: 'DeepSeek',
+        exportAiChatFallbackTitleKimi: 'Kimi',
+        exportAiChatFallbackTitleTongyi: 'Tongyi'
+      })
+  });
+
+describe('ChatGPT body versus native role chrome', () => {
+  it.each(['user', 'assistant'])('preserves exact native labels in the %s body', (role) => {
+    const body = '<h5>You said:</h5><h6 class="sr-only">ChatGPT said:</h6><p>Body text</p>';
+    const result = parse(
+      message('user', role === 'user' ? body : 'Question') +
+        message('assistant', role === 'assistant' ? body : 'Answer')
+    );
+    const content = result.messages[role === 'user' ? 0 : 1]?.md;
+    expect(result.messages.map((item) => item.role)).toEqual(['user', 'assistant']);
+    expect(content).toContain('## You said:');
+    expect(content).toContain('\n\n### ChatGPT said:');
+    expect(content).toContain('Body text');
+  });
+
+  it('retains a later complete legacy answer consisting only of a body heading', () => {
+    const result = parse(
+      message('user', 'First question') +
+        message('assistant', 'First answer') +
+        message('user', 'Second question') +
+        '<article data-message-author-role="assistant"><h5>ChatGPT said:</h5><div class="markdown"><h5>You said:</h5></div></article>'
+    );
+    expect(result.messages.map((item) => item.role)).toEqual([
+      'user',
+      'assistant',
+      'user',
+      'assistant'
+    ]);
+    expect(result.messages[3]?.md).toBe('## You said:');
+  });
+
+  it('removes only independent legacy accessibility headers and keeps body counterparts', () => {
+    const doc = new DOMParser().parseFromString(
+      '<article><div class="sr-only">You said:</div><p>Question</p></article>' +
+        '<article><h6 class="sr-only">ChatGPT said:</h6><div><h5>You said:</h5><h6 class="sr-only">ChatGPT said:</h6><p>Answer</p></div></article>',
+      'text/html'
+    );
+    const before = doc.body.innerHTML;
+    const result = chatgptParser.parse(doc);
+    expect(result.messages.map((item) => item.role)).toEqual(['user', 'assistant']);
+    expect(result.messages[0]?.md).toBe('Question');
+    expect(result.messages[1]?.md).toBe('## You said:\n\n### ChatGPT said:\n\nAnswer');
+    expect(doc.body.innerHTML).toBe(before);
+  });
+
+  it.each([
+    '<div class="markdown"><h5>You said:</h5><p>UNOWNED_HEADING</p></div>',
+    '<div class="whitespace-pre-wrap">You said: UNOWNED_PREFIX</div>',
+    '<h5>You said:</h5>',
+    '<div><h5>You said:</h5><p>UNOWNED_BODY</p></div>'
+  ])('rejects recognized content without a role instead of silently omitting %s', async (body) => {
+    const doc = new DOMParser().parseFromString(
+      message('user', 'Question') + message('assistant', 'Answer') + `<article>${body}</article>`,
+      'text/html'
+    );
+    await expect(extract(doc)).rejects.toMatchObject({
+      code: 'EXTRACTION_AI_CHAT_PARSE_EMPTY',
+      context: { parserDiagnosticCodes: ['chatgpt_role_missing'] }
+    });
+    const result = chatgptParser.parse(doc);
+    expect(result.messages).toEqual([]);
+    expect(result.diagnostics).toEqual([{ code: 'chatgpt_role_missing', severity: 'error' }]);
+  });
+
+  it.each(['markdown', 'whitespace-pre-wrap'])(
+    'keeps role words when the root itself is %s content',
+    (className) => {
+      const result = parse(
+        message('user', 'Question') +
+          `<div data-message-author-role="assistant" class="${className}"><h5>You said:</h5><h6 class="sr-only">ChatGPT said:</h6><div class="markdown">Answer</div></div>`
+      );
+      expect(result.messages[1]?.md).toBe('## You said:\n\n### ChatGPT said:\n\nAnswer');
+    }
+  );
+
+  it('preserves body prefixes when a user class establishes the role', () => {
+    const result = parse(
+      '<article class="user"><div class="markdown">You said: body literal</div></article>' +
+        message('assistant', 'Answer')
+    );
+    expect(result.messages[0]?.md).toBe('You said: body literal');
+  });
+});
+
 describe('ChatGPT message boundaries', () => {
   const hiddenAttributes = [
     'hidden',
@@ -282,16 +375,6 @@ describe('ChatGPT generation completion', () => {
     <div data-talvt-turn-state="${state}">${message('user', 'Output eighty neutral lines')}${message('assistant', '<p>First partial line</p>')}</div>`,
       'text/html'
     );
-  const extract = (doc: Document) =>
-    extractAIChat(doc, 'https://chatgpt.com/c/sanitized-streaming', {
-      getMessages: () =>
-        Promise.resolve({
-          exportAiChatFallbackTitleDeepseek: 'DeepSeek',
-          exportAiChatFallbackTitleKimi: 'Kimi',
-          exportAiChatFallbackTitleTongyi: 'Tongyi'
-        })
-    });
-
   it('rejects a real in_progress turn even when user and partial assistant text are already mounted', async () => {
     const doc = parseDocument('in_progress');
     await expect(extract(doc)).rejects.toMatchObject({

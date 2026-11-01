@@ -118,6 +118,19 @@ behavior remains covered by the production Stitch tests.
 
 ## Recommended author workflow
 
+Prepare the pinned runtime and private command environment described in
+[`engineering-entrypoints.md`](./engineering-entrypoints.md) before running these commands.
+During implementation, start with the existing bounded owner for the changed behavior:
+
+```bash
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/content/reader/ReaderSession.recovery.test.ts
+```
+
+Use the relevant existing test file instead of running the full coverage suite after every edit.
+For changes spanning an area, `node scripts/run-test-shards.mjs unit content` runs its registered
+unit shard. These focused runs give early feedback; complete the applicable checks below and
+the local baseline before integration. They do not replace coverage, browser or release gates.
+
 ### Small refactor
 
 ```bash
@@ -132,7 +145,7 @@ npm run test:unit -- tests/unit/path/to/file.test.ts
 npm run typecheck
 npm run lint
 npm run test:coverage
-npm run test:e2e -- optionsVaultRouterAutoSave.test.ts yamlOverridesFlow.test.ts
+npm run test:e2e -- yamlOverridesFlow.test.ts
 ```
 
 ### Content UI change
@@ -155,6 +168,13 @@ collection owner. The ownership gate is already wired into the standard engineer
 files must update the existing registry/route instead of adding an ad-hoc CI command.
 
 Pull requests also receive a coverage summary comment based on `coverage/coverage-summary.json`.
+
+When investigating slow CI, compare the command step timestamps and the test runner's duration
+breakdown before changing tests. The job's completion timestamp can include platform delay after
+all steps have finished. For unit coverage, separate setup, environment and test-body costs, then
+inspect the slowest files. Keep input identity checks fresh for every command admission; reuse
+data only within the same synchronous validation when it avoids repeating identical discovery.
+Do not cache an admission result across calls or remove negative cases to reduce elapsed time.
 
 ## Current Baseline
 

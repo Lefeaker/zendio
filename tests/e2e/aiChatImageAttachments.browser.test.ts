@@ -426,3 +426,120 @@ test('Kimi saves a later visible user question despite hidden nested message cop
     await sink.close();
   }
 });
+
+test('ChatGPT saves body-owned role headings while excluding standalone legacy role labels', async ({
+  context,
+  extensionPage
+}, testInfo) => {
+  const imageSource = `data:image/png;base64,${IMAGE_FIXTURES[0].bytes.toString('base64')}`;
+  const html = `<!doctype html><html><head><title>Legacy body boundaries - ChatGPT</title></head><body><main>
+    <article data-message-author-role="user">
+      <h5>You said:</h5>
+      <div class="markdown"><h5>You said:</h5><p>FIRST_VISIBLE_QUESTION</p><img src="${imageSource}" alt="legacy"></div>
+    </article>
+    <article><h6 class="sr-only">ChatGPT said:</h6><p>FIRST_VISIBLE_ANSWER</p></article>
+    <article data-message-author-role="user">
+      <h5>You said:</h5>
+      <div class="markdown"><p>SECOND_VISIBLE_QUESTION</p><h6 class="sr-only">ChatGPT said:</h6></div>
+    </article>
+    <article data-message-author-role="assistant">
+      <h5>ChatGPT said:</h5><div class="markdown"><h5>You said:</h5></div>
+    </article>
+    </main></body></html>`;
+  const { page, tabId } = await openFixtureWithRuntime(
+    context,
+    extensionPage,
+    'https://chatgpt.com/c/legacy-body-boundary-regression',
+    html,
+    createOptionsFixture({ selectionTriggerMode: 'disabled' })
+  );
+  const sink = await createImageOutputSink(extensionPage, 'rest', testInfo.outputPath('rest'));
+  try {
+    await page.reload();
+    await injectContentRuntime(extensionPage, tabId);
+    await expect(page.locator('html')).toHaveAttribute('data-aiob-content-runtime', 'true');
+    await extensionPage.evaluate(
+      (tabId) => chrome.tabs.sendMessage(tabId, { action: 'clipFull' }),
+      tabId
+    );
+    await expect.poll(() => sink.writes.length).toBe(2);
+    await expect.poll(sink.notePending).toBe(true);
+    expect(sink.writes.map(({ path: written }) => written.endsWith('.md'))).toEqual([false, true]);
+    expect(sink.writes.map(({ contentType }) => contentType)).toEqual([
+      'image/png',
+      'text/markdown; charset=utf-8'
+    ]);
+    sink.acknowledgeNote();
+    await expect(page.locator('#aiob-support-prompt [data-role="task-progress"]')).toHaveClass(
+      /is-success/
+    );
+
+    const files = await sink.files();
+    expect(files.size).toBe(2);
+    const notes = [...files.entries()].filter(([name]) => name.endsWith('.md'));
+    expect(notes).toHaveLength(1);
+    const note = notes[0];
+    if (!note) throw new Error('Missing actual legacy ChatGPT note');
+    const [notePath, bytes] = note;
+    const markdown = bytes.toString('utf8');
+    const roles = [...markdown.matchAll(/^# (\d+) (USER|ASSISTANT)$/gmu)].map(
+      (match) => `${match[1]} ${match[2]}`
+    );
+    expect(roles).toEqual(['1 USER', '2 ASSISTANT', '3 USER', '4 ASSISTANT']);
+    const sections = markdown
+      .split(/^# \d+ (?:USER|ASSISTANT)$/gmu)
+      .slice(1)
+      .map((section) => section.trim());
+    expect(sections).toHaveLength(4);
+    const [firstQuestion, firstAnswer, secondQuestion, lastAnswer] = sections;
+    expect(firstQuestion).toContain('> ## You said:');
+    expect(firstQuestion).toContain('FIRST_VISIBLE_QUESTION');
+    expect(firstAnswer).toBe('FIRST_VISIBLE_ANSWER');
+    expect(secondQuestion).toContain('SECOND_VISIBLE_QUESTION');
+    expect(secondQuestion).toContain('> ## ChatGPT said:');
+    expect(lastAnswer).toBe('## You said:');
+    expect(markdown.match(/ChatGPT said:/gu)).toHaveLength(1);
+    expect(markdown.match(/You said:/gu)).toHaveLength(2);
+
+    const references = [...markdown.matchAll(/!\[legacy\]\(([^)]+)\)/gu)];
+    expect(references).toHaveLength(1);
+    const reference = references[0]?.[1];
+    if (!reference) throw new Error('Missing saved legacy ChatGPT image reference');
+    expect(reference).not.toMatch(/^(?:https?:|blob:|data:)/u);
+    expect(markdown).not.toContain('aiob-attachment:');
+    expect(markdown).not.toContain('data:image');
+    const resolved = new URL(
+      reference,
+      `https://saved.test/${notePath.split('/').map(encodeURIComponent).join('/')}`
+    );
+    expect(resolved.hash).toBe('');
+    expect(resolved.search).toBe('');
+    const imagePath = decodeURIComponent(resolved.pathname.slice(1));
+    const image = files.get(imagePath);
+    if (!image) throw new Error('Saved legacy ChatGPT note references a missing image');
+    expect(imageHash(image)).toBe(imageHash(IMAGE_FIXTURES[0].bytes));
+    expect(sink.unexpectedRestWrites()).toBe(0);
+    const identity = await extensionPage.evaluate(() => ({
+      id: chrome.runtime.id,
+      version: chrome.runtime.getManifest().version
+    }));
+    await recordEvidence(testInfo, 'chatgpt-legacy-body-output', {
+      ...identity,
+      fixture: 'Legacy ChatGPT articles → installed production AI extractor → actual REST files',
+      manifestSha256: imageHash(await fs.readFile(path.join(EXTENSION_PATH, 'manifest.json'))),
+      notePath,
+      markdown,
+      roles,
+      sections,
+      reference,
+      imagePath,
+      files: [...files].map(([name, content]) => ({
+        name,
+        size: content.length,
+        sha256: imageHash(content)
+      }))
+    });
+  } finally {
+    await sink.close();
+  }
+});

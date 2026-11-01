@@ -3,7 +3,7 @@
     {
       "id": "p21-chatgpt-native-user-role-labels",
       "path": "src/third_party/ai-chat-exporter/platforms/chatgptMessages.ts",
-      "line": 25,
+      "line": 28,
       "category": "site-native-role-label",
       "reason": "ChatGPT parser strips role labels that come from the source site's own conversation headers.",
       "ownerPlan": "P21",
@@ -14,7 +14,7 @@
     {
       "id": "p21-chatgpt-native-assistant-role-label",
       "path": "src/third_party/ai-chat-exporter/platforms/chatgptMessages.ts",
-      "line": 26,
+      "line": 29,
       "category": "site-native-role-label",
       "reason": "ChatGPT parser strips assistant role labels that come from the source site's own conversation headers.",
       "ownerPlan": "P21",

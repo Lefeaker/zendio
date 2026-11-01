@@ -88,6 +88,11 @@ describe('report-performance-hotspots', () => {
 
   it('keeps the exact normalized budget transitions and every other budget unchanged', () => {
     const registeredBudgets = readRegisteredBudgets();
+    // One message owner now distinguishes role chrome from body-owned labels.
+    expect(
+      registeredBudgets.get('src/third_party/ai-chat-exporter/platforms/chatgptMessages.ts')
+    ).toBe(253);
+    registeredBudgets.delete('src/third_party/ai-chat-exporter/platforms/chatgptMessages.ts');
     // Image audit fixes share pending acquisitions and preserve nested Kimi message content.
     expect(registeredBudgets.get('src/content/extractors/aiChatImagePreparation.ts')).toBe(288);
     registeredBudgets.set('src/content/extractors/aiChatImagePreparation.ts', 283);
@@ -112,6 +117,10 @@ describe('report-performance-hotspots', () => {
     // One new preparation error key extends the generated catalog, not runtime source budgets.
     expect(registeredBudgets.get('src/i18n/generated/messages.generated.ts')).toBe(1371);
     registeredBudgets.set('src/i18n/generated/messages.generated.ts', 1370);
+    expect(registeredBudgets.get('src/content/reader/sessionOperations.ts')).toBe(823);
+    registeredBudgets.set('src/content/reader/sessionOperations.ts', 819);
+    expect(registeredBudgets.get('src/content/video/videoSessionExporter.ts')).toBe(275);
+    registeredBudgets.set('src/content/video/videoSessionExporter.ts', 274);
     const v034ReleaseNoteChanges: Array<[string, number, number]> = [
       ['src/i18n/generated/schemaCore.generated.ts', 470, 477],
       ['src/i18n/generated/messages.generated.ts', 1363, 1370]

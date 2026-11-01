@@ -2294,6 +2294,18 @@ describe('bounded command ownership', () => {
     }
   );
 
+  it('revalidates lifecycle inputs on each profile resolution', () => {
+    const environment = verifiedNpmLifecycleEnvironment();
+    const resolveProfile = () =>
+      resolveCommandProfile('node-script-standard-v1', ['scripts/verify-runtime.mjs'], {
+        environment
+      });
+
+    expect(resolveProfile().commandContext).toMatchObject({ attemptConfigAuthority: true });
+    environment.npm_lifecycle_script = 'forged-after-first-resolution';
+    expect(resolveProfile).toThrow('NPM_CONFIG_AUTHORITY_INVALID');
+  });
+
   it.each(NPM_LIFECYCLE_ALIASES)(
     'admits the verified npm lifecycle projection for active alias %s',
     (event) => {

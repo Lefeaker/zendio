@@ -1,7 +1,12 @@
 import { snapshotVideoExportCaptures } from './videoSessionExporter';
 import {
+  canContinueVideoExport,
+  prepareVideoRecoveryCaptures,
+  videoExportSnapshotId
+} from './videoSessionExportRecovery';
+import {
   createSessionExportAttempt,
-  sessionExportSnapshotId
+  prepareSessionExportDispatch
 } from '../../shared/sessionDrafts/exportAttempt';
 import {
   ClipSaveError,
@@ -13,7 +18,6 @@ import {
   clearSessionExportNotice,
   showSessionExportNotice
 } from '../shared/panels/sessionPanelRecovery';
-import { buildVideoSessionDraftPayload } from './sessionDrafts';
 import { generateTextFragmentUrl } from '../clipper/utils/textFragment';
 import { bucketCount, createFeatureTimer, type AnalyticsSource } from '../../shared/analytics';
 import type { VideoFragmentCapture, VideoTimestampCapture } from './types';
@@ -246,23 +250,6 @@ export function focusVideoSessionCapture(context: VideoSessionOperationContext, 
   }
 }
 
-function videoExportSnapshotId(context: VideoSessionOperationContext): string {
-  const destination = context.getExportDestinationMetadata?.();
-  return sessionExportSnapshotId(
-    buildVideoSessionDraftPayload({
-      retentionPolicy: { maxItemsPerPage: null },
-      captures: context.state.captures,
-      commentDrafts: context.state.commentDrafts,
-      platform: context.state.platform,
-      videoId: context.state.videoId,
-      videoUrl: context.state.videoUrl,
-      canonicalUrl: context.state.canonicalUrl,
-      videoTitle: context.state.videoTitle,
-      ...(destination ? { destination } : {})
-    })
-  );
-}
-
 export function showVideoExportRecovery(context: VideoSessionOperationContext): void {
   showSessionExportNotice(
     context.doc,
@@ -270,7 +257,7 @@ export function showVideoExportRecovery(context: VideoSessionOperationContext): 
     'saveResultUnknown',
     context.resumeExport,
     context.state.exportAttempt,
-    Boolean(context.state.frozenExportPayload)
+    canContinueVideoExport(context)
   );
 }
 
@@ -300,7 +287,7 @@ export async function finishVideoSession(
   if (previousAttempt && !context.state.exportDispatched) {
     if (recoveryAction === 'continue') {
       if (
-        !context.state.frozenExportPayload ||
+        !canContinueVideoExport(context) ||
         !previousAttempt.attachmentProgress ||
         previousAttempt.attachmentProgress.blocked ||
         videoExportSnapshotId(context) !== previousAttempt.snapshotId
@@ -363,19 +350,31 @@ export async function finishVideoSession(
       const attempt =
         recoveryAction === 'continue' && previousAttempt
           ? previousAttempt
-          : createSessionExportAttempt(
-              videoExportSnapshotId(context),
-              context.getExportTargetPreview?.()
-            );
+          : {
+              ...createSessionExportAttempt(
+                videoExportSnapshotId(context),
+                context.getExportTargetPreview?.()
+              ),
+              rebuild: 'video-v1' as const
+            };
       const exportInput = {
-        onPrepared: (
+        onPrepared: async (
           payload: import('../../shared/repositories/IVideoRepository').VideoClipData
         ) => {
           context.state.frozenExportPayload = payload;
+          context.state.exportAttempt = prepareSessionExportDispatch(attempt);
+          await persistVideoExportAttempt(context);
+          writeRequested = true;
         },
         operationId: attempt.operationId,
         exportStartedAt: attempt.startedAt,
-        captures: snapshotVideoExportCaptures(context.state.captures),
+        captures:
+          recoveryAction === 'continue' && !context.state.frozenExportPayload
+            ? await prepareVideoRecoveryCaptures(context)
+            : snapshotVideoExportCaptures(context.state.captures),
+        ...(recoveryAction === 'continue' && attempt.attachmentProgress
+          ? { attachmentProgress: attempt.attachmentProgress }
+          : {}),
         videoTitle: context.state.videoTitle,
         canonicalUrl: context.state.canonicalUrl || '',
         videoUrl: context.state.videoUrl,
@@ -384,15 +383,11 @@ export async function finishVideoSession(
         storageKey: context.state.storageKey,
         ...(exportDestination ? { exportDestination: { ...exportDestination } } : {})
       };
-      context.state.exportAttempt = attempt;
-      await persistVideoExportAttempt(context);
-      writeRequested = true;
+      const frozenPayload = recoveryAction === 'continue' && context.state.frozenExportPayload;
+      if (frozenPayload) await exportInput.onPrepared(frozenPayload);
       const result = readClipSaveResult(
-        await (recoveryAction === 'continue' && context.state.frozenExportPayload
-          ? context.exporter.sendPrepared(
-              context.state.frozenExportPayload,
-              attempt.attachmentProgress
-            )
+        await (frozenPayload
+          ? context.exporter.sendPrepared(frozenPayload, attempt.attachmentProgress)
           : context.exporter.export(exportInput))
       );
       if (!result.success) throw new ClipSaveError(result);
@@ -444,7 +439,9 @@ export async function finishVideoSession(
             writeRequested ? 'unknown' : 'failed',
             resolveVideoFailureCategory(error)
           ),
-      recoveryAction === 'continue' ? previousAttempt?.attachmentProgress : undefined
+      recoveryAction === 'continue'
+        ? (writeRequested ? context.state.exportAttempt : previousAttempt)?.attachmentProgress
+        : undefined
     );
     if (failure.attachmentProgress && context.state.exportAttempt) {
       context.state.exportAttempt = {
@@ -467,10 +464,12 @@ export async function finishVideoSession(
       showSessionExportNotice(
         context.doc,
         'video',
-        failure.message.key,
+        error instanceof Error && error.message === 'CLIP_EXPORT_SNAPSHOT_UNAVAILABLE'
+          ? 'saveContinuationUnavailable'
+          : failure.message.key,
         failure.outcome === 'unknown' ? context.resumeExport : undefined,
         context.state.exportAttempt,
-        Boolean(context.state.frozenExportPayload)
+        canContinueVideoExport(context)
       );
     context.dependencies.showSupportProgress?.({
       value: 100,

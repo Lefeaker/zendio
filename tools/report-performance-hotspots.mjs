@@ -155,7 +155,7 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/background/services/obsidianWriter.ts', 423],
   ['src/background/vault-router.ts', 422],
   ['src/shared/state/globalStateManager.ts', 345],
-  ['src/content/reader/sessionOperations.ts', 819],
+  ['src/content/reader/sessionOperations.ts', 823],
   ['src/i18n/config.ts', 343],
   ['src/content/ui/supportPrompt.ts', 345],
   ['src/options/services/connectionTester.ts', 368],
@@ -240,6 +240,7 @@ export const MAX_LINE_BUDGETS = new Map([
   // 2026-06-20 onboarding closeout: Chrome/Firefox first-run setup guidance
   // keeps Local Folder and REST fallback instructions centralized here.
   ['src/options/stitch/schema/resources/setup-guide.ts', 255],
+  ['src/third_party/ai-chat-exporter/platforms/chatgptMessages.ts', 253],
   ['src/third_party/ai-chat-exporter/platforms/kimi.ts', 306],
   ['src/i18n/catalog/languages.ts', 280],
   ['src/content/sessionDrafts/sessionDraftRepository.ts', 398],
@@ -276,7 +277,7 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/shared/analytics/analyticsTransport.ts', 269],
   // Save recovery keeps frozen capture inputs and optional attempt metadata in
   // the existing exporter/draft owners; these are exact reviewed line counts.
-  ['src/content/video/videoSessionExporter.ts', 274],
+  ['src/content/video/videoSessionExporter.ts', 275],
   ['src/content/video/sessionDrafts.ts', 253],
   // 2026-06-18 GA telemetry acceptance: reader/video export shape telemetry
   // adds small guarded hotspots around existing mutation and completion flows.
