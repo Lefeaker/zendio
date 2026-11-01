@@ -140,6 +140,35 @@ describe('Kimi non-overlapping message roots', () => {
     ]);
   });
 
+  it.each([1, 2])(
+    'keeps %i independent items when a list also has the generic message class',
+    (count) => {
+      for (const list of [
+        'message-list',
+        'MessageList',
+        'kimi-message-list',
+        'assistant-message-list',
+        'user-message-list',
+        'chat-content-item-list'
+      ]) {
+        const { result, images, references } = parseImages(
+          `<div class="message user">Question</div><div class="message ${list}"><p>LIST_CHROME</p>${Array.from({ length: count }, (_, index) => `<div class="message">REPLY_${index}${image}</div>`).join('')}</div>`
+        );
+        expect(result.messages).toHaveLength(count + 1);
+        expect(result.messages[0]?.role).toBe('user');
+        for (let index = 0; index < count; index++) {
+          expect(result.messages[index + 1]?.role).toBe('assistant');
+          expect(result.messages[index + 1]?.md).toContain(`REPLY_${index}`);
+        }
+        expect(result.messages.map((message) => message.md).join('\n')).not.toContain(
+          'LIST_CHROME'
+        );
+        expect(new Set(images.map((candidate) => candidate.messageRoot)).size).toBe(count);
+        expect(references).toHaveLength(count);
+      }
+    }
+  );
+
   it('retains all sibling content fragments under one message without repeating nested fragments', () => {
     const { result } = parseImages(
       '<div class="chat-content-item chat-content-item-user"><div class="message-content"><div class="message-content">First fragment</div></div><div class="message-content">Second fragment</div></div>' +
@@ -162,6 +191,138 @@ describe('Kimi non-overlapping message roots', () => {
     expect(result.messages[0]?.md).not.toMatch(/EXCLUDED_SEARCH|EXCLUDED_ACTION/);
     expect(references).toEqual(['aiob-attachment:kimi-0']);
   });
+});
+
+describe('Kimi owner evidence and visibility', () => {
+  const owners = [
+    'class="chat-content-item chat-content-item-user" data-conversation-turn-id="turn"',
+    'class="chat-content-item-user"',
+    'class="message user" data-message-id="turn"',
+    'class="message user"',
+    'class="message" data-archer-id="turn"',
+    'class="message"'
+  ];
+
+  it.each(owners)('keeps the whole owner (%s) independently of generic fragment count', (owner) => {
+    for (const count of [0, 1, 2]) {
+      const fragments = Array.from(
+        { length: count },
+        (_, index) => `<div class="message">FRAGMENT_${index}${image}</div>`
+      ).join('');
+      const { result, images, references } = parseImages(
+        modernMessage('user', 'Earlier question') +
+          modernMessage('assistant', 'Earlier answer') +
+          `<div ${owner}><p>OUTER_BEGIN</p><div class="segment-content">BODY${fragments}</div><p>OUTER_END</p>${image}</div>` +
+          modernMessage('assistant', 'Answer')
+      );
+      expect(result.messages).toHaveLength(4);
+      expect(result.messages[2]?.role).toBe(owner.includes('user') ? 'user' : 'assistant');
+      expect(result.messages[2]?.md).toMatch(/OUTER_BEGIN[\s\S]*BODY[\s\S]*OUTER_END/);
+      for (let index = 0; index < count; index++)
+        expect(result.messages[2]?.md?.match(new RegExp(`FRAGMENT_${index}`, 'g'))).toHaveLength(1);
+      expect(images).toHaveLength(count + 1);
+      expect(new Set(images.map((candidate) => candidate.messageRoot)).size).toBe(1);
+      expect(references).toHaveLength(count + 1);
+    }
+  });
+
+  it.each(['hidden', 'aria-hidden="true"', 'style="display:none"', 'style="display: none"'])(
+    'ignores %s copies and conflicting roles before resolving a message',
+    (hidden) => {
+      const { result, images, references } = parseImages(
+        modernMessage('user', 'Earlier question') +
+          modernMessage('assistant', 'Earlier answer') +
+          `<div class="message user"><p>VISIBLE_QUESTION</p>${image}<div ${hidden}><div class="message">HIDDEN_FIRST${image}</div><div class="message assistant" data-message-id="hidden">HIDDEN_SECOND${image}</div></div></div>` +
+          modernMessage('assistant', 'Answer')
+      );
+      expect(result.messages.map((message) => message.role)).toEqual([
+        'user',
+        'assistant',
+        'user',
+        'assistant'
+      ]);
+      expect(result.messages[2]?.md).toContain('VISIBLE_QUESTION');
+      expect(result.messages.map((message) => message.md).join('\n')).not.toContain('HIDDEN_');
+      expect(images).toHaveLength(1);
+      expect(references).toEqual(['aiob-attachment:kimi-0']);
+    }
+  );
+
+  it('retains supported role-named message items without promoting the enclosing list', () => {
+    const { result } = parseImages(
+      '<div class="message-list"><div class="user-message">Question</div><div class="assistant-message">Answer</div></div>'
+    );
+    expect(result.messages.map((message) => [message.role, message.md])).toEqual([
+      ['user', 'Question'],
+      ['assistant', 'Answer']
+    ]);
+  });
+
+  it('folds a nested representation with the same identity and role into its outer owner', () => {
+    const { result, images, references } = parseImages(
+      `<div class="chat-content-item-user" data-message-id="same">BEGIN${image}<div class="message user" data-message-id="same">INNER${image}</div>END</div>` +
+        modernMessage('assistant', 'Answer')
+    );
+    expect(result.messages).toHaveLength(2);
+    expect(result.messages[0]?.md).toMatch(/BEGIN[\s\S]*INNER[\s\S]*END/);
+    expect(new Set(images.map((candidate) => candidate.messageRoot)).size).toBe(1);
+    expect(references).toHaveLength(2);
+  });
+
+  it.each(['message', 'custom-message'])(
+    'uses the explicit user role inside an identity-only %s owner at any turn',
+    (className) => {
+      for (const earlier of [
+        '',
+        modernMessage('user', 'Earlier question') + modernMessage('assistant', 'Earlier answer')
+      ]) {
+        const { result, images, references } = parseImages(
+          earlier +
+            `<div class="${className}" data-message-id="owner">OUTER_BEGIN<div class="message user">QUESTION${image}</div>OUTER_END</div>` +
+            modernMessage('assistant', 'Answer')
+        );
+        expect(result.messages.map((message) => message.role)).toEqual(
+          earlier ? ['user', 'assistant', 'user', 'assistant'] : ['user', 'assistant']
+        );
+        expect(result.messages.at(-2)?.md).toMatch(/OUTER_BEGIN[\s\S]*QUESTION[\s\S]*OUTER_END/);
+        expect(images[0]?.messageRoot?.getAttribute('data-message-id')).toBe('owner');
+        expect(references).toEqual(['aiob-attachment:kimi-0']);
+      }
+    }
+  );
+
+  it('rejects mixed explicit roles inside an identity-only owner', () => {
+    const { result, images } = parseImages(
+      `<div class="message" data-message-id="owner"><div class="message user">Question${image}</div><div class="message assistant">Answer</div></div>`
+    );
+    expect(result.messages).toEqual([]);
+    expect(result.diagnostics).toContainEqual({
+      code: 'kimi_message_ownership_conflict',
+      severity: 'error'
+    });
+    expect(images).toEqual([]);
+  });
+
+  it.each([
+    'class="message assistant" data-message-id="same"',
+    'class="message user" data-message-id="different"'
+  ])(
+    'rejects visible conflicting nested ownership (%s), including after a complete turn',
+    (nested) => {
+      const { result, images } = parseImages(
+        modernMessage('user', 'Earlier question') +
+          modernMessage('assistant', 'Earlier answer') +
+          `<div class="chat-content-item-user" data-message-id="same">OUTER<div ${nested}>INNER${image}</div></div>` +
+          modernMessage('assistant', 'Answer')
+      );
+      expect(result.messages).toEqual([]);
+      expect(result.diagnostics).toContainEqual({
+        code: 'kimi_message_ownership_conflict',
+        severity: 'error'
+      });
+      expect(images).toEqual([]);
+    }
+  );
 });
 
 describe('kimi parser', () => {

@@ -310,3 +310,119 @@ test('an unavailable message image fails preparation before any destination writ
     await sink.close();
   }
 });
+
+test('Kimi saves a later visible user question despite hidden nested message copies', async ({
+  context,
+  extensionPage
+}, testInfo) => {
+  const imageSource = `data:image/png;base64,${IMAGE_FIXTURES[0].bytes.toString('base64')}`;
+  const html = `<!doctype html><html><head><title>Message boundaries - Kimi</title></head><body><main>
+    <div class="chat-content-item chat-content-item-user" data-conversation-turn-id="first-user">
+      <div class="segment-text"><p>FIRST_VISIBLE_QUESTION</p><img src="${imageSource}" alt="kimi"></div>
+    </div>
+    <div class="chat-content-item chat-content-item-assistant">
+      <div class="segment-content"><p>FIRST_VISIBLE_ANSWER</p></div>
+    </div>
+    <div class="chat-content-item chat-content-item-user" data-conversation-turn-id="second-user">
+      <div class="segment-text"><p>SECOND_VISIBLE_QUESTION</p></div>
+      <div hidden><div class="message">HIDDEN_FIRST_COPY</div><div class="message">HIDDEN_SECOND_COPY</div></div>
+    </div>
+    <div class="chat-content-item chat-content-item-assistant">
+      <div class="segment-content"><p>SECOND_VISIBLE_ANSWER</p></div>
+    </div>
+    </main></body></html>`;
+  const { page, tabId } = await openFixtureWithRuntime(
+    context,
+    extensionPage,
+    'https://www.kimi.com/chat/message-boundary-regression',
+    html,
+    createOptionsFixture({ selectionTriggerMode: 'disabled' })
+  );
+  const sink = await createImageOutputSink(extensionPage, 'rest', testInfo.outputPath('rest'));
+  try {
+    await page.reload();
+    await injectContentRuntime(extensionPage, tabId);
+    await expect(page.locator('html')).toHaveAttribute('data-aiob-content-runtime', 'true');
+    await extensionPage.evaluate(
+      (tabId) => chrome.tabs.sendMessage(tabId, { action: 'clipFull' }),
+      tabId
+    );
+    await expect.poll(() => sink.writes.length).toBe(2);
+    await expect.poll(sink.notePending).toBe(true);
+    expect(sink.writes.map(({ path: written }) => written.endsWith('.md'))).toEqual([false, true]);
+    expect(sink.writes.map(({ contentType }) => contentType)).toEqual([
+      'image/png',
+      'text/markdown; charset=utf-8'
+    ]);
+    sink.acknowledgeNote();
+    await expect(page.locator('#aiob-support-prompt [data-role="task-progress"]')).toHaveClass(
+      /is-success/
+    );
+
+    const files = await sink.files();
+    expect(files.size).toBe(2);
+    const notes = [...files.entries()].filter(([name]) => name.endsWith('.md'));
+    expect(notes).toHaveLength(1);
+    const note = notes[0];
+    if (!note) throw new Error('Missing actual Kimi note');
+    const [notePath, bytes] = note;
+    const markdown = bytes.toString('utf8');
+    expect(markdown).toContain('SECOND_VISIBLE_QUESTION');
+    const visibleMessages = [
+      'FIRST_VISIBLE_QUESTION',
+      'FIRST_VISIBLE_ANSWER',
+      'SECOND_VISIBLE_QUESTION',
+      'SECOND_VISIBLE_ANSWER'
+    ];
+    for (const text of visibleMessages) expect(markdown.split(text)).toHaveLength(2);
+    const positions = visibleMessages.map((text) => markdown.indexOf(text));
+    expect(positions).toEqual([...positions].sort((left, right) => left - right));
+    expect(markdown).not.toContain('HIDDEN_FIRST_COPY');
+    expect(markdown).not.toContain('HIDDEN_SECOND_COPY');
+    const roles = [...markdown.matchAll(/^# (\d+) (USER|ASSISTANT)$/gmu)].map(
+      (match) => `${match[1]} ${match[2]}`
+    );
+    expect(roles).toEqual(['1 USER', '2 ASSISTANT', '3 USER', '4 ASSISTANT']);
+
+    const references = [...markdown.matchAll(/!\[kimi\]\(([^)]+)\)/gu)];
+    expect(references).toHaveLength(1);
+    const reference = references[0]?.[1];
+    if (!reference) throw new Error('Missing saved Kimi image reference');
+    expect(reference).not.toMatch(/^(?:https?:|blob:|data:)/u);
+    expect(markdown).not.toContain('aiob-attachment:');
+    expect(markdown).not.toContain('data:image');
+    const resolved = new URL(
+      reference,
+      `https://saved.test/${notePath.split('/').map(encodeURIComponent).join('/')}`
+    );
+    expect(resolved.hash).toBe('');
+    expect(resolved.search).toBe('');
+    const imagePath = decodeURIComponent(resolved.pathname.slice(1));
+    const image = files.get(imagePath);
+    if (!image) throw new Error('Saved Kimi note references a missing image');
+    expect(imageHash(image)).toBe(imageHash(IMAGE_FIXTURES[0].bytes));
+    expect(sink.unexpectedRestWrites()).toBe(0);
+    const identity = await extensionPage.evaluate(() => ({
+      id: chrome.runtime.id,
+      version: chrome.runtime.getManifest().version
+    }));
+    await recordEvidence(testInfo, 'kimi-message-boundary-output', {
+      ...identity,
+      fixture: 'Controlled Kimi DOM → installed production AI extractor → actual REST files',
+      manifestSha256: imageHash(await fs.readFile(path.join(EXTENSION_PATH, 'manifest.json'))),
+      notePath,
+      markdown,
+      roles,
+      visibleMessages,
+      reference,
+      imagePath,
+      files: [...files].map(([name, content]) => ({
+        name,
+        size: content.length,
+        sha256: imageHash(content)
+      }))
+    });
+  } finally {
+    await sink.close();
+  }
+});

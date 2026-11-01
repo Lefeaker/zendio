@@ -47,7 +47,7 @@
     {
       "id": "p21-kimi-native-action-labels",
       "path": "src/third_party/ai-chat-exporter/platforms/kimi.ts",
-      "line": 95,
+      "line": 94,
       "category": "site-native-action-label",
       "reason": "Kimi parser removes source-site action labels that are rendered inside native assistant toolbars.",
       "ownerPlan": "P21",

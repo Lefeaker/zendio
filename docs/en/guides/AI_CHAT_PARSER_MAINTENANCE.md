@@ -242,6 +242,12 @@ role boundaries and legacy role labels ignore hidden descendants while retaining
 the rejection of visible conflicts. Kimi resolves non-overlapping message roots
 before either operation and preserves the text fragments within each root;
 container nesting must not duplicate images or discard later text fragments.
+An identified Kimi message owns its full visible subtree, including text outside
+the usual body containers. Generic internal `.message` nodes do not turn that
+owner into a list. Determine independent messages from role/identity and grouping
+evidence after excluding hidden and native-action contexts; never discard an
+owner based only on descendant counts. Visible conflicting message boundaries
+must fail explicitly rather than produce a successful, incomplete transcript.
 
 The resource loader preserves fetched PNG, JPEG, GIF, WebP, AVIF and validated SVG
 bytes; it does not reencode a screenshot or a canvas. SVG support is a static

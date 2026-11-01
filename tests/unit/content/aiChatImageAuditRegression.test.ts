@@ -89,6 +89,59 @@ describe('AI image audit regressions through the production extractor', () => {
     );
   });
 
+  describe.each([
+    { name: 'hidden copies', attribute: 'hidden', visible: false },
+    { name: 'aria-hidden copies', attribute: 'aria-hidden="true"', visible: false },
+    { name: 'display:none copies', attribute: 'style="display:none"', visible: false },
+    { name: 'display: none copies', attribute: 'style="display: none"', visible: false },
+    { name: 'visible internal fragments', attribute: '', visible: true }
+  ])('Kimi message ownership with $name', ({ attribute, visible }) => {
+    it.each([false, true])(
+      'preserves the complete user turn after an earlier pair: %s',
+      async (later) => {
+        const earlier = later
+          ? '<div class="message user"><div class="content">EARLIER_QUESTION</div></div><div class="message assistant"><div class="content">EARLIER_ANSWER</div></div>'
+          : '';
+        const internal = `<div ${attribute}><div class="message">INTERNAL_FIRST</div><div class="message">INTERNAL_SECOND</div></div>`;
+        const doc = conversation(
+          `${earlier}<div class="chat-content-item chat-content-item-user" data-conversation-turn-id="owned-user-turn"><div class="segment-text">VISIBLE_QUESTION${image}${visible ? internal : ''}</div>${visible ? '' : internal}</div>
+         <div class="chat-content-item chat-content-item-assistant"><div class="segment-content">VISIBLE_ANSWER</div></div>`,
+          'https://www.kimi.com/chat/message-ownership'
+        );
+        const original = doc.documentElement.outerHTML;
+        const result = await createAIChatExtractor().extract({ document: doc, url: doc.baseURI });
+        expect(result.meta.messageCount).toBe(later ? 4 : 2);
+        for (const text of ['VISIBLE_QUESTION', 'VISIBLE_ANSWER']) {
+          expect(result.markdown.split(text)).toHaveLength(2);
+        }
+        expect(result.markdown.indexOf('VISIBLE_QUESTION')).toBeLessThan(
+          result.markdown.indexOf('VISIBLE_ANSWER')
+        );
+        if (later) {
+          expect(result.markdown).toContain('EARLIER_QUESTION');
+          expect(result.markdown).toContain('EARLIER_ANSWER');
+          expect(result.markdown.indexOf('EARLIER_ANSWER')).toBeLessThan(
+            result.markdown.indexOf('VISIBLE_QUESTION')
+          );
+        }
+        expect(result.markdown.match(/^# \d+ USER$/gm)).toHaveLength(later ? 2 : 1);
+        expect(result.markdown.match(/^# \d+ ASSISTANT$/gm)).toHaveLength(later ? 2 : 1);
+        for (const text of ['INTERNAL_FIRST', 'INTERNAL_SECOND']) {
+          expect(result.markdown.includes(text)).toBe(visible);
+        }
+        const files = result.meta.attachments ?? [];
+        expect(files).toHaveLength(1);
+        expect(
+          countClipAttachmentReferences(
+            result.markdown,
+            files.map((file) => file.id)
+          )
+        ).toEqual(new Map(files.map((file) => [file.id, 1])));
+        expect(doc.documentElement.outerHTML).toBe(original);
+      }
+    );
+  });
+
   it('keeps adjacent literal-backtick image captions outside code spans', async () => {
     const doc = conversation(
       chatgptMessage('user', 'Question') +
