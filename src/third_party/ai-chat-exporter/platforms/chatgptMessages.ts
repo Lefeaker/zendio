@@ -49,15 +49,32 @@ function roleFromLabel(label: string): MessageRoot['role'] | null {
 }
 
 function legacyRole(element: HTMLElement): MessageRoot['role'] | null {
-  const headingRole = roleFromLabel(element.querySelector('h5')?.textContent ?? '');
+  const heading = visibleDescendants(element, 'h5')[0];
+  const headingRole = roleFromLabel(heading ? visibleText(heading) : '');
   if (headingRole) return headingRole;
   if (element.classList.contains('user')) return 'user';
-  const prefix = element.textContent?.trim().match(ROLE_PREFIX);
+  const prefix = visibleText(element).trim().match(ROLE_PREFIX);
   return prefix ? roleFromLabel(prefix[1]) : null;
 }
 
 function failure(code: string): MessageExtraction {
   return { messages: [], diagnostics: [{ code, severity: 'error' }] };
+}
+
+function visibleDescendants(root: ParentNode, selector: string): HTMLElement[] {
+  return Array.from(root.querySelectorAll<HTMLElement>(selector)).filter(
+    (element) => !element.closest(HIDDEN)
+  );
+}
+
+function visibleText(root: HTMLElement): string {
+  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let text = '';
+  while (walker.nextNode()) {
+    if (!walker.currentNode.parentElement?.closest(HIDDEN))
+      text += walker.currentNode.textContent ?? '';
+  }
+  return text;
 }
 
 function topLevelMatches(root: HTMLElement, selector: string): HTMLElement[] {
@@ -85,7 +102,7 @@ function cloneMessageContent(root: MessageRoot): HTMLElement {
   normalizeChatGPTCodeBlocks(container);
   container.querySelectorAll(`${CHROME}, ${ROLE_HEADING}`).forEach(removePreservingMessageImages);
   container.querySelectorAll('h5').forEach((heading) => {
-    if (roleFromLabel(heading.textContent ?? '')) heading.remove();
+    if (roleFromLabel(visibleText(heading))) heading.remove();
   });
   return container;
 }
@@ -104,19 +121,21 @@ function resolveMessageRoots(doc: ParentNode): MessageRoot[] | string {
     const element = modern ? candidate.parentElement : candidate;
     if (!element || roots.some((root) => root.element.contains(element))) continue;
     // A turn can contain both roles. Its article/legacy wrapper must not merge them.
-    if (!modern && candidate.querySelector(ROLE_HEADING)) continue;
-    if (!modern && !candidate.matches(LEGACY_ROLE) && candidate.querySelector(LEGACY_ROLE))
+    if (!modern && visibleDescendants(candidate, ROLE_HEADING).length > 0) continue;
+    if (
+      !modern &&
+      !candidate.matches(LEGACY_ROLE) &&
+      visibleDescendants(candidate, LEGACY_ROLE).length > 0
+    )
       continue;
-    if (modern && element.querySelectorAll(ROLE_HEADING).length !== 1) {
+    if (modern && visibleDescendants(element, ROLE_HEADING).length !== 1) {
       return 'chatgpt_message_boundary_ambiguous';
     }
     if (
       explicitRole &&
       !modern &&
-      Array.from(element.querySelectorAll(LEGACY_ROLE)).some(
-        (nested) =>
-          !nested.closest(HIDDEN) &&
-          nested.getAttribute('data-message-author-role') !== explicitRole
+      visibleDescendants(element, LEGACY_ROLE).some(
+        (nested) => nested.getAttribute('data-message-author-role') !== explicitRole
       )
     ) {
       return 'chatgpt_message_boundary_ambiguous';
@@ -127,7 +146,8 @@ function resolveMessageRoots(doc: ParentNode): MessageRoot[] | string {
       element,
       role,
       modern,
-      stripPrefix: !modern && explicitRole === null && !element.querySelector('h5')
+      stripPrefix:
+        !modern && explicitRole === null && visibleDescendants(element, 'h5').length === 0
     });
   }
 

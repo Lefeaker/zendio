@@ -223,11 +223,25 @@ each caller. Source navigation, changed image content, a missing image source or
 incomplete collection rejects the export before any files are written. Changing
 non-content button labels does not change message content.
 
+Within one preparation, repeated source URLs share their pending acquisition and
+byte conversion. Different URLs are still read independently and deduplicated by
+their verified byte hash. A failed or cancelled preparation cannot be resumed;
+a new export starts a fresh preparation without reusing its rejected promises.
+
 Each image occurrence has a separate temporary reference. After building the final
 Markdown, the existing attachment lexer must find every expected occurrence once.
 Only then are these references mapped to content-hash attachment IDs. Identical
 bytes share a file named `ai-image-<sha256>.<extension>` while every original
 message position remains present. Literal Markdown inside code stays literal.
+Image descriptions are serialized as literal text with CommonMark punctuation
+escaped, so backticks or HTML-like descriptions cannot hide neighboring image
+references from the final integrity check.
+
+Message ownership must agree between image collection and text parsing. ChatGPT
+role boundaries and legacy role labels ignore hidden descendants while retaining
+the rejection of visible conflicts. Kimi resolves non-overlapping message roots
+before either operation and preserves the text fragments within each root;
+container nesting must not duplicate images or discard later text fragments.
 
 The resource loader preserves fetched PNG, JPEG, GIF, WebP, AVIF and validated SVG
 bytes; it does not reencode a screenshot or a canvas. SVG support is a static

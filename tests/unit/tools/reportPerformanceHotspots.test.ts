@@ -88,6 +88,11 @@ describe('report-performance-hotspots', () => {
 
   it('keeps the exact normalized budget transitions and every other budget unchanged', () => {
     const registeredBudgets = readRegisteredBudgets();
+    // Image audit fixes share pending acquisitions and preserve nested Kimi message content.
+    expect(registeredBudgets.get('src/content/extractors/aiChatImagePreparation.ts')).toBe(288);
+    registeredBudgets.set('src/content/extractors/aiChatImagePreparation.ts', 283);
+    expect(registeredBudgets.get('src/third_party/ai-chat-exporter/platforms/kimi.ts')).toBe(306);
+    registeredBudgets.set('src/third_party/ai-chat-exporter/platforms/kimi.ts', 258);
     // AI image capture adds cohesive owner registrations and one generated error key.
     expect(registeredBudgets.get('src/content/extractors/aiChatDocumentPreparer.ts')).toBe(322);
     registeredBudgets.delete('src/content/extractors/aiChatDocumentPreparer.ts');

@@ -10,7 +10,7 @@ export const MAX_LINE_BUDGETS = new Map([
   // Image capture stays with its transcript/resource owners; exact measured sizes.
   // This registers semantic guards and static SVG validation, not runtime budget changes.
   ['src/content/extractors/aiChatDocumentPreparer.ts', 322],
-  ['src/content/extractors/aiChatImagePreparation.ts', 283],
+  ['src/content/extractors/aiChatImagePreparation.ts', 288],
   ['src/shared/attachments/aiChatImageBytes.ts', 308],
   // Grok traversal advances through already mounted rows while preserving overlap.
   // Register the cohesive owner's exact size; runtime and build limits stay fixed.
@@ -240,7 +240,7 @@ export const MAX_LINE_BUDGETS = new Map([
   // 2026-06-20 onboarding closeout: Chrome/Firefox first-run setup guidance
   // keeps Local Folder and REST fallback instructions centralized here.
   ['src/options/stitch/schema/resources/setup-guide.ts', 255],
-  ['src/third_party/ai-chat-exporter/platforms/kimi.ts', 258],
+  ['src/third_party/ai-chat-exporter/platforms/kimi.ts', 306],
   ['src/i18n/catalog/languages.ts', 280],
   ['src/content/sessionDrafts/sessionDraftRepository.ts', 398],
   ['src/content/reader/sessionDrafts.ts', 304],

@@ -48,12 +48,13 @@ export function imageChatHtml(): string {
   return `<!doctype html><html><head><title>Image attachments - ChatGPT</title></head><body><main>
     <article data-message-id="image-question" data-message-author-role="user">
       <div class="whitespace-pre-wrap"><p>Compare my uploaded pictures.</p>
-        <img src="${IMAGE_FIXTURES[0].url}" alt="upload-first" width="96" height="96">
-        <img src="${IMAGE_FIXTURES[0].url}" alt="upload-repeat" width="96" height="96">
+        <img src="${IMAGE_FIXTURES[0].url}" alt="upload-first \`" width="96" height="96">
+        <img src="${IMAGE_FIXTURES[0].url}" alt="upload-repeat \`" width="96" height="96">
       </div>
     </article>
     <article data-message-id="image-answer" data-message-author-role="assistant"><div class="markdown">
       <p>Generated answer picture.</p><img src="${IMAGE_FIXTURES[1].url}" alt="answer-picture" width="96" height="96">
+      <div hidden><h4 data-conversation-role="assistant">Hidden role copy</h4></div>
       <pre><code class="language-markdown">![literal example](https://example.test/example.png)</code></pre>
     </div></article>
     </main></body></html>`;

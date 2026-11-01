@@ -72,7 +72,7 @@ export class AIChatImagePreparation {
   private readonly controller = new AbortController();
   private readonly records = new Map<string, Occurrence>();
   private readonly files = new Map<string, BinaryClipAttachment>();
-  private readonly sources = new Map<string, BinaryClipAttachment>();
+  private readonly sources = new Map<string, Promise<BinaryClipAttachment>>();
   private readonly descriptors = new Map<string, string>();
   private pending: Occurrence[] = [];
   private snapshots: Snapshot[] = [];
@@ -90,6 +90,7 @@ export class AIChatImagePreparation {
   ) {}
 
   fail(diagnostic: string): never {
+    this.controller.abort();
     throw extractionErrors.aiChatImagesIncomplete({
       type: 'ai_chat',
       platform: this.parser.id,
@@ -200,6 +201,7 @@ export class AIChatImagePreparation {
   }
 
   async flush(): Promise<void> {
+    this.assertCurrent();
     if (!this.pending.length && !this.snapshots.length) return;
     const started = performance.now();
     const pending = this.pending;
@@ -213,27 +215,30 @@ export class AIChatImagePreparation {
         const record = pending[cursor++];
         if (!record) return;
         this.assertCurrent();
-        let file =
-          this.sources.get(record.source) ??
-          (await this.loadImage(
+        let acquisition = this.sources.get(record.source);
+        if (!acquisition) {
+          acquisition = this.loadImage(
             record.source,
             this.sourceUrl,
             this.parser.id,
             this.controller.signal
-          ));
-        this.assertCurrent();
-        const canonicalFile = this.files.get(file.id);
-        if (canonicalFile) file = canonicalFile;
-        else {
-          if (
-            this.files.size >= 50 ||
-            this.encodedBytes + file.content.data.length > MAX_ENCODED_BYTES
-          )
-            this.fail('ai_chat_image_capacity_exceeded');
-          this.files.set(file.id, file);
-          this.encodedBytes += file.content.data.length;
+          ).then((file) => {
+            this.assertCurrent();
+            const canonicalFile = this.files.get(file.id);
+            if (canonicalFile) return canonicalFile;
+            if (
+              this.files.size >= 50 ||
+              this.encodedBytes + file.content.data.length > MAX_ENCODED_BYTES
+            )
+              this.fail('ai_chat_image_capacity_exceeded');
+            this.files.set(file.id, file);
+            this.encodedBytes += file.content.data.length;
+            return file;
+          });
+          this.sources.set(record.source, acquisition);
         }
-        this.sources.set(record.source, file);
+        const file = await acquisition;
+        this.assertCurrent();
         record.attachmentId = file.id;
       }
     };

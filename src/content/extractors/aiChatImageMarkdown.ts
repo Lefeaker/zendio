@@ -2,7 +2,10 @@ import {
   countClipAttachmentReferences,
   replaceClipAttachmentReferences
 } from '../../shared/attachments/clipAttachmentReferences';
+import { ATTACHMENT_ESCAPABLE } from '../../shared/attachments/clipAttachmentLinks';
 import { AI_CHAT_IMAGE_TOKEN, type PreparedAIChatDocument } from './aiChatImagePreparation';
+
+const ALT_MARKDOWN_PUNCTUATION = new RegExp(ATTACHMENT_ESCAPABLE.source, 'gu');
 
 export function createAIChatImageResolver(
   prepared: PreparedAIChatDocument
@@ -11,7 +14,8 @@ export function createAIChatImageResolver(
     const token = node.getAttribute(AI_CHAT_IMAGE_TOKEN);
     const occurrence = token ? prepared.occurrences.get(token) : undefined;
     if (!token || !occurrence) throw new Error('AI_CHAT_IMAGE_NOT_PREPARED');
-    const alt = occurrence.alt.replace(/[\r\n]+/gu, ' ').replace(/[\\[\]]/gu, '\\$&');
+    // Alt is literal text: its punctuation must not open syntax across image boundaries.
+    const alt = occurrence.alt.replace(/[\r\n]+/gu, ' ').replace(ALT_MARKDOWN_PUNCTUATION, '\\$&');
     return `![${alt}](aiob-attachment:${token})`;
   };
 }

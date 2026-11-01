@@ -5,19 +5,79 @@ import {
   finalizeAIChatImageMarkdown
 } from '../../../src/content/extractors/aiChatImageMarkdown';
 import type { PreparedAIChatDocument } from '../../../src/content/extractors/aiChatImagePreparation';
+import {
+  countClipAttachmentReferences,
+  replaceClipAttachmentReferences
+} from '../../../src/shared/attachments/clipAttachmentReferences';
 
-function prepared(): PreparedAIChatDocument {
+function prepared(
+  [firstAlt, secondAlt]: readonly [string, string] = ['first [image]', 'second']
+): PreparedAIChatDocument {
   return {
     document,
     attachments: [],
     occurrences: new Map([
-      ['one', { attachmentId: 'same-bytes', alt: 'first [image]' }],
-      ['two', { attachmentId: 'same-bytes', alt: 'second' }]
+      ['one', { attachmentId: 'same-bytes', alt: firstAlt }],
+      ['two', { attachmentId: 'same-bytes', alt: secondAlt }]
     ])
   };
 }
 
+function resolveImages(bundle: PreparedAIChatDocument): string {
+  const resolve = createAIChatImageResolver(bundle);
+  return [...bundle.occurrences.keys()]
+    .map((token) => {
+      const image = document.createElement('img');
+      image.setAttribute('data-aiob-image-token', token);
+      return resolve(image);
+    })
+    .join(' ');
+}
+
 describe('AI chat image occurrence accounting', () => {
+  it.each<{ name: string; alts: readonly [string, string] }>([
+    { name: 'single backticks', alts: ['first `', 'second `'] },
+    { name: 'multiple backticks', alts: ['first ``', 'second ``'] },
+    { name: 'backslash before backticks', alts: ['first \\`', 'second \\`'] },
+    { name: 'HTML comment delimiters', alts: ['<!-- open', 'close -->'] },
+    { name: 'HTML attribute delimiters', alts: ['<span title="open', 'close">'] },
+    {
+      name: 'brackets, backslashes and nested Markdown image text',
+      alts: ['[first] \\ [image]', '![literal](aiob-attachment:unknown)']
+    },
+    { name: 'entity-like text', alts: ['&grave; &#96;', '&lt;tag&gt; &amp;'] }
+  ])('keeps both real references when alt contains $name', ({ alts }) => {
+    const bundle = prepared(alts);
+    const markdown = resolveImages(bundle);
+    expect(countClipAttachmentReferences(markdown, ['one', 'two'])).toEqual(
+      new Map([
+        ['one', 1],
+        ['two', 1]
+      ])
+    );
+    const finalized = finalizeAIChatImageMarkdown(markdown, bundle);
+    expect(countClipAttachmentReferences(finalized, ['same-bytes'])).toEqual(
+      new Map([['same-bytes', 2]])
+    );
+    const saved = replaceClipAttachmentReferences(finalized, [
+      { id: 'same-bytes', markdownUrl: 'assets/image.png' }
+    ]);
+    expect(saved.match(/\]\(assets\/image\.png\)/gu)).toHaveLength(2);
+    expect(saved).not.toContain('(aiob-attachment:one)');
+    expect(saved).not.toContain('(aiob-attachment:two)');
+  });
+
+  it('serializes formatting, HTML and entity punctuation as literal alt text', () => {
+    const bundle = prepared([
+      'line\r\n\\ [image] <tag> &copy; *bold* _em_ ~~strike~~ |cell|',
+      '&grave; &#96;'
+    ]);
+    expect(resolveImages(bundle)).toBe(
+      '![line \\\\ \\[image\\] \\<tag\\> \\&copy\\; \\*bold\\* \\_em\\_ \\~\\~strike\\~\\~ \\|cell\\|](aiob-attachment:one) ' +
+        '![\\&grave\\; \\&\\#96\\;](aiob-attachment:two)'
+    );
+  });
+
   it('keeps two positions while deduplicating their file identity', () => {
     expect(
       finalizeAIChatImageMarkdown(
@@ -36,11 +96,21 @@ describe('AI chat image occurrence accounting', () => {
       'AI_CHAT_IMAGE_OCCURRENCE_MISSING'
     );
   });
-  it('does not rewrite a code example that resembles a generated reference', () => {
-    const markdown =
-      '```md\n![literal](aiob-attachment:one)\n```\n\n![a](aiob-attachment:one) ![b](aiob-attachment:two)';
-    expect(finalizeAIChatImageMarkdown(markdown, prepared())).toContain(
-      '```md\n![literal](aiob-attachment:one)\n```'
+  it.each([
+    '`![literal](aiob-attachment:one)`',
+    '```md\n![literal](aiob-attachment:one)\n```',
+    '~~~md\n![literal](aiob-attachment:one)\n~~~'
+  ])('does not count or rewrite actual code: %s', (literal) => {
+    expect(countClipAttachmentReferences(literal, ['one', 'two'])).toEqual(new Map());
+    expect(() => finalizeAIChatImageMarkdown(literal, prepared())).toThrow(
+      'AI_CHAT_IMAGE_OCCURRENCE_MISSING'
+    );
+    const bundle = prepared(['first `', 'second `']);
+    const markdown = `${literal}\n\n${resolveImages(bundle)}`;
+    const finalized = finalizeAIChatImageMarkdown(markdown, bundle);
+    expect(finalized).toContain(literal);
+    expect(countClipAttachmentReferences(finalized, ['same-bytes'])).toEqual(
+      new Map([['same-bytes', 2]])
     );
   });
   it('escapes alt text and fails on unregistered image nodes', () => {

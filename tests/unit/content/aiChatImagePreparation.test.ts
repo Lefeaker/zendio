@@ -40,10 +40,14 @@ function deferred<T>() {
   let resolve: (value: T) => void = () => {
     throw new Error('Deferred was not initialized');
   };
-  const promise = new Promise<T>((accept) => {
+  let reject: (reason: Error) => void = () => {
+    throw new Error('Deferred was not initialized');
+  };
+  const promise = new Promise<T>((accept, decline) => {
     resolve = accept;
+    reject = decline;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 const parser: ChatPlatformParser = {
@@ -256,6 +260,131 @@ describe('AI image preparation snapshots', () => {
       { attachmentId: imageFile().id, alt: 'first' },
       { attachmentId: imageFile().id, alt: 'again' }
     ]);
+  });
+
+  it('shares a pending source read between workers without losing either occurrence', async () => {
+    doc.body.innerHTML = '<img src="/same.png" alt="first"><img src="/same.png" alt="again">';
+    const pending = deferred<BinaryClipAttachment>();
+    loadImage.mockReturnValue(pending.promise);
+    const images = preparation();
+    const frozen = images.clone(doc, 'page');
+    const flushing = images.flush();
+    const callsWhilePending = loadImage.mock.calls.length;
+    pending.resolve(imageFile());
+    await flushing;
+    const bundle = images.finish(frozen);
+    expect(callsWhilePending).toBe(1);
+    expect(loadImage).toHaveBeenCalledTimes(1);
+    expect(bundle.attachments).toEqual([imageFile()]);
+    expect([...bundle.occurrences.values()]).toEqual([
+      { attachmentId: imageFile().id, alt: 'first' },
+      { attachmentId: imageFile().id, alt: 'again' }
+    ]);
+    const tokens = Array.from(frozen.querySelectorAll('img')).map((image) =>
+      image.getAttribute(AI_CHAT_IMAGE_TOKEN)
+    );
+    expect(new Set(tokens).size).toBe(2);
+    expect(tokens.every((token) => token !== null && bundle.occurrences.has(token))).toBe(true);
+  });
+
+  it('reuses the canonical file across later virtual windows for different URLs with equal bytes', async () => {
+    doc.body.innerHTML = '<img src="/a.png" alt="first"><img src="/b.png" alt="second">';
+    const first = imageFile();
+    const equivalent = imageFile();
+    loadImage.mockResolvedValueOnce(first).mockResolvedValueOnce(equivalent);
+    const images = preparation();
+    const firstWindow = images.clone(doc.body, 'first-window');
+    await images.flush();
+    doc.body.innerHTML = '<img src="/b.png" alt="later"><img src="/a.png" alt="last">';
+    const secondWindow = images.clone(doc.body, 'second-window');
+    await images.flush();
+    const output = doc.implementation.createHTMLDocument('Frozen windows');
+    output.body.append(
+      ...Array.from(firstWindow.childNodes),
+      ...Array.from(secondWindow.childNodes)
+    );
+    const bundle = images.finish(output);
+    expect(loadImage).toHaveBeenCalledTimes(2);
+    expect(bundle.attachments).toHaveLength(1);
+    expect(bundle.attachments[0]).toBe(first);
+    expect([...bundle.occurrences.values()].map((item) => item.alt)).toEqual([
+      'first',
+      'second',
+      'later',
+      'last'
+    ]);
+    expect([...bundle.occurrences.values()].every((item) => item.attachmentId === first.id)).toBe(
+      true
+    );
+  });
+
+  it.each(['read failure', 'dispose'])(
+    'does not revive a shared pending source after %s, while a new session can retry',
+    async (failure) => {
+      doc.body.innerHTML = '<img src="/same.png" alt="first"><img src="/same.png" alt="again">';
+      const pending = deferred<BinaryClipAttachment>();
+      loadImage.mockReturnValue(pending.promise);
+      const images = preparation();
+      const frozen = images.clone(doc, 'page');
+      const flushing = images.flush();
+      const failed = expect(flushing).rejects.toMatchObject({
+        code: 'EXTRACTION_AI_CHAT_IMAGES_INCOMPLETE'
+      });
+      if (failure === 'read failure') pending.reject(new Error('source unreadable'));
+      else {
+        images.dispose();
+        pending.resolve(imageFile());
+      }
+      await failed;
+      expect(loadImage).toHaveBeenCalledTimes(1);
+      expect(() => images.finish(frozen)).toThrow();
+      await expect(images.flush()).rejects.toMatchObject({
+        code: 'EXTRACTION_AI_CHAT_IMAGES_INCOMPLETE'
+      });
+      expect(() => images.clone(doc, 'retry')).toThrow();
+      loadImage.mockResolvedValue(imageFile());
+      const retry = preparation();
+      const retriedDocument = retry.clone(doc, 'new-export');
+      await retry.flush();
+      expect(loadImage).toHaveBeenCalledTimes(2);
+      expect(retry.finish(retriedDocument).occurrences.size).toBe(2);
+    }
+  );
+
+  it('invalidates both workers immediately when a capacity failure races an equivalent file completion', async () => {
+    doc.body.innerHTML = Array.from({ length: 50 }, (_, index) => `<img src="/${index}.png">`).join(
+      ''
+    );
+    loadImage.mockImplementation((source) =>
+      Promise.resolve(imageFile(Number(new URL(source).pathname.slice(1).split('.')[0]) + 1))
+    );
+    const images = preparation();
+    images.clone(doc.body, 'completed-window');
+    await images.flush();
+    doc.body.innerHTML =
+      '<img src="/capacity.png"><img src="/equivalent.png"><img src="/never.png">';
+    const capacity = deferred<BinaryClipAttachment>();
+    const equivalent = deferred<BinaryClipAttachment>();
+    loadImage.mockImplementation((source) => {
+      if (source.endsWith('/capacity.png')) return capacity.promise;
+      if (source.endsWith('/equivalent.png')) return equivalent.promise;
+      return Promise.resolve(imageFile(52));
+    });
+    const frozen = images.clone(doc, 'overflow-window');
+    const flushing = images.flush();
+    const failed = expect(flushing).rejects.toMatchObject({
+      code: 'EXTRACTION_AI_CHAT_IMAGES_INCOMPLETE'
+    });
+    capacity.resolve(imageFile(51));
+    equivalent.resolve(imageFile(1));
+    await failed;
+    expect(loadImage).toHaveBeenCalledTimes(52);
+    expect(loadImage.mock.calls.some(([source]) => source.endsWith('/never.png'))).toBe(false);
+    expect(loadImage.mock.calls.every(([, , , signal]) => signal.aborted)).toBe(true);
+    expect(() => images.finish(frozen)).toThrow();
+    await expect(images.flush()).rejects.toMatchObject({
+      code: 'EXTRACTION_AI_CHAT_IMAGES_INCOMPLETE'
+    });
   });
 
   it('retains acquired bytes after a virtual window is unmounted', async () => {

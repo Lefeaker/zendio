@@ -18,6 +18,88 @@ function message(role: string, content: string): string {
 }
 
 describe('ChatGPT message boundaries', () => {
+  const hiddenAttributes = [
+    'hidden',
+    'aria-hidden="true"',
+    'style="display:none"',
+    'style="display: none"'
+  ];
+  it.each(hiddenAttributes)('ignores a %s modern role copy inside the visible reply', (hidden) => {
+    const result = parse(
+      message('user', 'Question') +
+        message(
+          'assistant',
+          `Answer<div ${hidden}><h4 data-conversation-role="assistant">Hidden copy</h4></div>`
+        )
+    );
+    expect(result.diagnostics).toBeUndefined();
+    expect(result.messages.map((item) => [item.role, item.md])).toEqual([
+      ['user', 'Question'],
+      ['assistant', 'Answer']
+    ]);
+  });
+
+  it.each(hiddenAttributes)('keeps a legacy owner with only %s modern descendants', (hidden) => {
+    const result = parse(
+      message('user', 'Question') +
+        `<article data-message-author-role="assistant"><div class="markdown">Answer</div><div ${hidden}><h4 data-conversation-role="assistant">Hidden copy</h4></div></article>`
+    );
+    expect(result.diagnostics).toBeUndefined();
+    expect(result.messages.map((item) => [item.role, item.md])).toEqual([
+      ['user', 'Question'],
+      ['assistant', 'Answer']
+    ]);
+  });
+
+  it.each(hiddenAttributes)(
+    'keeps an inferred article with only %s legacy descendants',
+    (hidden) => {
+      const result = parse(
+        message('user', 'Question') +
+          `<article><h5>ChatGPT said:</h5><div class="markdown">Answer</div><div ${hidden}><div data-message-author-role="user">Hidden copy</div></div></article>`
+      );
+      expect(result.diagnostics).toBeUndefined();
+      expect(result.messages.map((item) => [item.role, item.md])).toEqual([
+        ['user', 'Question'],
+        ['assistant', 'Answer']
+      ]);
+    }
+  );
+
+  it.each(hiddenAttributes)(
+    'ignores %s h5 copies before visible legacy role evidence',
+    (hidden) => {
+      for (const visible of [
+        '<h5>You said:</h5><div class="markdown">Question</div>',
+        'You said: Question'
+      ]) {
+        const result = parse(
+          `<article><h5 ${hidden}>ChatGPT said:</h5>${visible}</article>` +
+            message('assistant', 'Answer')
+        );
+        expect(result.messages.map((item) => [item.role, item.md])).toEqual([
+          ['user', 'Question'],
+          ['assistant', 'Answer']
+        ]);
+      }
+    }
+  );
+
+  it.each(['', 'aria-hidden="false"', 'style="display:block"'])(
+    'still rejects a genuinely visible duplicate role boundary with %s',
+    (attributes) => {
+      const result = parse(
+        message('user', 'Question') +
+          message(
+            'assistant',
+            `Answer<div ${attributes}><h4 data-conversation-role="assistant">Visible duplicate</h4></div>`
+          )
+      );
+      expect(result.messages).toEqual([]);
+      expect(result.diagnostics?.[0]?.code).toBe('chatgpt_message_boundary_ambiguous');
+    }
+  );
+
   it.each(['hidden', 'aria-hidden="true"', 'style="display:none"'])(
     'keeps %s semantic code sources excluded',
     (attribute) => {

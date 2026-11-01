@@ -38,7 +38,7 @@ const test = exportTest.extend({
 });
 
 const destinations: Array<'rest' | 'downloads' | 'local'> = ['rest', 'downloads', 'local'];
-const altNames = ['upload-first', 'upload-repeat', 'answer-picture'];
+const altNames = ['upload-first `', 'upload-repeat `', 'answer-picture'];
 
 type EvidenceValue =
   | string
@@ -60,7 +60,10 @@ async function recordEvidence(
 
 function messageImageReferences(markdown: string): Array<{ alt: string; url: string }> {
   return [...markdown.matchAll(/!\[([^\]]*)\]\(([^)]+)\)/gu)]
-    .map((match) => ({ alt: match[1] ?? '', url: match[2] ?? '' }))
+    .map((match) => ({
+      alt: (match[1] ?? '').replace(/\\([!-/:-@[-`{-~])/gu, '$1'),
+      url: match[2] ?? ''
+    }))
     .filter(({ alt }) => altNames.includes(alt));
 }
 
@@ -76,6 +79,7 @@ function assertImageOutput(files: Map<string, Buffer>) {
   expect(references[0]?.url).toBe(references[1]?.url);
   expect(references[2]?.url).not.toBe(references[0]?.url);
   expect(markdown).not.toContain('aiob-attachment:');
+  expect(markdown).not.toContain('Hidden role copy');
   expect(markdown).toContain('![literal example](https://example.test/example.png)');
   for (const fixture of IMAGE_FIXTURES) expect(markdown).not.toContain(fixture.url);
   const expected = [IMAGE_FIXTURES[0], IMAGE_FIXTURES[0], IMAGE_FIXTURES[1]];

@@ -668,3 +668,13 @@ trusted types or hide them in aliases to reduce the count. Future growth still
 fails the ratchet. Physical-line registrations separately cover the cohesive
 transcript/image owners and generated error catalog; runtime, byte, window and
 build chunk limits retain their existing policies.
+
+### AI image audit correction budgets
+
+The image audit follow-up registers the exact physical sizes of two existing
+owners: `aiChatImagePreparation.ts` 288 lines (previously 283), and `kimi.ts` 306
+(previously 258). The preparation owns same-source in-flight acquisition and
+canonical-byte sharing; the Kimi parser owns common non-overlapping message roots
+and complete body-fragment selection. The performance regression preserves both
+previous registrations before checking historical budgets. Runtime, byte, window,
+chunk, type and concurrency limits remain unchanged.
