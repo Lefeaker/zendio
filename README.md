@@ -8,13 +8,25 @@
 
 [Website](https://zendio.sxnian.com/en/) · [GitHub Releases](https://github.com/Lefeaker/zendio/releases) · [Report an issue](https://github.com/Lefeaker/zendio/issues)
 
-| Browser         | Store                                                                                                                              | Availability                   |
+**Source version: v0.3.5.** The store table below preserves the last recorded availability checks.
+
+| Browser         | Store                                                                                                                              | Last recorded availability     |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
 | Google Chrome   | [Install from Chrome Web Store](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)                         | v0.3.3 available.              |
 | Mozilla Firefox | [Install from Firefox Add-ons](https://addons.mozilla.org/firefox/addon/zendio/)                                                   | v0.3.4 available.              |
 | Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | v0.3.3 live; v0.3.4 in review. |
 
-Store status checked on **October 20, 2026**: Firefox offers **v0.3.4**; Chrome offers **v0.3.3**, with **v0.3.4 pending review**. Edge was checked separately on **October 23, 2026**: **v0.3.3 is live**, and **v0.3.4 has been submitted for review**. The source version is **v0.3.4**; verified Chromium ZIP and Firefox signed XPI packages are available in [GitHub Release v0.3.4](https://github.com/Lefeaker/zendio/releases/tag/v0.3.4).
+Last recorded store checks: on **October 20, 2026**, Firefox offered **v0.3.4**; Chrome offered **v0.3.3**, with **v0.3.4 pending review**. Edge was checked separately on **October 23, 2026**: **v0.3.3 was live**, and **v0.3.4 had been submitted for review**. Previously verified **v0.3.4** Chromium ZIP and Firefox signed XPI packages are available in [GitHub Release v0.3.4](https://github.com/Lefeaker/zendio/releases/tag/v0.3.4).
+
+## What's New in v0.3.5
+
+More complete AI chat saves, with images included.
+
+- Save standard Grok conversations on grok.com, with more complete collection of long ChatGPT and Grok chats.
+- Save uploaded and generated images available from the page as local attachments, including image-only messages and galleries. Within each save, identical files are stored once while every image position is preserved.
+- Preserve body headings, role labels used in message text, quotations, and code in ChatGPT, Kimi, and other supported chats; fix message boundaries that could omit or duplicate content.
+- Show saving progress and failures more accurately. Report missing required conversation content or images as an error to prevent incomplete saves.
+- Reader and Video handle explicit continuation and result confirmation more reliably. Eligible Video saves can resume after reopening, retaining the original screenshots, timestamps, and confirmed attachments. Uncertain results require a check before continuing and are not retried automatically.
 
 ## What's New in v0.3.4
 
@@ -78,7 +90,8 @@ Hello to everyone who's new here.
 
 ### AI Chat Conversation Capture
 
-- Export conversations from ChatGPT, Claude, Gemini, Copilot, Perplexity, Tongyi Qianwen, DeepSeek, Kimi, Grok (standard grok.com chats), and similar supported platforms.
+- Export conversations from ChatGPT, Claude, Gemini, Copilot, Perplexity, Tongyi Qianwen, DeepSeek, Kimi, Doubao, Monica, and Grok (standard grok.com chats).
+- Collect long ChatGPT and Grok conversations and save images available from the page as local attachments. Image-only messages, galleries, and repeated image positions are supported; identical files are stored once within each save. Image dimensions depend on the resource the platform provides.
 - Remove platform chrome and reaction noise while preserving conversation structure and formatting.
 - Optional metadata helpers use only the providers you configure; clipping and export do not require a model provider.
 

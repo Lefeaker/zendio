@@ -97,7 +97,7 @@ test('saves and reconnects a local-folder-only vault after clearing its REST fie
   await expect(notice).not.toContainText('❌');
 });
 
-test('persists segmented selection and export choices and presents the v0.3.4 changelog', async ({
+test('persists segmented selection and export choices and presents the v0.3.5 changelog', async ({
   extensionPage,
   context
 }, testInfo) => {
@@ -149,19 +149,33 @@ test('persists segmented selection and export choices and presents the v0.3.4 ch
     'aria-pressed',
     'true'
   );
-  expect(await extensionPage.evaluate(() => chrome.runtime.getManifest().version)).toBe('0.3.4');
+  expect(await extensionPage.evaluate(() => chrome.runtime.getManifest().version)).toBe('0.3.5');
   await page.locator('[data-footer-panel="changelog"]').click();
   const current = page.locator('.release-card').first();
-  await expect(current).toContainText('v0.3.4');
-  await expect(current).toContainText('2026-10-20');
-  await expect(current.locator('.release-summary')).toHaveText('新来的朋友你们好啊。');
-  await expect(current.locator('li')).toHaveCount(6);
-  await expect(current).toContainText('真实保存练习');
-  await expect(current).toContainText('保留已完成的附件');
-  await expect(current).toContainText('附件示例保持原文');
-  await expect(current).toContainText('完整备份仍保留全部设置');
-  await page.screenshot({ path: testInfo.outputPath('v034-changelog-zh-CN.png') });
-  const v033 = page.locator('.release-card').nth(1);
+  await expect(current).toContainText('v0.3.5');
+  await expect(current).toContainText('2026-11-01');
+  await expect(current.locator('.release-summary')).toHaveText(
+    'AI 对话保存更完整，图片也能一起带走。'
+  );
+  await expect(current.locator('li')).toHaveCount(5);
+  await expect(current).toContainText('普通 Grok 对话保存');
+  await expect(current).toContainText('同次保存中，相同文件只存一份');
+  await expect(current).toContainText('消息遗漏或重复');
+  await expect(current).toContainText('必要正文或图片缺失时明确报错');
+  await expect(current).toContainText(
+    '符合条件的视频保存可在重开后沿用原截图、时间和已确认附件续存'
+  );
+  await page.screenshot({ path: testInfo.outputPath('v035-changelog-zh-CN.png') });
+  const v034 = page.locator('.release-card').nth(1);
+  await expect(v034).toContainText('v0.3.4');
+  await expect(v034).toContainText('2026-10-20');
+  await expect(v034.locator('.release-summary')).toHaveText('新来的朋友你们好啊。');
+  await expect(v034.locator('li')).toHaveCount(6);
+  await expect(v034).toContainText('真实保存练习');
+  await expect(v034).toContainText('保留已完成的附件');
+  await expect(v034).toContainText('附件示例保持原文');
+  await expect(v034).toContainText('完整备份仍保留全部设置');
+  const v033 = page.locator('.release-card').nth(2);
   await expect(v033).toContainText('v0.3.3');
   await expect(v033).toContainText('2026-10-09');
   await expect(v033.locator('.release-summary')).toHaveText('好的产品不只是产品好');
@@ -169,7 +183,7 @@ test('persists segmented selection and export choices and presents the v0.3.4 ch
   await expect(v033).toContainText('全新实操教程');
   await expect(v033).toContainText('20 个可选专题');
   await expect(v033).toContainText('AI 辅助快速配置');
-  const v032 = page.locator('.release-card').nth(2);
+  const v032 = page.locator('.release-card').nth(3);
   await expect(v032).toContainText('v0.3.2');
   await expect(v032).toContainText('2026-09-14');
   await expect(v032.locator('.release-summary')).toHaveText('怎么还有漏？？？');
@@ -180,20 +194,20 @@ test('persists segmented selection and export choices and presents the v0.3.4 ch
   await expect(v032).toContainText('调整面板宽高');
   await expect(v032).toContainText('悬停可查看完整内容');
   await expect(v032).toContainText('保留原有隐私选择');
-  const v031 = page.locator('.release-card').nth(3);
+  const v031 = page.locator('.release-card').nth(4);
   await expect(v031).toContainText('v0.3.1');
   await expect(v031.locator('.release-summary')).toHaveText('忘忘忘忘忘…忘记补了');
   await expect(v031.locator('li')).toHaveCount(4);
   await expect(v031).toContainText('笔记标题和文件名会同步更新');
   await expect(v031).toContainText('Microsoft Edge');
   await expect(v031).toContainText('按钮文字保持单行');
-  const v030 = page.locator('.release-card').nth(4);
+  const v030 = page.locator('.release-card').nth(5);
   await expect(v030).toContainText('v0.3.0');
   await expect(v030).toContainText('生活是创作的一部分，创作也是生活的一部分');
   await expect(v030.locator('li')).toHaveCount(8);
   await expect(v030).toContainText('避免结束清理重试重复导出');
   await expect(v030).toContainText('仅绑定本地目录');
-  await expect(page.locator('.release-card')).toHaveCount(8);
+  await expect(page.locator('.release-card')).toHaveCount(9);
 });
 
 for (const language of [
@@ -396,6 +410,6 @@ test('animates stable compact trigger, modifier and highlight capsules', async (
   await highlight.screenshot({ path: testInfo.outputPath('compact-highlight-colors.png') });
   await page.locator('[data-footer-panel="changelog"]').click();
   await expect(page.locator('.release-card').first().locator('.release-summary')).toHaveText(
-    '新来的朋友你们好啊。'
+    'AI 对话保存更完整，图片也能一起带走。'
   );
 });

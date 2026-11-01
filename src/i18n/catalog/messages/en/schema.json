@@ -457,5 +457,11 @@
   "schemaResourceChangelogV034Bullet3": "Validate attachments before saving to prevent incomplete exports from missing or invalid data. Attachment examples in ordinary links, titles, reference definitions and code stay literal, while special filenames and browser renaming are handled correctly.",
   "schemaResourceChangelogV034Bullet4": "Destination previews match actual routing. Connection tests check the service and authentication, stop waiting at the deadline and discard old results after settings change.",
   "schemaResourceChangelogV034Bullet5": "Diagnostics hide secrets and private configuration. Explicitly exported full backups still retain all settings.",
-  "schemaResourceChangelogV034Bullet6": "Fix Firefox page-feature startup and saving. Batch attachments use asynchronous validation and fewer duplicate download-completion checks."
+  "schemaResourceChangelogV034Bullet6": "Fix Firefox page-feature startup and saving. Batch attachments use asynchronous validation and fewer duplicate download-completion checks.",
+  "schemaResourceChangelogV035Summary": "More complete AI conversations, with images saved alongside them.",
+  "schemaResourceChangelogV035Bullet1": "Save regular Grok chats, with more complete long-chat capture for ChatGPT and Grok.",
+  "schemaResourceChangelogV035Bullet2": "Save uploaded and generated images the page can access as local attachments. Within each save, identical files are stored once, with every image position preserved.",
+  "schemaResourceChangelogV035Bullet3": "Fix missing or duplicate messages and lost headings, role-label text and code in ChatGPT, Kimi and other chats.",
+  "schemaResourceChangelogV035Bullet4": "Clearer save progress and failure messages. Missing required content or images stops the save with an explicit error.",
+  "schemaResourceChangelogV035Bullet5": "Safer continuation and result checks for Reader and Video saves. Eligible Video saves can resume after reopening with original screenshots, time and confirmed attachments."
 }

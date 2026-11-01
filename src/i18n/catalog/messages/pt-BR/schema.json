@@ -457,5 +457,11 @@
   "schemaResourceChangelogV034Bullet3": "Os anexos são validados antes de salvar para evitar exportações incompletas por dados ausentes ou inválidos. Exemplos em links comuns, títulos, definições de referência e código permanecem literais. Nomes especiais e renomeações do navegador são tratados corretamente.",
   "schemaResourceChangelogV034Bullet4": "A prévia do destino corresponde ao roteamento real. Os testes verificam o serviço e a autenticação, encerram a espera no prazo e descartam resultados antigos após alterações nas configurações.",
   "schemaResourceChangelogV034Bullet5": "O diagnóstico oculta chaves e configurações privadas. Backups completos exportados explicitamente continuam preservando todas as configurações.",
-  "schemaResourceChangelogV034Bullet6": "Corrigidos o início dos recursos de página e o salvamento no Firefox. A validação de anexos em lote é assíncrona e as verificações duplicadas de conclusão de downloads foram reduzidas."
+  "schemaResourceChangelogV034Bullet6": "Corrigidos o início dos recursos de página e o salvamento no Firefox. A validação de anexos em lote é assíncrona e as verificações duplicadas de conclusão de downloads foram reduzidas.",
+  "schemaResourceChangelogV035Summary": "Conversas com IA mais completas, com imagens incluídas.",
+  "schemaResourceChangelogV035Bullet1": "Salve chats comuns do Grok e capture de forma mais completa as conversas longas do ChatGPT e do Grok.",
+  "schemaResourceChangelogV035Bullet2": "Salve como anexos locais as imagens enviadas ou geradas que a página consegue acessar. Em cada salvamento, arquivos idênticos são armazenados uma única vez, mantendo todas as posições das imagens.",
+  "schemaResourceChangelogV035Bullet3": "Corrigidas mensagens ausentes ou duplicadas e a perda de títulos, rótulos de função e código no ChatGPT, Kimi e outros chats.",
+  "schemaResourceChangelogV035Bullet4": "Progresso e falhas de salvamento mais claros. Se faltarem conteúdo ou imagens necessários, o salvamento para com um erro explícito.",
+  "schemaResourceChangelogV035Bullet5": "Continuação e verificação de resultados mais seguras nos modos de leitura e vídeo. Os salvamentos de vídeo elegíveis podem ser retomados após reabrir, com capturas, horário e anexos confirmados originais."
 }

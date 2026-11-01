@@ -1,5 +1,10 @@
 # 性能优化与热点基线
 
+2026-11-01 的 v0.3.5 更新日志增加 6 个本地化 schema 键，由既有 catalog generator
+生成声明。`schemaCore.generated.ts` 精确行数为 483（原 477），
+`messages.generated.ts` 为 1378（原 1372）；只同步这两个生成字典的登记，
+保留全部历史预算校验，运行时、locale 容量、chunk、类型与其余源码限制不变。
+
 Grok 长会话准备从固定视口步进改为结合已挂载末条消息的几何位置推进，
 减少重复扫描，同时保留完整消息 ID 重叠校验、真实缺口拒绝和滚动恢复。
 该职责所在的 `src/content/extractors/grokDocumentPreparer.ts` 从 247 行增至 252 行，

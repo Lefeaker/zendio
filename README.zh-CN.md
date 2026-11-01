@@ -8,13 +8,25 @@
 
 [产品网站](https://zendio.sxnian.com/) · [GitHub Releases](https://github.com/Lefeaker/zendio/releases) · [反馈问题](https://github.com/Lefeaker/zendio/issues)
 
-| 浏览器          | 商店入口                                                                                                                           | 上架状态                       |
+**当前源码版本：v0.3.5。** 下表保留商店状态的最后核对记录。
+
+| 浏览器          | 商店入口                                                                                                                           | 最后记录的上架状态             |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
 | Google Chrome   | [从 Chrome 应用商店安装](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)                                | v0.3.3 已上架。                |
 | Mozilla Firefox | [从 Firefox 附加组件商店安装](https://addons.mozilla.org/firefox/addon/zendio/)                                                    | v0.3.4 已上架。                |
 | Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | v0.3.3 已上架；v0.3.4 审核中。 |
 
-商店状态核对于 **2026 年 10 月 20 日**：Firefox 已公开 **v0.3.4**；Chrome 当前公开 **v0.3.3**，**v0.3.4 等待审核**。Edge 单独核对于 **2026 年 10 月 23 日**：**v0.3.3 已上架，v0.3.4 已提交审核**。当前源码版本为 **v0.3.4**；经过核验的 Chromium ZIP 和 Firefox 签名 XPI 可从 [GitHub Release v0.3.4](https://github.com/Lefeaker/zendio/releases/tag/v0.3.4) 下载。
+商店状态最后记录：**2026 年 10 月 20 日**核对时，Firefox 已公开 **v0.3.4**；Chrome 公开 **v0.3.3**，**v0.3.4 等待审核**。Edge 单独核对于 **2026 年 10 月 23 日**，当时 **v0.3.3 已上架，v0.3.4 已提交审核**。此前经过核验的 **v0.3.4** Chromium ZIP 和 Firefox 签名 XPI 可从 [GitHub Release v0.3.4](https://github.com/Lefeaker/zendio/releases/tag/v0.3.4) 下载。
+
+## v0.3.5 更新
+
+AI 对话保存更完整，图片也能一起带走。
+
+- 新增 grok.com 普通对话保存，ChatGPT 和 Grok 长对话采集更完整。
+- 页面可获取的上传图片和生成图片可保存为本地附件，支持纯图片消息与图库；同次保存中，相同文件只存一份，每个图片位置都保留。
+- 修复 ChatGPT、Kimi 等对话中正文标题、角色词、引用和代码被误删的问题，并修正造成消息遗漏或重复的边界识别。
+- 保存进度与失败反馈更准确；必要正文或图片缺失时明确报错，避免不完整保存。
+- 阅读与视频的显式继续和结果确认更稳妥；符合条件的视频保存可在重开后沿用原截图、时间和已确认附件继续。结果不确定时先核对再继续，不自动重复保存。
 
 ## v0.3.4 更新
 
@@ -78,7 +90,8 @@
 
 ### AI 对话捕捉
 
-- 支持导出 ChatGPT、Claude、Gemini、Copilot、Perplexity、通义千问、DeepSeek、Kimi、Grok（grok.com 普通对话）等平台的对话。
+- 支持导出 ChatGPT、Claude、Gemini、Copilot、Perplexity、通义千问、DeepSeek、Kimi、豆包、Monica、Grok（grok.com 普通对话）的对话。
+- 采集 ChatGPT 和 Grok 长对话，并将页面可获取的图片保存为本地附件。支持纯图片消息、图库和重复图片位置；同次保存中相同文件只存一份。图片尺寸取决于平台提供的资源。
 - 剥离平台界面噪音和反应条，同时保留对话结构与格式。
 - 可选元数据能力只使用用户自己配置的提供方；基础剪藏和导出不依赖任何模型提供方。
 

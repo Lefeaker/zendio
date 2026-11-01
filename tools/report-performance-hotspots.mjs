@@ -41,7 +41,8 @@ export const MAX_LINE_BUDGETS = new Map([
   // v0.3.4 release notes add seven generated schema/message declarations.
   // 2026-06-29 v0.2.1 changelog sync: schema core now carries the accepted
   // Options/Stitch release-note keys in addition to existing resource copy.
-  ['src/i18n/generated/schemaCore.generated.ts', 477],
+  // v0.3.5 adds six generated release-note declarations in both dictionaries.
+  ['src/i18n/generated/schemaCore.generated.ts', 483],
   // 2026-07-20 selection-trigger policy: generated runtime messages carry the
   // explicit disabled, direct, and modifier mode copy plus diagnostics copy.
   // 2026-10-01: learning walkthrough and guided practice add 74 message declarations.
@@ -50,7 +51,7 @@ export const MAX_LINE_BUDGETS = new Map([
   // Compact review and first-run navigation add three catalog labels.
   // Options topics add 18 labels/descriptions; existing shell/navigation owners
   // below forward explicit section navigation to the guide.
-  ['src/i18n/generated/messages.generated.ts', 1372],
+  ['src/i18n/generated/messages.generated.ts', 1378],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
   ['src/i18n/generated/locales/es-ES.generated.ts', 777],

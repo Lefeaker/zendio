@@ -3,6 +3,7 @@
 import { DEFAULT_RUNTIME_MESSAGES, getMessagesForLanguage, type Messages } from '@i18n';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import { createProductionStitchSchemaContext } from '@options/app/productionStitchShellContext';
+import { createChangelogResource } from '@options/stitch/changelogResourceData';
 import { renderPreviewView, type RendererContext } from '@options/stitch/render/renderStitchView';
 import { getResourceView } from '@options/stitch/schema/registry';
 import { previewUi } from '@options/stitch/ui/components';
@@ -130,6 +131,12 @@ const ENGLISH_SENTINEL_MESSAGES: Messages = {
   schemaResourceChangelogV021Bullet4: 'Changelog v0.2.1 Bullet 4 Sentinel',
   schemaResourceChangelogV021Bullet5: 'Changelog v0.2.1 Bullet 5 Sentinel',
   schemaResourceChangelogV021Summary: 'Changelog v0.2.1 Summary Sentinel',
+  schemaResourceChangelogV035Summary: 'Changelog v0.3.5 Summary Sentinel',
+  schemaResourceChangelogV035Bullet1: 'Changelog v0.3.5 Bullet 1 Sentinel',
+  schemaResourceChangelogV035Bullet2: 'Changelog v0.3.5 Bullet 2 Sentinel',
+  schemaResourceChangelogV035Bullet3: 'Changelog v0.3.5 Bullet 3 Sentinel',
+  schemaResourceChangelogV035Bullet4: 'Changelog v0.3.5 Bullet 4 Sentinel',
+  schemaResourceChangelogV035Bullet5: 'Changelog v0.3.5 Bullet 5 Sentinel',
   schemaResourceChangelogV034Summary: 'Changelog v0.3.4 Summary Sentinel',
   schemaResourceChangelogV034Bullet1: 'Changelog v0.3.4 Bullet 1 Sentinel',
   schemaResourceChangelogV034Bullet2: 'Changelog v0.3.4 Bullet 2 Sentinel',
@@ -654,11 +661,15 @@ describe('mountProductionStitchShell resource i18n', () => {
 
     const changelog = await openResource('Changelog Title Sentinel');
     const releaseCards = Array.from(changelog.querySelectorAll<HTMLElement>('.release-card'));
-    expect(releaseCards).toHaveLength(8);
-    expectText(releaseCards[0], 'v0.3.4', '2026-10-20');
+    expect(releaseCards).toHaveLength(9);
+    expect(createChangelogResource(ENGLISH_SENTINEL_MESSAGES).hero.pills).toEqual(['v0.3.5']);
+    expectText(releaseCards[0], 'v0.3.5', '2026-11-01');
+    expect(releaseCards[0].querySelectorAll('li')).toHaveLength(5);
+    expectText(releaseCards[1], 'v0.3.4', '2026-10-20');
     expect(
       releaseCards.map((card) => card.querySelector<HTMLElement>('.release-summary')?.textContent)
     ).toEqual([
+      'Changelog v0.3.5 Summary Sentinel',
       'Changelog v0.3.4 Summary Sentinel',
       'Changelog v0.3.3 Summary Sentinel',
       'Changelog v0.3.2 Summary Sentinel',
@@ -670,17 +681,26 @@ describe('mountProductionStitchShell resource i18n', () => {
     ]);
     expect(
       Array.from(releaseCards[0].querySelectorAll('li')).map((item) => item.textContent)
-    ).not.toContain('Changelog v0.3.4 Summary Sentinel');
+    ).not.toContain('Changelog v0.3.5 Summary Sentinel');
     expect(
       Array.from(releaseCards[1].querySelectorAll('li')).map((item) => item.textContent)
-    ).not.toContain('Changelog v0.3.3 Summary Sentinel');
+    ).not.toContain('Changelog v0.3.4 Summary Sentinel');
     expect(
       Array.from(releaseCards[2].querySelectorAll('li')).map((item) => item.textContent)
+    ).not.toContain('Changelog v0.3.3 Summary Sentinel');
+    expect(
+      Array.from(releaseCards[3].querySelectorAll('li')).map((item) => item.textContent)
     ).not.toContain('Changelog v0.3.2 Summary Sentinel');
     expectText(
       changelog,
       'Changelog Title Sentinel',
       'Changelog Description Sentinel',
+      'Changelog v0.3.5 Summary Sentinel',
+      'Changelog v0.3.5 Bullet 1 Sentinel',
+      'Changelog v0.3.5 Bullet 2 Sentinel',
+      'Changelog v0.3.5 Bullet 3 Sentinel',
+      'Changelog v0.3.5 Bullet 4 Sentinel',
+      'Changelog v0.3.5 Bullet 5 Sentinel',
       'Changelog v0.3.4 Summary Sentinel',
       'Changelog v0.3.4 Bullet 1 Sentinel',
       'Changelog v0.3.4 Bullet 2 Sentinel',
@@ -902,6 +922,13 @@ describe('mountProductionStitchShell resource i18n', () => {
       changelog,
       zhMessages.schemaResourceChangelogTitle,
       zhMessages.schemaResourceChangelogDescription,
+      zhMessages.schemaResourceChangelogV035Summary,
+      zhMessages.schemaResourceChangelogV035Bullet1,
+      zhMessages.schemaResourceChangelogV035Bullet2,
+      zhMessages.schemaResourceChangelogV035Bullet3,
+      zhMessages.schemaResourceChangelogV035Bullet4,
+      zhMessages.schemaResourceChangelogV035Bullet5,
+      zhMessages.schemaResourceChangelogV034Summary,
       zhMessages.schemaResourceChangelogV021Summary,
       zhMessages.schemaResourceChangelogV021Bullet1
     );

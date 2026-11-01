@@ -88,6 +88,11 @@ describe('report-performance-hotspots', () => {
 
   it('keeps the exact normalized budget transitions and every other budget unchanged', () => {
     const registeredBudgets = readRegisteredBudgets();
+    // v0.3.5 adds six generated release-note declarations without changing runtime budgets.
+    expect(registeredBudgets.get('src/i18n/generated/messages.generated.ts')).toBe(1378);
+    registeredBudgets.set('src/i18n/generated/messages.generated.ts', 1372);
+    expect(registeredBudgets.get('src/i18n/generated/schemaCore.generated.ts')).toBe(483);
+    registeredBudgets.set('src/i18n/generated/schemaCore.generated.ts', 477);
     // One message owner now distinguishes role chrome from body-owned labels.
     expect(
       registeredBudgets.get('src/third_party/ai-chat-exporter/platforms/chatgptMessages.ts')

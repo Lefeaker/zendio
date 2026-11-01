@@ -457,5 +457,11 @@
   "schemaResourceChangelogV034Bullet3": "Les pièces jointes sont vérifiées avant la sauvegarde pour éviter les exports incomplets dus à des données manquantes ou invalides. Les exemples dans les liens ordinaires, titres, définitions de référence et blocs de code restent inchangés. Les noms spéciaux et les renommages du navigateur sont correctement traités.",
   "schemaResourceChangelogV034Bullet4": "L’aperçu de la destination correspond au routage réel. Les tests vérifient le service et l’authentification, cessent d’attendre à l’échéance et écartent les résultats périmés après modification des réglages.",
   "schemaResourceChangelogV034Bullet5": "Le diagnostic masque les clés et la configuration privée. Les sauvegardes complètes exportées explicitement conservent tous les réglages.",
-  "schemaResourceChangelogV034Bullet6": "Correction du démarrage des fonctions de page et de la sauvegarde dans Firefox. La vérification des pièces jointes devient asynchrone et les contrôles de fin de téléchargement en double sont réduits."
+  "schemaResourceChangelogV034Bullet6": "Correction du démarrage des fonctions de page et de la sauvegarde dans Firefox. La vérification des pièces jointes devient asynchrone et les contrôles de fin de téléchargement en double sont réduits.",
+  "schemaResourceChangelogV035Summary": "Des conversations IA plus complètes, avec leurs images.",
+  "schemaResourceChangelogV035Bullet1": "Enregistrez les discussions classiques de Grok et capturez plus complètement les longues conversations de ChatGPT et Grok.",
+  "schemaResourceChangelogV035Bullet2": "Les images importées ou générées accessibles depuis la page sont enregistrées en pièces jointes locales. À chaque sauvegarde, un même fichier est stocké une seule fois, en conservant tous ses emplacements.",
+  "schemaResourceChangelogV035Bullet3": "Correction des messages manquants ou dupliqués et des titres, libellés de rôle et blocs de code supprimés dans ChatGPT, Kimi et d’autres discussions.",
+  "schemaResourceChangelogV035Bullet4": "Progression et erreurs de sauvegarde plus précises. Si du contenu ou des images nécessaires manquent, la sauvegarde s’arrête avec une erreur explicite.",
+  "schemaResourceChangelogV035Bullet5": "Reprise et vérification des sauvegardes plus fiables en modes lecture et vidéo. Les sauvegardes vidéo éligibles peuvent reprendre après réouverture avec les captures, l’horodatage et les pièces jointes confirmées d’origine."
 }
