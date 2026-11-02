@@ -1,5 +1,25 @@
 # Chrome Web Store Listing
 
+## v0.3.5 Release Notes
+
+More complete AI chat saves, with images included.
+
+- Save standard Grok conversations on grok.com, with more complete collection of long ChatGPT and Grok chats.
+- Save uploaded and generated images available from the page as local attachments, including image-only messages and galleries. Within each save, identical files are stored once while every image position is preserved.
+- Preserve body headings, role labels used in message text, quotations, and code in ChatGPT, Kimi, and other supported chats; fix message boundaries that could omit or duplicate content.
+- Show saving progress and failures more accurately. Report missing required conversation content or images as an error to prevent incomplete saves.
+- Reader and Video handle explicit continuation and result confirmation more reliably. Eligible Video saves can resume after reopening, retaining the original screenshots, timestamps, and confirmed attachments. Uncertain results require a check before continuing and are not retried automatically.
+
+### 中文更新说明
+
+AI 对话保存更完整，图片也能一起带走。
+
+- 新增 grok.com 普通对话保存，ChatGPT 和 Grok 长对话采集更完整。
+- 页面可获取的上传图片和生成图片可保存为本地附件，支持纯图片消息与图库；同次保存中，相同文件只存一份，每个图片位置都保留。
+- 修复 ChatGPT、Kimi 等对话中正文标题、角色词、引用和代码被误删的问题，并修正造成消息遗漏或重复的边界识别。
+- 保存进度与失败反馈更准确；必要正文或图片缺失时明确报错，避免不完整保存。
+- 阅读与视频的显式继续和结果确认更稳妥；符合条件的视频保存可在重开后沿用原截图、时间和已确认附件继续。结果不确定时先核对再继续，不自动重复保存。
+
 ## v0.3.4 Release Notes
 
 Hello to everyone who's new here.

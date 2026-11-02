@@ -8,15 +8,15 @@
 
 [Website](https://zendio.sxnian.com/en/) · [GitHub Releases](https://github.com/Lefeaker/zendio/releases) · [Report an issue](https://github.com/Lefeaker/zendio/issues)
 
-**Source version: v0.3.5.** The store table below preserves the last recorded availability checks.
+**Source version: v0.3.5.** Use the official store pages below to check the currently published version.
 
-| Browser         | Store                                                                                                                              | Last recorded availability     |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| Google Chrome   | [Install from Chrome Web Store](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)                         | v0.3.3 available.              |
-| Mozilla Firefox | [Install from Firefox Add-ons](https://addons.mozilla.org/firefox/addon/zendio/)                                                   | v0.3.4 available.              |
-| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | v0.3.3 live; v0.3.4 in review. |
+| Browser         | Store                                                                                                                              | Current version     |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| Google Chrome   | [Install from Chrome Web Store](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)                         | See the store page. |
+| Mozilla Firefox | [Install from Firefox Add-ons](https://addons.mozilla.org/firefox/addon/zendio/)                                                   | See the store page. |
+| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | See the store page. |
 
-Last recorded store checks: on **October 20, 2026**, Firefox offered **v0.3.4**; Chrome offered **v0.3.3**, with **v0.3.4 pending review**. Edge was checked separately on **October 23, 2026**: **v0.3.3 was live**, and **v0.3.4 had been submitted for review**. Previously verified **v0.3.4** Chromium ZIP and Firefox signed XPI packages are available in [GitHub Release v0.3.4](https://github.com/Lefeaker/zendio/releases/tag/v0.3.4).
+For browser-specific packages, see the [latest GitHub Release](https://github.com/Lefeaker/zendio/releases/latest). Choose the asset for your browser: a ZIP for Chrome or Edge, or a signed XPI for Firefox.
 
 ## What's New in v0.3.5
 
@@ -121,7 +121,7 @@ Hello to everyone who's new here.
    - **Download:** save Markdown without connecting Obsidian or a vault.
 3. **Make it yours**: choose your language and theme, then configure vault routing, note paths, YAML fields, screenshot attachments and optional providers. Review the optional usage-statistics and error-diagnostics switches.
 
-For browser packages, check [GitHub Releases](https://github.com/Lefeaker/zendio/releases) and the attached version-specific assets. Extract a verified Chrome or Edge ZIP and load its folder from `chrome://extensions` or `edge://extensions` with Developer mode enabled. Firefox requires a signed XPI. GitHub’s automatically generated **Source code** archives are not installable extension packages.
+For browser packages, check the [latest GitHub Release](https://github.com/Lefeaker/zendio/releases/latest) and choose the asset for your browser. Extract a verified Chrome or Edge ZIP and load its folder from `chrome://extensions` or `edge://extensions` with Developer mode enabled. Firefox requires a signed XPI. GitHub’s automatically generated **Source code** archives are not installable extension packages.
 
 To build from source, follow the pinned environment and bounded commands in [the engineering guide](docs/engineering-entrypoints.md), including its [Edge instructions](docs/engineering-entrypoints.md#microsoft-edge-distribution).
 

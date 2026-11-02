@@ -8,15 +8,15 @@
 
 [产品网站](https://zendio.sxnian.com/) · [GitHub Releases](https://github.com/Lefeaker/zendio/releases) · [反馈问题](https://github.com/Lefeaker/zendio/issues)
 
-**当前源码版本：v0.3.5。** 下表保留商店状态的最后核对记录。
+**当前源码版本：v0.3.5。** 商店当前公开版本请查看下方官方页面。
 
-| 浏览器          | 商店入口                                                                                                                           | 最后记录的上架状态             |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| Google Chrome   | [从 Chrome 应用商店安装](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)                                | v0.3.3 已上架。                |
-| Mozilla Firefox | [从 Firefox 附加组件商店安装](https://addons.mozilla.org/firefox/addon/zendio/)                                                    | v0.3.4 已上架。                |
-| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | v0.3.3 已上架；v0.3.4 审核中。 |
+| 浏览器          | 商店入口                                                                                                                           | 当前版本       |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| Google Chrome   | [从 Chrome 应用商店安装](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)                                | 查看商店页面。 |
+| Mozilla Firefox | [从 Firefox 附加组件商店安装](https://addons.mozilla.org/firefox/addon/zendio/)                                                    | 查看商店页面。 |
+| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | 查看商店页面。 |
 
-商店状态最后记录：**2026 年 10 月 20 日**核对时，Firefox 已公开 **v0.3.4**；Chrome 公开 **v0.3.3**，**v0.3.4 等待审核**。Edge 单独核对于 **2026 年 10 月 23 日**，当时 **v0.3.3 已上架，v0.3.4 已提交审核**。此前经过核验的 **v0.3.4** Chromium ZIP 和 Firefox 签名 XPI 可从 [GitHub Release v0.3.4](https://github.com/Lefeaker/zendio/releases/tag/v0.3.4) 下载。
+浏览器安装包请查看 [GitHub 最新 Release](https://github.com/Lefeaker/zendio/releases/latest)，按浏览器选择对应附件：Chrome 或 Edge 使用 ZIP，Firefox 需要已签名的 XPI。
 
 ## v0.3.5 更新
 
@@ -121,7 +121,7 @@ AI 对话保存更完整，图片也能一起带走。
    - **下载**：无需连接 Obsidian 或配置仓库，即可保存 Markdown。
 3. **完成个性化设置**：选择语言和主题，再按需配置仓库路由、文件路径、YAML 字段、截图附件和模型提供方；检查可选的使用统计与错误诊断开关。
 
-浏览器安装包请查看 [GitHub Releases](https://github.com/Lefeaker/zendio/releases) 中对应版本的附件。经过核验的 Chrome / Edge ZIP 需要先解压，再在 `chrome://extensions` 或 `edge://extensions` 开启开发者模式并加载该目录。Firefox 需要已签名的 XPI。GitHub 自动生成的 **Source code** 源码压缩包不能直接作为扩展安装。
+浏览器安装包请查看 [GitHub 最新 Release](https://github.com/Lefeaker/zendio/releases/latest)，并按浏览器选择对应附件。经过核验的 Chrome / Edge ZIP 需要先解压，再在 `chrome://extensions` 或 `edge://extensions` 开启开发者模式并加载该目录。Firefox 需要已签名的 XPI。GitHub 自动生成的 **Source code** 源码压缩包不能直接作为扩展安装。
 
 从源码构建请遵循[工程指南](docs/engineering-entrypoints.md)中的固定环境与命令；[Edge 构建说明](docs/engineering-entrypoints.md#microsoft-edge-distribution)也在其中。
 
