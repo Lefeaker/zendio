@@ -86,9 +86,9 @@ describe('chatHtmlToMarkdown - code fences', () => {
     expect(markdown).not.toMatch(/JavaScript\s*\n```/);
   });
 
-  it('preserves camel-case labels like TypeScript when provided as text nodes', () => {
+  it('preserves camel-case labels rendered directly in a code container', () => {
     const html = `
-      <div>
+      <div class="code-container">
         TypeScript
         <pre><code>// comment\nlet value: number = 42;</code></pre>
       </div>
@@ -100,7 +100,7 @@ describe('chatHtmlToMarkdown - code fences', () => {
     expect(markdown).not.toMatch(/TypeScript\s*\n```/);
   });
 
-  it('fixes dangling language labels when structural capture fails', () => {
+  it('keeps unmarked language prose before a code block with an empty gap', () => {
     const html = `
       <div class="block">
         <p>Python</p>
@@ -111,9 +111,42 @@ describe('chatHtmlToMarkdown - code fences', () => {
 
     const markdown = chatHtmlToMarkdown(html);
 
-    expect(markdown).toContain('```Python');
-    expect(markdown).not.toMatch(/Python\s*\n```/);
+    expect(markdown).toContain("Python\n\n```\nprint('deepseek')\n```");
+    expect(markdown).not.toContain('```Python');
   });
+});
+
+it.each(['You said:', '您说：', 'ChatGPT said:', 'ChatGPT 说：'])(
+  'preserves the standalone role-label literal %s during shared Markdown conversion',
+  (label) => {
+    expect(chatHtmlToMarkdown(`<p>${label}</p>`)).toBe(label);
+    expect(chatHtmlToMarkdown(`<blockquote>${label}</blockquote>`)).toBe(`> ${label}`);
+    expect(chatHtmlToMarkdown(`<pre><code>${label}</code></pre>`)).toBe(`\`\`\`\n${label}\n\`\`\``);
+    expect(chatHtmlToMarkdown(`<a href="https://example.com/">${label}</a>`)).toBe(
+      `[${label}](https://example.com/)`
+    );
+    expect(chatHtmlToMarkdown(`<h5>${label}</h5>`)).toBe(`## ${label}`);
+  }
+);
+
+it.each(['您说：', '你好', '：', '123'])(
+  'preserves uncased prose %s before a code block instead of treating it as uppercase',
+  (text) => {
+    const markdown = chatHtmlToMarkdown(`<p>${text}</p><pre><code>example()</code></pre>`);
+    expect(markdown).toBe(`${text}\n\n\`\`\`\nexample()\n\`\`\``);
+  }
+);
+
+it('preserves uppercase prose and unknown chips while using explicit language metadata', () => {
+  expect(chatHtmlToMarkdown('<div>CUSTOMLANG</div><pre><code>example()</code></pre>')).toBe(
+    'CUSTOMLANG\n\n```\nexample()\n```'
+  );
+  expect(
+    chatHtmlToMarkdown('<div class="language-chip">伪代码</div><pre><code>example()</code></pre>')
+  ).toBe('伪代码\n\n```\nexample()\n```');
+  expect(
+    chatHtmlToMarkdown('<div data-language="custom">自定义</div><pre><code>example()</code></pre>')
+  ).toBe('```custom\nexample()\n```');
 });
 
 describe('chatHtmlToMarkdown - mixed structures', () => {
@@ -328,9 +361,9 @@ it('keeps label text plain when a following pre block has no code child', () => 
   expect(markdown).not.toContain('```sql');
 });
 
-it('infers language labels from standalone text nodes before nested pre blocks', () => {
+it('infers text-node labels in explicit code containers before nested pre blocks', () => {
   const html = `
-    <div>
+    <div class="code-container">
       TSX
       <span class="toolbar-action">Copy</span>
       <section><pre><code>const App = () =&gt; null;</code></pre></section>
@@ -543,5 +576,91 @@ describe('chatHtmlToMarkdown safe parsing', () => {
     expect(markdown).toContain('[docs](https://example.com/docs)');
     expect(markdown).toContain('```\necho safe\n```');
     expect(markdown).not.toContain('Copy');
+  });
+});
+
+describe('code labels do not consume surrounding prose', () => {
+  it.each([
+    ['<ul><li>第一项</li><li>第二项</li></ul>', ['- 第一项', '- 第二项']],
+    ['<ol><li>第一步</li><li>第二步</li></ol>', ['1. 第一步', '2. 第二步']],
+    ['<p>注意</p><p>READ THIS</p>', ['注意', 'READ THIS']],
+    ['<blockquote><p>提示</p></blockquote>', ['> 提示']],
+    ['<ul><li>SQL</li><li>HTML</li></ul>', ['- SQL', '- HTML']]
+  ])('keeps short content before a later code block: %s', (prose, expected) => {
+    const markdown = chatHtmlToMarkdown(
+      `<div>${prose}<table><tr><td>Value</td></tr></table><pre><code>const x = 1;</code></pre></div>`
+    );
+    for (const text of expected) expect(markdown).toContain(text);
+    expect(markdown).toContain('```\nconst x = 1;\n```');
+  });
+
+  it('does not infer an unknown uppercase paragraph as a language immediately before code', () => {
+    const markdown = chatHtmlToMarkdown('<p>IMPORTANT</p><pre><code>example</code></pre>');
+    expect(markdown).toBe('IMPORTANT\n\n```\nexample\n```');
+  });
+
+  it('only accepts an unknown language from explicit metadata associated with the code', () => {
+    const markdown = chatHtmlToMarkdown(
+      '<div data-code-language="CUSTOMLANG">CUSTOMLANG</div><pre><code>example</code></pre>'
+    );
+    expect(markdown).toBe('```customlang\nexample\n```');
+  });
+
+  it('does not associate a language chip across intervening ordinary prose', () => {
+    const markdown = chatHtmlToMarkdown(
+      '<div class="language-chip">SQL</div><p>Explanation</p><pre><code>select 1;</code></pre>'
+    );
+    expect(markdown).toContain('SQL');
+    expect(markdown).toContain('Explanation');
+    expect(markdown).toContain('```\nselect 1;\n```');
+  });
+});
+
+describe('code-language inference keeps DOM provenance', () => {
+  it('reads the observed Grok code header through its inner wrapper while retaining prose', () => {
+    const markdown = chatHtmlToMarkdown(`
+      <div data-testid="code-block"><div>
+        <p>Python</p>
+        <div><span>JavaScript</span><div><button>Copy code</button></div></div>
+        <div><pre role="group"><code>const x = 1;</code></pre></div>
+      </div></div>
+    `);
+    expect(markdown).toBe('Python\n\n```JavaScript\nconst x = 1;\n```');
+    expect(markdown).not.toContain('Copy code');
+  });
+
+  it('uses the semantic code-block action header without consuming ordinary language-name prose', () => {
+    const markdown = chatHtmlToMarkdown(`
+      <div data-code-block="true">
+        <p>Python</p>
+        <div class="ActionBar-KWWAct" data-markdown-copy="exclude">
+          <div>JavaScript</div><div data-code-block-controls="true"><button>Copy code</button></div>
+        </div>
+        <div class="relative"><div><pre><code>const x = 1;</code></pre></div></div>
+      </div>
+    `);
+    expect(markdown).toBe('Python\n\n```JavaScript\nconst x = 1;\n```');
+    expect(markdown).not.toContain('Copy code');
+  });
+
+  it.each([
+    '<p>Python</p><pre><code>print(1)</code></pre>',
+    '<p><span>Python</span></p><pre><code>print(1)</code></pre>',
+    '<ul><li><p>Python</p><pre><code>print(1)</code></pre></li></ul>',
+    '<ul><li>Python<pre><code>print(1)</code></pre></li></ul>',
+    '<div>Python<pre><code>print(1)</code></pre></div>'
+  ])('retains an unmarked language word as prose: %s', (html) => {
+    const markdown = chatHtmlToMarkdown(html);
+    expect(markdown).toContain('Python');
+    expect(markdown).toContain('```\nprint(1)\n```');
+    expect(markdown).not.toContain('```Python');
+  });
+
+  it('still reads explicit language metadata within a list code component', () => {
+    const markdown = chatHtmlToMarkdown(
+      '<ul><li><p>Python example</p><span data-language="python">Python</span><pre><code>print(1)</code></pre></li></ul>'
+    );
+    expect(markdown).toContain('- Python example');
+    expect(markdown).toContain('```python\nprint(1)\n```');
   });
 });

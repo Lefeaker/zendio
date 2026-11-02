@@ -22,7 +22,7 @@
   "schemaCaptureSourcesAiChatGroupTitle": "Chat IA",
   "schemaCaptureSourcesAiConversationDescription": "Consulta le piattaforme supportate e apri una conversazione da esportare.",
   "schemaCaptureSourcesAiConversationTitle": "Acquisizione conversazioni AI",
-  "schemaCaptureSourcesAiSupportedPlatformsBadge": "10 piattaforme supportate",
+  "schemaCaptureSourcesAiSupportedPlatformsBadge": "{count} piattaforme supportate",
   "schemaCaptureSourcesAttachmentGuidanceLink": "Custom Attachment Location",
   "schemaCaptureSourcesAttachmentGuidancePrefix": "Usa queste impostazioni degli allegati con il plugin Obsidian ",
   "schemaCaptureSourcesAttachmentGuidanceSuffix": " e mantieni la configurazione del plugin in Obsidian allineata a questi modelli.",
@@ -457,5 +457,11 @@
   "schemaResourceChangelogV034Bullet3": "Gli allegati vengono verificati prima del salvataggio per evitare esportazioni incomplete dovute a dati mancanti o non validi. Gli esempi in link normali, titoli, definizioni di riferimento e codice restano invariati. I nomi speciali e le rinomine del browser vengono gestiti correttamente.",
   "schemaResourceChangelogV034Bullet4": "L’anteprima della destinazione corrisponde all’instradamento effettivo. I test controllano servizio e autenticazione, interrompono l’attesa alla scadenza e scartano i vecchi risultati dopo modifiche alle impostazioni.",
   "schemaResourceChangelogV034Bullet5": "La diagnostica nasconde chiavi e configurazioni private. I backup completi esportati esplicitamente conservano tutte le impostazioni.",
-  "schemaResourceChangelogV034Bullet6": "Corretti l’avvio delle funzioni della pagina e il salvataggio in Firefox. La verifica degli allegati in gruppo è asincrona e i controlli duplicati di completamento dei download sono ridotti."
+  "schemaResourceChangelogV034Bullet6": "Corretti l’avvio delle funzioni della pagina e il salvataggio in Firefox. La verifica degli allegati in gruppo è asincrona e i controlli duplicati di completamento dei download sono ridotti.",
+  "schemaResourceChangelogV035Summary": "Conversazioni IA più complete, con le loro immagini.",
+  "schemaResourceChangelogV035Bullet1": "Salva le normali chat di Grok e acquisisci più completamente le conversazioni lunghe di ChatGPT e Grok.",
+  "schemaResourceChangelogV035Bullet2": "Salva come allegati locali le immagini caricate o generate accessibili dalla pagina. In ogni salvataggio, i file identici vengono memorizzati una sola volta, mantenendo tutte le posizioni delle immagini.",
+  "schemaResourceChangelogV035Bullet3": "Corretti messaggi mancanti o duplicati e la perdita di titoli, etichette di ruolo e codice in ChatGPT, Kimi e altre chat.",
+  "schemaResourceChangelogV035Bullet4": "Avanzamento ed errori di salvataggio più precisi. Se mancano contenuti o immagini necessari, il salvataggio si interrompe con un errore esplicito.",
+  "schemaResourceChangelogV035Bullet5": "Continuazione e verifica dei risultati più affidabili per i salvataggi di lettura e video. I salvataggi video idonei possono riprendere dopo la riapertura con schermate, orario e allegati confermati originali."
 }

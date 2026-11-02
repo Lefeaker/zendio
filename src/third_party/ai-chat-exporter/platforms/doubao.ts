@@ -8,6 +8,12 @@ import {
 } from './doubaoHelpers';
 import { collectChineseFamilyMessageContainers } from './chineseFamilyHelpers';
 
+import {
+  cloneMessageWithImages,
+  collectMessageImages,
+  hasMessageContent
+} from '../shared/messageImages';
+
 const DOUBAO_MESSAGE_SELECTOR =
   '[class*="message-block-container"], [class~="semi-chat-message"], [data-testid="message_user"], [data-testid="message_assistant"], [data-container-type="message"][data-message-id], [data-message-id], [data-container-type="block-v2"]';
 // Native tokens from Doubao's own DOM/browser title. These are parser tokens, not extension UI copy.
@@ -25,6 +31,17 @@ const DOUBAO_NATIVE_MODEL_TOKENS = [
 const DOUBAO_NEUTRAL_FALLBACK_TITLE = 'Doubao Chat';
 const DOUBAO_NEUTRAL_FALLBACK_MODEL = 'Doubao';
 const DOUBAO_ASSISTANT_AVATAR_SELECTOR = `img[alt*="${DOUBAO_NATIVE_ASSISTANT_AVATAR_ALT_TOKEN}"]`;
+const DOUBAO_EMPTY_AVATAR_SOURCE =
+  ':is([src=""], :not([src])):not([data-src]):not([srcset]):not([data-original]):not([data-original-src]):not([data-image-url]):not([data-url])';
+const DOUBAO_EMPTY_AVATAR_SELECTOR = [
+  '[class*="message-block-container"]',
+  '[class~="semi-chat-message-assistant"]'
+]
+  .map(
+    (selector) => `${selector} > ${DOUBAO_ASSISTANT_AVATAR_SELECTOR}${DOUBAO_EMPTY_AVATAR_SOURCE}`
+  )
+  .join(',');
+const DOUBAO_IMAGE_EXCLUSIONS = `[data-thinking-box], [data-container-type="suggestion"], [class*="message-action"], ${DOUBAO_EMPTY_AVATAR_SELECTOR}`;
 const DOUBAO_MARKDOWN_CLASS_HINT = 'flow-markdown-body';
 const DOUBAO_HEADER_SELECTORS = [
   '[class*="trigger-wrapper"]',
@@ -94,13 +111,17 @@ function extractModel(doc: Document): string {
   return DOUBAO_NEUTRAL_FALLBACK_MODEL;
 }
 
-function extractDoubaoChat(doc: Document, config?: ParseConfig): ParsedResult {
-  const containers = collectChineseFamilyMessageContainers(doc, [DOUBAO_MESSAGE_SELECTOR], {
+function collectDoubaoContainers(doc: ParentNode): HTMLElement[] {
+  return collectChineseFamilyMessageContainers(doc, [DOUBAO_MESSAGE_SELECTOR], {
     shouldSkip: (element) =>
       Boolean(element.closest('aside, [data-history-container="true"]')) ||
       element.getAttribute('data-container-type') === 'suggestion' ||
       Boolean(element.closest('[data-container-type="suggestion"]'))
   });
+}
+
+function extractDoubaoChat(doc: Document, config?: ParseConfig): ParsedResult {
+  const containers = collectDoubaoContainers(doc);
   if (containers.length === 0) {
     return { title: DEFAULT_CHAT_TITLE, messages: [], assets: [] };
   }
@@ -113,15 +134,15 @@ function extractDoubaoChat(doc: Document, config?: ParseConfig): ParsedResult {
 
   for (const container of containers) {
     const content = pickDoubaoContentElement(container);
-    if (!content) continue;
-
-    const textContent = content.textContent?.trim() || '';
-    if (!textContent) continue;
-
-    const fragment = content.cloneNode(true) as HTMLElement;
+    if (!hasMessageContent(container, DOUBAO_IMAGE_EXCLUSIONS)) continue;
+    const fragment = cloneMessageWithImages(
+      container,
+      content ? [content] : [],
+      DOUBAO_IMAGE_EXCLUSIONS
+    );
     cleanupDoubaoContent(fragment);
 
-    const markdown = chatElementToMarkdown(fragment);
+    const markdown = chatElementToMarkdown(fragment, config?.imageResolver);
     if (!markdown.trim()) continue;
 
     const message: ParsedMessage = {
@@ -154,5 +175,7 @@ function extractDoubaoChat(doc: Document, config?: ParseConfig): ParsedResult {
 
 export const doubaoParser: ChatPlatformParser = {
   id: 'doubao',
+  collectImages: (root) =>
+    collectMessageImages('doubao', collectDoubaoContainers(root), DOUBAO_IMAGE_EXCLUSIONS),
   parse: (doc, config) => extractDoubaoChat(doc, config)
 };

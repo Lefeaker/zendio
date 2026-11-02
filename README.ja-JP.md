@@ -8,13 +8,25 @@
 
 [公式サイト](https://zendio.sxnian.com/ja/) · [GitHub Releases](https://github.com/Lefeaker/zendio/releases) · [問題を報告](https://github.com/Lefeaker/zendio/issues)
 
-| ブラウザ        | ストア                                                                                                                             | 公開状況                           |
+**現在のソースバージョン：v0.3.5。** 以下のストア一覧は最終確認時点の記録です。
+
+| ブラウザ        | ストア                                                                                                                             | 最終記録の公開状況                 |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
 | Google Chrome   | [Chrome ウェブストアからインストール](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)                   | v0.3.3 を公開中。                  |
 | Mozilla Firefox | [Firefox Add-ons からインストール](https://addons.mozilla.org/firefox/addon/zendio/)                                               | v0.3.4 を公開中。                  |
 | Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | v0.3.3 を公開中、v0.3.4 は審査中。 |
 
-公開状況は **2026 年 10 月 20 日**に確認しました。Firefox では **v0.3.4** を利用できます。Chrome は **v0.3.3** を公開中で、**v0.3.4 は審査待ち**です。Edge は **2026 年 10 月 23 日**に別途確認し、**v0.3.3 を公開中、v0.3.4 は提出済みで審査中**です。ソースバージョンは **v0.3.4** です。検証済みの Chromium ZIP と Firefox 署名済み XPI は [GitHub Release v0.3.4](https://github.com/Lefeaker/zendio/releases/tag/v0.3.4) からダウンロードできます。
+ストアの最終確認記録：**2026 年 10 月 20 日**時点では Firefox は **v0.3.4**、Chrome は **v0.3.3** を公開しており、Chrome の **v0.3.4 は審査待ち**でした。Edge は **2026 年 10 月 23 日**に別途確認し、当時 **v0.3.3 を公開中、v0.3.4 は提出済みで審査中**でした。以前に検証した **v0.3.4** の Chromium ZIP と Firefox 署名済み XPI は [GitHub Release v0.3.4](https://github.com/Lefeaker/zendio/releases/tag/v0.3.4) からダウンロードできます。
+
+## v0.3.5 の変更点
+
+AI チャットの保存を改善し、画像も一緒に保存できるようになりました。
+
+- grok.com の通常の会話の保存に対応し、ChatGPT と Grok の長い会話をより漏れなく取得できるようにしました。
+- ページから取得できるアップロード画像や生成画像をローカル添付として保存できます。画像だけのメッセージやギャラリーにも対応し、同じ保存処理内では同一ファイルを1つにまとめながら、各画像の位置を保持します。
+- ChatGPT、Kimi などで本文の見出し、役割を表す語、引用、コードが誤って削除される問題と、メッセージの欠落や重複を招く境界判定を修正しました。
+- 保存の進捗と失敗の表示を改善しました。必要な本文や画像が不足している場合は明確なエラーを表示し、不完全な保存を防ぎます。
+- 読書・動画の保存で、明示的な続行と結果確認をより確実に行えるようにしました。条件を満たす動画の保存は、開き直した後も元のスクリーンショット、時刻、確認済み添付を使って続行できます。結果が不明な場合は先に確認し、自動では繰り返し保存しません。
 
 ## v0.3.4 の変更点
 
@@ -78,7 +90,8 @@
 
 ### AI チャット会話の保存
 
-- ChatGPT、Claude、Gemini、Copilot、Perplexity、通義千問、DeepSeek、Kimi などの会話をエクスポート。
+- ChatGPT、Claude、Gemini、Copilot、Perplexity、通義千問、DeepSeek、Kimi、豆包、Monica、Grok（grok.com の通常の会話）に対応。
+- ChatGPT と Grok の長い会話を取得し、ページから取得できる画像をローカル添付として保存。画像だけのメッセージ、ギャラリー、同じ画像の複数の位置を保持し、同じ保存処理内では同一ファイルを1つにまとめます。画像のサイズはプラットフォームが提供するリソースに依存します。
 - プラットフォームの UI ノイズやリアクション表示を取り除き、会話構造と書式を保持。
 - 任意のメタデータ補助機能は、ユーザーが設定したプロバイダーだけを使います。基本的なクリップとエクスポートにモデルプロバイダーは不要です。
 

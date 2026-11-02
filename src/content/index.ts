@@ -99,7 +99,7 @@ function initializeClipperRuntime(): void {
     createReaderSession,
     createVideoSession
   });
-  const extractorRegistry = createLazyExtractorRegistry(primaryOptionsRepository);
+  const extractorRegistry = createLazyExtractorRegistry(primaryOptionsRepository, messaging);
   const selectionTracker = createContentSelectionTracker({
     document,
     window,

@@ -11,7 +11,7 @@ import {
 
 describe('AI chat document preparer registry', () => {
   it('keeps live-DOM preparation explicit and platform-scoped', async () => {
-    expect(Object.keys(AI_CHAT_DOCUMENT_PREPARERS)).toEqual(['deepseek']);
+    expect(Object.keys(AI_CHAT_DOCUMENT_PREPARERS)).toEqual(['deepseek', 'chatgpt', 'grok']);
 
     await expect(prepareAIChatDocumentForExtraction('chatgpt', document)).resolves.toBe(document);
   });

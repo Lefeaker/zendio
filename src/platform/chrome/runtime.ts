@@ -19,6 +19,7 @@ function toInstallDetails(details: chrome.runtime.InstalledDetails): RuntimeInst
 }
 
 export const chromeRuntimeService: RuntimeService = {
+  getId: () => ensureChrome().runtime.id,
   isContextValid() {
     try {
       return Boolean(ensureChrome().runtime.id);

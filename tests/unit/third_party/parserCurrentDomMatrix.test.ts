@@ -77,7 +77,17 @@ describe('AI chat current-DOM fixture matrix', () => {
 
       expect(fixture.status).toBe('active');
       expect(parser?.id).toBe(fixture.platform);
-      expect(result.messages.length).toBeGreaterThan(0);
+      if (fixture.expectedValidation === 'parse-empty') {
+        expect(fixture.platform).toBe('claude');
+        expect(fixture.expectedMessageCount).toBe(0);
+        expect(result.messages).toEqual([]);
+        expect(result.diagnostics).toContainEqual({
+          code: 'claude_message_failed',
+          severity: 'error'
+        });
+      } else {
+        expect(result.messages.length).toBeGreaterThan(0);
+      }
 
       if (fixture.expectedTitle) {
         expect(result.title).toBe(fixture.expectedTitle);
@@ -101,7 +111,16 @@ describe('AI chat current-DOM fixture matrix', () => {
       }
 
       const validationError = validateParsedFixture(fixture, result);
-      if (fixture.expectedValidation === 'role-incomplete') {
+      if (fixture.expectedValidation === 'parse-empty') {
+        expect(validationError).toMatchObject({
+          code: 'EXTRACTION_AI_CHAT_PARSE_EMPTY',
+          context: {
+            platform: fixture.platform,
+            messageCount: 0,
+            parserDiagnosticCodes: ['claude_message_failed']
+          }
+        });
+      } else if (fixture.expectedValidation === 'role-incomplete') {
         expect(validationError).toMatchObject({
           code: 'EXTRACTION_AI_CHAT_PARSE_ROLE_INCOMPLETE',
           context: expect.objectContaining({

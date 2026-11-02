@@ -3,7 +3,14 @@ import { convertBlobImageToBase64 } from '../shared/assets';
 import { chatElementToMarkdown } from '../shared/markdown';
 import type { ChatPlatformParser, ParsedMessage, ParsedResult, ParseConfig } from '../types';
 
-const GEMINI_MESSAGE_ITEM_SELECTOR = 'user-query, model-response';
+import {
+  collectGeminiImages,
+  extractCanvasContent,
+  findGeminiCanvasOwner,
+  GEMINI_MESSAGE_ITEM_SELECTOR,
+  pickGeminiMessageContent
+} from './geminiMessageContent';
+import { cloneMessageWithImages, queryMessageElements } from '../shared/messageImages';
 const GEMINI_SIDEBAR_ACTIVE_CHAT_SELECTOR =
   'div[data-test-id="conversation"].selected .conversation-title';
 const GEMINI_TITLE_REPLACE_TEXT = 'Gemini - ';
@@ -362,62 +369,6 @@ const GeminiDeepResearchHelper = {
   buildReportMarkdown
 };
 
-function extractCanvasContent(doc: Document): string | null {
-  const immersivePanel = doc.querySelector(
-    'immersive-container, immersive-panel, canvas-immersive-panel'
-  );
-  if (!immersivePanel) {
-    return null;
-  }
-
-  const canvasContent = immersivePanel.querySelector(
-    'canvas-content, immersive-canvas, immersive-page'
-  );
-  if (!canvasContent) {
-    return null;
-  }
-
-  let markdown = '\n\n---\n**Gemini Canvas Snapshot**\n\n';
-
-  const titleElement = canvasContent.querySelector('h1, h2, .title, [data-test-id="title"]');
-  if (titleElement?.textContent) {
-    const title = titleElement.textContent.trim();
-    if (title) {
-      markdown += `### ${title}\n\n`;
-    }
-  }
-
-  const textContent = canvasContent.querySelector(
-    '[data-test-id="canvas-body"], [class*="content"], section'
-  );
-  if (textContent) {
-    const canvasFragment = textContent.cloneNode(true) as HTMLElement;
-    const canvasMarkdown = chatElementToMarkdown(canvasFragment);
-    if (canvasMarkdown.trim()) {
-      markdown += canvasMarkdown + '\n\n';
-    }
-  }
-
-  const images = Array.from(canvasContent.querySelectorAll('img'));
-  if (images.length > 0) {
-    markdown += '#### Attached Images\n\n';
-    images.forEach((img, index) => {
-      const src =
-        img.getAttribute('src') ||
-        img.getAttribute('data-src') ||
-        img.getAttribute('data-original-src') ||
-        '';
-      if (src && !src.startsWith('blob:')) {
-        const alt = img.getAttribute('alt') || `Canvas Image ${index + 1}`;
-        markdown += `![${alt}](${src})\n\n`;
-      }
-    });
-  }
-
-  markdown += '---\n';
-  return markdown;
-}
-
 function extractGeminiChatData(doc: Document, config?: ParseConfig): ParsedResult {
   const deepResearchConfig = config?.deepResearch || {};
   const pureMode = deepResearchConfig.pureMode || false;
@@ -447,7 +398,7 @@ function extractGeminiChatData(doc: Document, config?: ParseConfig): ParsedResul
     return { title: DEFAULT_CHAT_TITLE, messages: [], assets: [] };
   }
 
-  const messageItems = Array.from(doc.querySelectorAll(GEMINI_MESSAGE_ITEM_SELECTOR));
+  const messageItems = queryMessageElements(doc, GEMINI_MESSAGE_ITEM_SELECTOR);
   if (messageItems.length === 0) {
     return { title: DEFAULT_CHAT_TITLE, messages: [], assets: [] };
   }
@@ -485,38 +436,17 @@ function extractGeminiChatData(doc: Document, config?: ParseConfig): ParsedResul
   const messages: ParsedMessage[] = [];
   let chatIndex = 1;
 
-  const canvasContent = extractCanvasContent(doc);
+  const canvasOwner = findGeminiCanvasOwner(messageItems);
   let deepResearchAppended = false;
 
   for (const item of messageItems) {
-    let role: 'user' | 'assistant' = 'assistant';
-    let messageContentElem: HTMLElement | null = null;
-
-    const tagName = (item as HTMLElement).tagName.toLowerCase();
-
-    if (tagName === 'user-query') {
-      role = 'user';
-      messageContentElem = (item as HTMLElement).querySelector(
-        '[role="presentation"], [class*="query"]'
-      );
-      if (!messageContentElem) {
-        messageContentElem = (item as HTMLElement).querySelector('rich-text, div, p');
-      }
-    } else {
-      role = 'assistant';
-      messageContentElem = (item as HTMLElement).querySelector(
-        'cib-shared-markdown, message-content, response-content, rich-text, model-output, article'
-      );
-    }
-
-    if (!messageContentElem) {
-      messageContentElem = item as HTMLElement;
-    }
+    const role = item.tagName.toLowerCase() === 'user-query' ? 'user' : 'assistant';
+    const messageContentElem = pickGeminiMessageContent(item);
 
     if (messageContentElem) {
-      const fragment = messageContentElem.cloneNode(true) as HTMLElement;
+      const fragment = cloneMessageWithImages(item, [messageContentElem]);
       const blobImages = Array.from(fragment.querySelectorAll('img[src^="blob:"]'));
-      if (blobImages.length > 0) {
+      if (!config?.imageResolver && blobImages.length > 0) {
         console.log(`[Gemini] Found ${blobImages.length} blob URL images, converting to base64...`);
         blobImages.forEach((img, index) => {
           const imgElement = img as HTMLImageElement;
@@ -535,11 +465,10 @@ function extractGeminiChatData(doc: Document, config?: ParseConfig): ParsedResul
         });
       }
 
-      let markdown = chatElementToMarkdown(fragment);
+      let markdown = chatElementToMarkdown(fragment, config?.imageResolver);
 
-      const hasCanvasChip = fragment.querySelector('immersive-entry-chip');
-      if (hasCanvasChip && canvasContent) {
-        markdown += canvasContent;
+      if (item === canvasOwner) {
+        markdown += extractCanvasContent(doc, config) ?? '';
       }
 
       if (role === 'assistant' && !deepResearchAppended && isDeepResearchSession) {
@@ -571,5 +500,6 @@ function extractGeminiChatData(doc: Document, config?: ParseConfig): ParsedResul
 
 export const geminiParser: ChatPlatformParser = {
   id: 'gemini',
+  collectImages: collectGeminiImages,
   parse: (doc, config) => extractGeminiChatData(doc, config)
 };

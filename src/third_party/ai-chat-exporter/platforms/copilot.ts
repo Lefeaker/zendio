@@ -1,12 +1,18 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
 import { chatElementToMarkdown } from '../shared/markdown';
-import type { ChatPlatformParser, ParsedMessage, ParsedResult } from '../types';
+import type { ChatPlatformParser, ParsedMessage, ParsedResult, ParseConfig } from '../types';
+
+import {
+  cloneMessageWithImages,
+  collectMessageImages,
+  queryMessageElements
+} from '../shared/messageImages';
 
 const COPILOT_MESSAGE_SELECTOR = '[data-content="user-message"], [data-content="ai-message"]';
 const COPILOT_USER_MESSAGE_SELECTOR = '[data-content="user-message"]';
 
-function extractCopilotChatData(doc: Document): ParsedResult {
-  const messageItems = Array.from(doc.querySelectorAll(COPILOT_MESSAGE_SELECTOR));
+function extractCopilotChatData(doc: Document, config?: ParseConfig): ParsedResult {
+  const messageItems = queryMessageElements(doc, COPILOT_MESSAGE_SELECTOR);
   if (messageItems.length === 0) {
     return { title: DEFAULT_CHAT_TITLE, messages: [], assets: [] };
   }
@@ -33,8 +39,8 @@ function extractCopilotChatData(doc: Document): ParsedResult {
     const isUser = (item as HTMLElement).matches(COPILOT_USER_MESSAGE_SELECTOR);
     const role = isUser ? 'user' : 'assistant';
 
-    const fragment = (item as HTMLElement).cloneNode(true) as HTMLElement;
-    const markdown = chatElementToMarkdown(fragment);
+    const fragment = cloneMessageWithImages(item, [item]);
+    const markdown = chatElementToMarkdown(fragment, config?.imageResolver);
 
     if (markdown.trim()) {
       const html = fragment.innerHTML;
@@ -53,5 +59,7 @@ function extractCopilotChatData(doc: Document): ParsedResult {
 
 export const copilotParser: ChatPlatformParser = {
   id: 'copilot',
-  parse: (doc) => extractCopilotChatData(doc)
+  collectImages: (root) =>
+    collectMessageImages('copilot', queryMessageElements(root, COPILOT_MESSAGE_SELECTOR)),
+  parse: (doc, config) => extractCopilotChatData(doc, config)
 };

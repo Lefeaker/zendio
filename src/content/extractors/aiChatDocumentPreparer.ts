@@ -1,6 +1,12 @@
 import type { PlatformId } from '../../third_party/ai-chat-exporter/types';
+import { prepareGrokDocumentForExtraction } from './grokDocumentPreparer';
+import { prepareChatGPTDocumentForExtraction } from './chatgptDocumentPreparer';
+import type { AIChatImagePreparation } from './aiChatImagePreparation';
+import { imageContentSignature } from '../../third_party/ai-chat-exporter/shared/messageImages';
+import { aiChatSnapshotSignature } from './aiChatSnapshotSignature';
+import { extractionErrors } from '../../shared/errors/extractionErrors';
 
-type AIChatDocumentPreparer = (doc: Document) => Promise<Document>;
+type AIChatDocumentPreparer = (doc: Document, images?: AIChatImagePreparation) => Promise<Document>;
 
 const DEEPSEEK_PRINTABLE_VIRTUAL_LIST_SELECTOR = '.ds-virtual-list--printable';
 const DEEPSEEK_MESSAGE_SELECTOR = '.ds-message';
@@ -11,6 +17,8 @@ const DEEPSEEK_MIN_SCROLL_STEP_PX = 480;
 type CollectedMessage = {
   element: HTMLElement;
   key: string;
+  stableId: string;
+  signature: string;
 };
 
 function normalizeMessageText(text: string | null | undefined): string {
@@ -18,28 +26,26 @@ function normalizeMessageText(text: string | null | undefined): string {
 }
 
 function waitForFrame(doc: Document): Promise<void> {
-  const win = doc.defaultView;
-  if (win?.requestAnimationFrame) {
-    return new Promise((resolve) => {
-      win.requestAnimationFrame(() => {
-        win.requestAnimationFrame(() => resolve());
-      });
-    });
-  }
-
   return new Promise((resolve) => {
-    if (win?.setTimeout) {
-      win.setTimeout(resolve, 0);
-      return;
+    const win = doc.defaultView;
+    let frame: number | undefined;
+    const finish = () => {
+      clearTimeout(timer);
+      if (frame !== undefined) win?.cancelAnimationFrame(frame);
+      resolve();
+    };
+    const timer = setTimeout(finish, 100);
+    if (win?.requestAnimationFrame) {
+      frame = win.requestAnimationFrame(() => {
+        frame = win.requestAnimationFrame(finish);
+      });
     }
-
-    globalThis.setTimeout(resolve, 0);
   });
 }
 
 function getMountedMessageSignature(container: HTMLElement): string {
   return Array.from(container.querySelectorAll<HTMLElement>(DEEPSEEK_MESSAGE_SELECTOR))
-    .map((element) => normalizeMessageText(element.textContent))
+    .map((element) => aiChatSnapshotSignature(element, 'deepseek'))
     .filter(Boolean)
     .join('\n---\n');
 }
@@ -85,8 +91,27 @@ function getDeepSeekMessageRoleKey(element: HTMLElement): 'assistant' | 'user' {
   return element.querySelector(DEEPSEEK_ASSISTANT_CONTENT_SELECTOR) ? 'assistant' : 'user';
 }
 
-function getDeepSeekMessageKey(element: HTMLElement): string {
-  return `${getDeepSeekMessageRoleKey(element)}\u0000${normalizeMessageText(element.textContent)}`;
+function getDeepSeekStableId(element: HTMLElement): string {
+  return (
+    element.getAttribute('data-message-id') ||
+    element.id ||
+    element.closest('[data-virtual-list-item-key]')?.getAttribute('data-virtual-list-item-key') ||
+    ''
+  );
+}
+
+function getDeepSeekMessageKey(element: HTMLElement, container: HTMLElement): string {
+  const id = getDeepSeekStableId(element);
+  if (id) return `${getDeepSeekMessageRoleKey(element)}\u0000${id}`;
+  const offset =
+    container.clientHeight > 0
+      ? Math.round(
+          container.scrollTop +
+            element.getBoundingClientRect().top -
+            container.getBoundingClientRect().top
+        )
+      : '';
+  return `${id || offset}\u0000${getDeepSeekMessageRoleKey(element)}\u0000${normalizeMessageText(element.textContent)}\u0000${imageContentSignature(element)}`;
 }
 
 function cloneDeepSeekMessageElement(message: HTMLElement): HTMLElement {
@@ -106,11 +131,13 @@ function collectMountedDeepSeekMessages(container: HTMLElement): CollectedMessag
     container.querySelectorAll<HTMLElement>(DEEPSEEK_MESSAGE_SELECTOR)
   )) {
     const text = normalizeMessageText(message.textContent);
-    if (!text) continue;
+    if (!text && !message.querySelector('img, image-query, uploaded-image')) continue;
 
     messages.push({
-      element: cloneDeepSeekMessageElement(message),
-      key: getDeepSeekMessageKey(message)
+      element: message,
+      key: getDeepSeekMessageKey(message, container),
+      stableId: getDeepSeekStableId(message),
+      signature: aiChatSnapshotSignature(message, 'deepseek')
     });
   }
   return messages;
@@ -154,22 +181,43 @@ function getDeepSeekWindowOverlapLength(
 
 function mergeDeepSeekMessageWindow(
   collectedMessages: CollectedMessage[],
-  windowMessages: CollectedMessage[]
+  windowMessages: CollectedMessage[],
+  images?: AIChatImagePreparation
 ): void {
   if (windowMessages.length === 0) return;
+  for (const message of windowMessages) {
+    const previous = message.stableId && collectedMessages.find((item) => item.key === message.key);
+    if (previous && previous.signature !== message.signature)
+      throw extractionErrors.aiChatPreparationIncomplete({
+        type: 'ai_chat',
+        platform: 'deepseek',
+        messageCount: collectedMessages.length,
+        parserDiagnosticCodes: ['deepseek_message_changed']
+      });
+  }
+  const append = (messages: CollectedMessage[]) => {
+    for (const message of messages) {
+      collectedMessages.push({
+        ...message,
+        element:
+          images?.clone(message.element, `deepseek-${collectedMessages.length}`) ??
+          cloneDeepSeekMessageElement(message.element)
+      });
+    }
+  };
   if (collectedMessages.length === 0) {
-    collectedMessages.push(...windowMessages);
+    append(windowMessages);
     return;
   }
 
   const overlapLength = getDeepSeekWindowOverlapLength(collectedMessages, windowMessages);
   if (overlapLength > 0) {
-    collectedMessages.push(...windowMessages.slice(overlapLength));
+    append(windowMessages.slice(overlapLength));
     return;
   }
 
   if (!messageWindowAlreadyCollected(collectedMessages, windowMessages)) {
-    collectedMessages.push(...windowMessages);
+    append(windowMessages);
   }
 }
 
@@ -208,26 +256,51 @@ function createHydratedDeepSeekDocument(
   return hydratedDoc;
 }
 
-async function prepareDeepSeekDocumentForExtraction(doc: Document): Promise<Document> {
+async function prepareDeepSeekDocumentForExtraction(
+  doc: Document,
+  images?: AIChatImagePreparation
+): Promise<Document> {
   const scroller = findDeepSeekVirtualMessageScroller(doc);
   if (!scroller) return doc;
 
   const originalMessageCount = scroller.querySelectorAll(DEEPSEEK_MESSAGE_SELECTOR).length;
   const originalScrollTop = scroller.scrollTop;
   const messages: CollectedMessage[] = [];
+  const sourceUrl = doc.URL;
+  const stillCurrent = () =>
+    doc.URL === sourceUrl &&
+    scroller.isConnected &&
+    findDeepSeekVirtualMessageScroller(doc) === scroller;
+  const assertCurrent = () => {
+    if (!stillCurrent())
+      throw extractionErrors.aiChatPreparationIncomplete({
+        type: 'ai_chat',
+        platform: 'deepseek',
+        messageCount: messages.length,
+        parserDiagnosticCodes: ['deepseek_conversation_changed']
+      });
+    images?.assertCurrent();
+  };
 
   try {
     for (const position of getDeepSeekScrollPositions(scroller)) {
+      assertCurrent();
       setScrollTop(scroller, position);
       await waitForDeepSeekVirtualListToSettle(scroller);
-      mergeDeepSeekMessageWindow(messages, collectMountedDeepSeekMessages(scroller));
+      assertCurrent();
+      mergeDeepSeekMessageWindow(messages, collectMountedDeepSeekMessages(scroller), images);
+      await images?.flush();
+      assertCurrent();
     }
   } finally {
-    setScrollTop(scroller, originalScrollTop);
-    await waitForDeepSeekVirtualListToSettle(scroller);
+    if (stillCurrent()) {
+      setScrollTop(scroller, originalScrollTop);
+      await waitForDeepSeekVirtualListToSettle(scroller);
+      assertCurrent();
+    }
   }
 
-  if (messages.length <= originalMessageCount) {
+  if (!images && messages.length <= originalMessageCount) {
     return doc;
   }
 
@@ -235,12 +308,15 @@ async function prepareDeepSeekDocumentForExtraction(doc: Document): Promise<Docu
 }
 
 export const AI_CHAT_DOCUMENT_PREPARERS: Partial<Record<PlatformId, AIChatDocumentPreparer>> = {
-  deepseek: prepareDeepSeekDocumentForExtraction
+  deepseek: prepareDeepSeekDocumentForExtraction,
+  chatgpt: prepareChatGPTDocumentForExtraction,
+  grok: prepareGrokDocumentForExtraction
 };
 
 export async function prepareAIChatDocumentForExtraction(
   platform: PlatformId,
-  doc: Document
+  doc: Document,
+  images?: AIChatImagePreparation
 ): Promise<Document> {
-  return AI_CHAT_DOCUMENT_PREPARERS[platform]?.(doc) ?? doc;
+  return AI_CHAT_DOCUMENT_PREPARERS[platform]?.(doc, images) ?? doc;
 }

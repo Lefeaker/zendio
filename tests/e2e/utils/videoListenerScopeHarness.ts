@@ -125,9 +125,16 @@ export const testWithExtension = test.extend<{
   context: BrowserContext;
   extensionPage: Page;
 }>({
-  context: async ({ browserName: _browserName }, use) => {
+  context: async ({ browserName: _browserName }, use, testInfo) => {
     void _browserName;
     const userDataDir = await fs.mkdtemp(path.join(tmpdir(), 'video-listener-scope-'));
+    const downloads = testInfo.outputPath('downloads');
+    await fs.mkdir(path.join(userDataDir, 'Default'), { recursive: true });
+    await fs.mkdir(downloads, { recursive: true });
+    await fs.writeFile(
+      path.join(userDataDir, 'Default', 'Preferences'),
+      JSON.stringify({ download: { default_directory: downloads, prompt_for_download: false } })
+    );
     const context = await chromium.launchPersistentContext(userDataDir, {
       headless: true,
       channel: 'chromium',

@@ -1,4 +1,9 @@
+import {
+  FETCH_AI_CHAT_IMAGE,
+  isAIChatImageFetchRequest
+} from '../../shared/types/aiChatImageMessages';
 import { handleClipResult } from '../pipelines/clipPipeline';
+import { dispatchSupportPrompt } from '../pipelines/clipPipelineSupport';
 import { handleConnectionTest, handleVaultConnectionTest } from '../pipelines/connectionTest';
 import { toConnectionTestPayload } from './connectionTestPayload';
 import { notifyClipFailure, notifyExtractionError } from '../services/notifications';
@@ -49,6 +54,12 @@ export { createRuntimeMessageListenerDependencies } from './runtimeMessageDepend
 export type { RuntimeMessageListenerDependencies } from './runtimeMessageDependencies';
 
 const INVALID_CLIP_PAYLOAD_ERROR = 'Invalid clip payload received.';
+const AI_CHAT_FAILURE_MESSAGES = new Map([
+  ['EXTRACTION_AI_CHAT_PARSE_EMPTY', 'errorExtractionAiChatParseEmpty'],
+  ['EXTRACTION_AI_CHAT_IMAGES_INCOMPLETE', 'errorExtractionAiChatImagesIncomplete'],
+  ['EXTRACTION_AI_CHAT_PARSE_ROLE_INCOMPLETE', 'errorExtractionAiChatParseRoleIncomplete'],
+  ['EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE', 'errorExtractionAiChatPreparationIncomplete']
+]);
 
 function toReadingClipPayload(data: Record<string, unknown>) {
   return {
@@ -150,6 +161,11 @@ export function registerRuntimeMessageListener(
 ): void {
   const addListener = dependencies.messaging.addListener.bind(dependencies.messaging);
   addListener(async (message, sender) => {
+    if (isObjectRecord(message) && message.type === FETCH_AI_CHAT_IMAGE) {
+      if (!isAIChatImageFetchRequest(message) || !dependencies.fetchAIChatImage)
+        throw new Error('AI_CHAT_IMAGE_REQUEST_INVALID');
+      return toMessagePayload(await dependencies.fetchAIChatImage(message, sender));
+    }
     const storedMessage = normalizeSessionDraftStoredValue(message);
     if (isSessionDraftMessageCandidate(storedMessage)) {
       const result = await handleSessionDraftMessage(
@@ -262,6 +278,17 @@ export function registerRuntimeMessageListener(
             domain: 'content',
             userMessageDescriptor: { key: 'clipFailed' }
           });
+      const failure = createClipSaveFailure('failed', 'extraction', 'prepare');
+      const messageKey = AI_CHAT_FAILURE_MESSAGES.get(appError.code);
+      if (messageKey) {
+        failure.code = appError.code;
+        failure.message = { key: messageKey };
+      }
+      dispatchSupportPrompt(dependencies.clipPipeline, sender.tabId, {
+        status: 'failure',
+        failure,
+        progress: { value: 100, variant: 'failure' }
+      });
       await errorHandler.handle(appError, { suppressNotifications: true });
       await safeNotifyClipFailure(appError);
       return;

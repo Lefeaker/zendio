@@ -6,6 +6,7 @@ const chromeApi = vi.hoisted(() => ({
     getUILanguage: vi.fn(() => 'en-US')
   },
   runtime: {
+    id: 'trusted-chrome-extension-id',
     getURL: vi.fn((path: string) => `chrome-extension://${path}`),
     getManifest: vi.fn(() => ({ version: '1.0.0' })),
     openOptionsPage: vi.fn(),
@@ -56,6 +57,7 @@ describe('chromeRuntimeService', () => {
     }
     expect(getURL('options/index.html')).toContain('options/index.html');
     expect(chromeRuntimeService.getBrowserTarget()).toBe('chrome');
+    expect(chromeRuntimeService.getId?.()).toBe('trusted-chrome-extension-id');
     expect(getManifest()).toEqual({ version: '1.0.0' });
     expect(getUILanguage()).toBe('en-US');
     await chromeRuntimeService.openOptionsPage();

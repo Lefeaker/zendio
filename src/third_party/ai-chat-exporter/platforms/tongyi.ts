@@ -3,6 +3,8 @@ import { chatElementToMarkdown } from '../shared/markdown';
 import type { ChatPlatformParser, ParseConfig, ParsedMessage, ParsedResult } from '../types';
 import { collectTongyiMessageContainers, pickTongyiContentElement } from './tongyiDomSelection';
 
+import { cloneMessageWithImages, collectMessageImages } from '../shared/messageImages';
+
 const TONGYI_USER_MESSAGE_SELECTOR =
   '[class*="user-message"], [class*="userMessage"], [class*="questionItem--"], [class*="message-select-wrapper-question"], [class*="chat-question-wrap"], [class*="qwen-chat-question"], [data-chat-question-wrap="true"], [data-role="user"]';
 const TONGYI_ASSISTANT_MESSAGE_SELECTOR =
@@ -23,6 +25,36 @@ function stripTongyiNativeTitle(rawTitle: string): string {
     (title, suffix) => title.replace(suffix, ''),
     rawTitle
   ).trim();
+}
+
+function extractTongyiModel(doc: Document, messages: HTMLElement[]): string {
+  const outsideConversation = (element: Element) =>
+    !element.closest('aside, nav, [role="navigation"]') &&
+    !messages.some((message) => message.contains(element));
+  const normalizeModel = (text: string): string => {
+    const match = text.trim().match(/^Qwen[\s-]?(\d+(?:\.\d+)?)[\s-]*(max|plus|turbo|pro)?$/i);
+    if (!match) return '';
+    const variant = match[2];
+    return `Qwen${match[1]}${variant ? '-' + variant[0].toUpperCase() + variant.slice(1).toLowerCase() : ''}`;
+  };
+  const controls = doc.querySelectorAll<HTMLElement>(
+    '[data-testid*="model" i], [data-test-id*="model" i], [data-model], [class*="model" i], select[name*="model" i]'
+  );
+  for (const control of Array.from(controls)) {
+    if (!outsideConversation(control)) continue;
+    const selected = control.matches('select') ? control.querySelector('option:checked') : control;
+    const model = normalizeModel(control.getAttribute('data-model') || selected?.textContent || '');
+    if (model) return model;
+  }
+  // Legacy pages expose a plain, explicitly labelled current-model header.
+  // Keep that source without interpreting account names or conversation prose.
+  for (const element of Array.from(doc.querySelectorAll('span, p, div'))) {
+    if (element.childElementCount > 0 || !outsideConversation(element)) continue;
+    const label = element.textContent?.trim().match(/^(?:当前模型|Current model)\s*[：:]\s*(.+)$/i);
+    const model = label ? normalizeModel(label[1]) : '';
+    if (model) return model;
+  }
+  return '';
 }
 
 function extractTongyiChatData(doc: Document, config?: ParseConfig): ParsedResult {
@@ -48,57 +80,7 @@ function extractTongyiChatData(doc: Document, config?: ParseConfig): ParsedResul
     }
   }
 
-  let model = '';
-
-  try {
-    const selectedModel = localStorage.getItem('selectedQwenModel');
-    if (selectedModel) {
-      const match = selectedModel.match(/qwen(\d+)[\s-]*(max|plus|turbo|pro)?/i);
-      if (match) {
-        const version = match[1];
-        const variant = match[2]
-          ? match[2].charAt(0).toUpperCase() + match[2].slice(1).toLowerCase()
-          : '';
-        model = `Qwen${version}${variant ? '-' + variant : ''}`;
-      }
-    }
-  } catch (error) {
-    console.debug('[Tongyi] Unable to read selected model from localStorage', error);
-  }
-
-  if (!model) {
-    const bodyText = doc.body.textContent || '';
-    const qwenMatch = bodyText.match(/Qwen[\s-]?(\d+)[\s-]*(max|plus|turbo|pro)?/i);
-    if (qwenMatch) {
-      const version = qwenMatch[1];
-      const variant = qwenMatch[2]
-        ? qwenMatch[2].charAt(0).toUpperCase() + qwenMatch[2].slice(1).toLowerCase()
-        : '';
-      model = `Qwen${version}${variant ? '-' + variant : ''}`;
-    }
-  }
-
-  if (!model) {
-    const buttons = Array.from(doc.querySelectorAll('button, [role="button"]'));
-    for (const btn of buttons) {
-      const text = btn.textContent?.trim() || '';
-      if (text.match(/^(通义千问|Qwen|qwen)[\s-]*(\d+)?[\s-]*(max|plus|turbo)?$/i)) {
-        model = text;
-        break;
-      }
-    }
-  }
-
-  if (!model) {
-    const modelElements = Array.from(doc.querySelectorAll('[class*="model"], [class*="Model"]'));
-    for (const el of modelElements) {
-      const text = el.textContent?.trim();
-      if (text && text.match(/Qwen|通义|千问/i)) {
-        model = text;
-        break;
-      }
-    }
-  }
+  const model = extractTongyiModel(doc, messageContainers);
 
   const messages: ParsedMessage[] = [];
   let chatIndex = 1;
@@ -114,8 +96,8 @@ function extractTongyiChatData(doc: Document, config?: ParseConfig): ParsedResul
     }
 
     const contentElem = pickTongyiContentElement(element, role);
-    const sanitized = sanitizeTongyiContent(contentElem);
-    const markdown = chatElementToMarkdown(sanitized);
+    const sanitized = sanitizeTongyiContent(cloneMessageWithImages(element, [contentElem]));
+    const markdown = chatElementToMarkdown(sanitized, config?.imageResolver);
 
     if (markdown.trim()) {
       const html = sanitized.innerHTML;
@@ -249,5 +231,6 @@ function sanitizeTongyiContent(element: HTMLElement): HTMLElement {
 
 export const tongyiParser: ChatPlatformParser = {
   id: 'tongyi',
+  collectImages: (root) => collectMessageImages('tongyi', collectTongyiMessageContainers(root)),
   parse: (doc, config) => extractTongyiChatData(doc, config)
 };

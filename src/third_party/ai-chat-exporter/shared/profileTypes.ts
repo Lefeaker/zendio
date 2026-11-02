@@ -52,6 +52,7 @@ export type ParserProfile = {
   fallbackRole?: ProfileMessageRole;
   content: ContentResolver;
   cleanup?: CleanupHook;
+  imageExclusions?: string;
   shouldSkipMessage?: MessageSkipPredicate;
   dedupe?: MessageDedupeStrategy;
   messageIdPrefix?: string;

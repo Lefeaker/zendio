@@ -31,6 +31,13 @@ interface AIChatParseRoleIncompleteContext extends ExtractionContext {
   parserDiagnosticCodes?: string[];
 }
 
+interface AIChatPreparationIncompleteContext extends ExtractionContext {
+  type: 'ai_chat';
+  platform: string;
+  messageCount: number;
+  parserDiagnosticCodes?: string[];
+}
+
 interface SelectionContext extends ExtractionContext {
   selectionLength?: number;
   selectionText?: string; // 截断的选择文本（用于调试，会被自动清理）
@@ -98,6 +105,33 @@ export const extractionErrors = {
         ...context,
         timestamp: Date.now()
       }
+    };
+  },
+
+  aiChatPreparationIncomplete(context: AIChatPreparationIncompleteContext): AppError {
+    return {
+      code: STANDARDIZED_ERROR_CODES.EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE,
+      domain: 'extraction',
+      message: STANDARDIZED_ERROR_CODES.EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE,
+      severity: ErrorSeverity.ERROR,
+      recoverable: true,
+      userMessageDescriptor: { key: 'errorExtractionAiChatPreparationIncomplete' },
+      context: {
+        ...context,
+        timestamp: Date.now()
+      }
+    };
+  },
+
+  aiChatImagesIncomplete(context: AIChatPreparationIncompleteContext): AppError {
+    return {
+      code: STANDARDIZED_ERROR_CODES.EXTRACTION_AI_CHAT_IMAGES_INCOMPLETE,
+      domain: 'extraction',
+      message: STANDARDIZED_ERROR_CODES.EXTRACTION_AI_CHAT_IMAGES_INCOMPLETE,
+      severity: ErrorSeverity.ERROR,
+      recoverable: true,
+      userMessageDescriptor: { key: 'errorExtractionAiChatImagesIncomplete' },
+      context: { ...context, timestamp: Date.now() }
     };
   },
 

@@ -1,9 +1,17 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
-import { cloneHTMLElement } from '../shared/dom';
+import {
+  cloneMessageWithImages,
+  collectMessageImages,
+  hasMessageContent
+} from '../shared/messageImages';
 import { chatElementToMarkdown } from '../shared/markdown';
-import type { ChatPlatformParser, ParsedMessage, ParsedResult } from '../types';
+import type { ChatPlatformParser, ParsedMessage, ParsedResult, ParseConfig } from '../types';
 import { collectPerplexityMessageCandidates } from './perplexityCandidates';
-import { cleanupPerplexityBody, pickPerplexityMessageBody } from './perplexityDom';
+import {
+  cleanupPerplexityBody,
+  pickPerplexityMessageBody,
+  PERPLEXITY_SUPPRESSED_CONTAINER_SELECTOR
+} from './perplexityDom';
 
 const MODEL_SELECTORS = [
   '[data-testid="model-name"]',
@@ -32,7 +40,7 @@ function extractModel(doc: Document): string | undefined {
   return undefined;
 }
 
-function extractPerplexityChat(doc: Document): ParsedResult {
+function extractPerplexityChat(doc: Document, config?: ParseConfig): ParsedResult {
   const candidates = collectPerplexityMessageCandidates(doc);
   if (candidates.length === 0) {
     return { title: DEFAULT_CHAT_TITLE, messages: [], assets: [] };
@@ -45,15 +53,13 @@ function extractPerplexityChat(doc: Document): ParsedResult {
     const body = pickPerplexityMessageBody(node);
     if (!body) continue;
 
-    const clone = cloneHTMLElement(body);
-    if (!clone) continue;
+    const clone = cloneMessageWithImages(node, [body], PERPLEXITY_SUPPRESSED_CONTAINER_SELECTOR);
 
     cleanupPerplexityBody(clone);
 
-    const text = clone.textContent?.trim() ?? '';
-    if (!text) continue;
+    if (!hasMessageContent(clone, PERPLEXITY_SUPPRESSED_CONTAINER_SELECTOR)) continue;
 
-    const markdown = chatElementToMarkdown(clone);
+    const markdown = chatElementToMarkdown(clone, config?.imageResolver);
     if (!markdown.trim()) continue;
 
     const html = clone.innerHTML || '';
@@ -82,5 +88,11 @@ function extractPerplexityChat(doc: Document): ParsedResult {
 
 export const perplexityParser: ChatPlatformParser = {
   id: 'perplexity',
-  parse: (doc) => extractPerplexityChat(doc)
+  collectImages: (root) =>
+    collectMessageImages(
+      'perplexity',
+      collectPerplexityMessageCandidates(root).map((candidate) => candidate.node),
+      PERPLEXITY_SUPPRESSED_CONTAINER_SELECTOR
+    ),
+  parse: (doc, config) => extractPerplexityChat(doc, config)
 };

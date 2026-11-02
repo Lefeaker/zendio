@@ -17,6 +17,11 @@ const LANGUAGE_ALIAS_MAP: Record<string, string> = {
 
 const CODE_LABEL_SKIP_SELECTOR =
   'button, .button, [role="button"], [class*="copy" i], [class*="action" i], [class*="toolbar" i]';
+const LANGUAGE_METADATA = '[data-language], [data-code-language], [data-lang]';
+const CODE_LABEL_CONTEXT =
+  '[class*="language-"], [class*="language_"], [class*="code-label"], [class*="code-toolbar"]';
+const CODE_COMPONENT =
+  '[data-code-block="true"], [data-testid="code-block"] > div, [class*="code-container"], [class*="code-toolbar"], [class*="code-wrapper"], [class*="code-block"], [class*="code-shell"]';
 
 const KNOWN_LANGUAGE_LABELS: Set<string> = new Set([
   'bash',
@@ -160,7 +165,10 @@ export function normalizeLanguageTag(label: string): string {
 function findAssociatedPreElement(elem: HTMLElement): HTMLElement | null {
   let current = elem.nextElementSibling as HTMLElement | null;
   while (current) {
-    if (current.matches(CODE_LABEL_SKIP_SELECTOR)) {
+    if (
+      current.matches(CODE_LABEL_SKIP_SELECTOR) ||
+      (!current.textContent?.trim() && !current.querySelector('pre'))
+    ) {
       current = current.nextElementSibling as HTMLElement | null;
       continue;
     }
@@ -174,17 +182,6 @@ function findAssociatedPreElement(elem: HTMLElement): HTMLElement | null {
     break;
   }
 
-  const parent = elem.parentElement;
-  if (parent) {
-    const candidate = parent.querySelector('pre');
-    if (candidate) {
-      const relation = elem.compareDocumentPosition(candidate);
-      if (relation & Node.DOCUMENT_POSITION_FOLLOWING) {
-        return candidate as HTMLElement;
-      }
-    }
-  }
-
   return null;
 }
 
@@ -194,23 +191,24 @@ function isLikelyLanguageLabel(elem: HTMLElement, text: string): boolean {
     return false;
   }
 
-  const classAttr = elem.getAttribute('class') || '';
   const attrLanguage =
     elem.getAttribute('data-language') ||
     elem.getAttribute('data-code-language') ||
     elem.getAttribute('data-lang');
 
-  if (attrLanguage || resolveLanguageLabel(text)) {
-    return true;
-  }
-  if (/\b(language|lang|syntax|code|chip|badge|toolbar|label)\b/i.test(classAttr)) {
-    return true;
-  }
-  return Boolean(text && text === text.toUpperCase() && text.length <= 15);
+  const labelContext =
+    elem.matches('div, span') &&
+    (elem.matches(CODE_LABEL_CONTEXT) ||
+      elem.parentElement?.matches(CODE_COMPONENT) ||
+      (elem.matches('[class*="toolbar"]') && elem.querySelector(LANGUAGE_METADATA)));
+  return Boolean(attrLanguage || (labelContext && resolveLanguageLabel(text)));
 }
 
 export function captureLanguageLabel(elem: HTMLElement): boolean {
-  if (elem.querySelector('pre')) {
+  // Lists and other prose structures are never a code-language label, even when
+  // their short text happens to be a language name or has no lowercase letters.
+  const proseSelector = 'ul, ol, li, table, blockquote, h1, h2, h3, h4, h5, h6';
+  if (elem.matches(proseSelector) || elem.querySelector(`pre, ${proseSelector}`)) {
     return false;
   }
 
@@ -230,6 +228,9 @@ export function captureLanguageLabel(elem: HTMLElement): boolean {
 }
 
 export function captureLanguageLabelFromTextNode(node: Node, rawText: string): boolean {
+  // Bare text is a label only in an explicitly identified code component.
+  // In particular, never bypass the element guard for a paragraph/list item.
+  if (!node.parentElement?.matches(CODE_COMPONENT)) return false;
   const resolvedLabel = resolveLanguageLabel(rawText);
   if (!resolvedLabel) {
     return false;
@@ -260,12 +261,6 @@ export function captureLanguageLabelFromTextNode(node: Node, rawText: string): b
     }
 
     break;
-  }
-
-  const parent = node.parentElement;
-  if (parent && findAssociatedPreElement(parent)) {
-    pendingCodeLanguageLabel = normalizeLanguageTag(resolvedLabel);
-    return true;
   }
 
   return false;

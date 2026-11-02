@@ -22,7 +22,7 @@
   "schemaCaptureSourcesAiChatGroupTitle": "AI チャット",
   "schemaCaptureSourcesAiConversationDescription": "対応するプラットフォームを確認し、既存の会話を開いてエクスポートします。",
   "schemaCaptureSourcesAiConversationTitle": "AI 会話キャプチャ",
-  "schemaCaptureSourcesAiSupportedPlatformsBadge": "対応プラットフォーム 10 件",
+  "schemaCaptureSourcesAiSupportedPlatformsBadge": "対応プラットフォーム {count} 件",
   "schemaCaptureSourcesAttachmentGuidanceLink": "Custom Attachment Location",
   "schemaCaptureSourcesAttachmentGuidancePrefix": "これらの添付設定は Obsidian プラグイン ",
   "schemaCaptureSourcesAttachmentGuidanceSuffix": " と併用し、Obsidian 側のプラグイン設定をここでのテンプレートと一致させてください。",
@@ -457,5 +457,11 @@
   "schemaResourceChangelogV034Bullet3": "保存前に添付を検証し、欠落や無効なデータによる不完全な出力を防ぎます。通常のリンク、タイトル、参照定義、コード内の添付の例はそのまま保持し、特殊なファイル名やブラウザーによる改名も正しく処理します。",
   "schemaResourceChangelogV034Bullet4": "保存先プレビューと実際の振り分けを統一しました。接続テストはサービスと認証を確認し、期限で待機を終了します。設定変更前の結果で新しい状態を上書きしません。",
   "schemaResourceChangelogV034Bullet5": "診断情報ではキーや非公開の設定を隠します。明示的に出力する完全バックアップには全設定を保持します。",
-  "schemaResourceChangelogV034Bullet6": "Firefox でページ機能が起動しない問題と保存の問題を修正しました。複数添付の検証を非同期にし、ダウンロード完了の重複確認を削減しました。"
+  "schemaResourceChangelogV034Bullet6": "Firefox でページ機能が起動しない問題と保存の問題を修正しました。複数添付の検証を非同期にし、ダウンロード完了の重複確認を削減しました。",
+  "schemaResourceChangelogV035Summary": "AI との会話をより完全に保存し、画像も一緒に残せます。",
+  "schemaResourceChangelogV035Bullet1": "通常の Grok チャットの保存に対応。ChatGPT と Grok の長い会話を、より完全に取得します。",
+  "schemaResourceChangelogV035Bullet2": "ページから取得できるアップロード画像や生成画像をローカル添付として保存。同じ保存操作内の同一ファイルは1つにまとめ、各表示位置は保持します。",
+  "schemaResourceChangelogV035Bullet3": "ChatGPT や Kimi などで、本文の見出し・話者を示す語句・コードが消える問題や、メッセージの欠落・重複を修正しました。",
+  "schemaResourceChangelogV035Bullet4": "保存の進行状況と失敗理由をより正確に表示。必要な本文や画像が欠けている場合は、明確なエラーで保存を停止します。",
+  "schemaResourceChangelogV035Bullet5": "読書・動画の保存で、続行操作と結果確認をより確実にしました。条件を満たす動画の保存は、開き直しても元のスクリーンショット・時刻・確認済み添付を使って続行できます。"
 }

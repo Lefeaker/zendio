@@ -1,7 +1,10 @@
 /* @vitest-environment node */
 
 import { describe, expect, it, vi } from 'vitest';
-import { VideoSessionExporter } from '@content/video/videoSessionExporter';
+import {
+  VideoSessionExporter,
+  type BuildPayloadContext
+} from '@content/video/videoSessionExporter';
 import { DEFAULT_SESSION_MESSAGES } from '@content/video/sessionMessages';
 import { serializedAttachmentContentToBlob } from '@shared/attachments/clipAttachmentBinary';
 import type { IVideoRepository, VideoClipData } from '@shared/repositories/IVideoRepository';
@@ -64,6 +67,75 @@ function readExportedClip(repository: ReturnType<typeof createRepository>): Vide
 }
 
 describe('VideoSessionExporter', () => {
+  it.each(['resolve', 'reject'])(
+    'awaits preparation %s before sending any payload',
+    async (outcome) => {
+      const repository = createRepository();
+      let resolve = () => {};
+      let reject = (_error: Error) => {};
+      const gate = new Promise<void>((done, fail) => {
+        resolve = done;
+        reject = fail;
+      });
+      const onPrepared = vi.fn(() => gate);
+      const pending = new VideoSessionExporter(repository).export({
+        captures: [],
+        videoTitle: 'Prepared video',
+        canonicalUrl: '',
+        videoUrl: '',
+        platform: 'youtube',
+        messages: DEFAULT_SESSION_MESSAGES,
+        storageKey: null,
+        onPrepared
+      });
+      await vi.waitFor(() => expect(onPrepared).toHaveBeenCalledOnce());
+      expect(repository.sendVideoClip).not.toHaveBeenCalled();
+      if (outcome === 'reject') {
+        const failed = expect(pending).rejects.toThrow('SESSION_DRAFT_SAVE_FAILED');
+        reject(new Error('SESSION_DRAFT_SAVE_FAILED'));
+        await failed;
+        expect(repository.sendVideoClip).not.toHaveBeenCalled();
+      } else {
+        resolve();
+        await pending;
+        expect(repository.sendVideoClip).toHaveBeenCalledOnce();
+      }
+    }
+  );
+
+  it('rebuilds the same export from retained captures after reopening on a later day', async () => {
+    vi.useFakeTimers();
+    const startedAt = new Date(2026, 9, 15, 23, 59, 59).getTime();
+    const repository = createRepository();
+    const input: BuildPayloadContext = {
+      captures: [
+        createTimestampCapture('one', 42, {
+          comment: 'Retained note',
+          screenshotRequested: true,
+          screenshot: createScreenshot('one', 'original bytes')
+        })
+      ],
+      videoTitle: 'Retained title',
+      canonicalUrl: 'https://video.example/watch',
+      videoUrl: 'https://video.example/watch',
+      platform: 'youtube',
+      messages: DEFAULT_SESSION_MESSAGES,
+      storageKey: null,
+      operationId: 'op_reopened1',
+      exportStartedAt: startedAt
+    };
+    try {
+      vi.setSystemTime(startedAt);
+      await new VideoSessionExporter(repository).export(input);
+      const first = readExportedClip(repository);
+      vi.setSystemTime(startedAt + 86_400_000);
+      await new VideoSessionExporter(repository).export(input);
+      expect(readExportedClip(repository)).toEqual(first);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('continues the same prepared Markdown, bytes, timestamp and operation ID without rebuilding', async () => {
     const repository = createRepository();
     const exporter = new VideoSessionExporter(repository);

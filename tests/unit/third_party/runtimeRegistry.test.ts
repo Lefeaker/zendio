@@ -44,7 +44,8 @@ describe('runtime AI chat parser registry', () => {
     ['monica', 'monica'],
     ['perplexity', 'perplexity'],
     ['pplx', 'perplexity'],
-    ['qianwen', 'tongyi']
+    ['qianwen', 'tongyi'],
+    ['grok', 'grok']
   ])('resolves %s to the %s parser', async (platform, expectedId) => {
     await expect(resolveParserAsync(platform)).resolves.toMatchObject({ id: expectedId });
   });

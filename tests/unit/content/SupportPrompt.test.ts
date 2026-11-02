@@ -219,10 +219,11 @@ describe('SupportPrompt', () => {
     expect(progressBar).toBeTruthy();
     expect(progressBar?.style.getPropertyValue('--task-progress-value')).toBe('42%');
     expect(progressBar?.classList.contains('is-progress')).toBe(true);
-    expect(header?.compareDocumentPosition(progressBar as Node)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING
-    );
-    expect(progressBar?.compareDocumentPosition(supportStrip as Node)).toBe(
+    if (!header || !progressBar || !supportStrip) {
+      throw new Error('Expected the progress header, bar and support strip to be mounted');
+    }
+    expect(header.compareDocumentPosition(progressBar)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(progressBar.compareDocumentPosition(supportStrip)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING
     );
   });
@@ -330,6 +331,76 @@ describe('SupportPrompt', () => {
     );
     expect(shadow?.querySelector('[data-role="status-detail"]')?.textContent).toBe('extra detail');
   });
+
+  it.each<I18nResource['language']>(['en', 'zh-CN', 'de'])(
+    'preserves resolved progress and failure copy with the real %s translator',
+    async (language) => {
+      const messages = await getMessagesForLanguage(language);
+      getContentI18nResourceMock.mockReturnValue(
+        createI18nResource({ language, messages, fallbackChain: [] })
+      );
+      const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
+      const prompt = new SupportPrompt(document);
+      const preparing = { value: 8, message: { key: 'supportProgressPreparingPageClip' } };
+      await prompt.show({
+        status: 'progress',
+        progress: preparing
+      });
+      expect(
+        getPromptHost().shadowRoot?.querySelector('[data-role="status-text"]')?.textContent
+      ).toBe(messages.supportProgressPreparingPageClip);
+      expect(
+        getPromptHost().shadowRoot?.querySelector('[data-role="task-progress"]')?.classList
+      ).toContain('is-progress');
+
+      const failures: Array<[string, keyof I18nResource['messages']]> = [
+        ['EXTRACTION_AI_CHAT_PARSE_EMPTY', 'errorExtractionAiChatParseEmpty'],
+        ['EXTRACTION_AI_CHAT_PARSE_ROLE_INCOMPLETE', 'errorExtractionAiChatParseRoleIncomplete'],
+        ['EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE', 'errorExtractionAiChatPreparationIncomplete']
+      ];
+      for (const [code, key] of failures) {
+        await prompt.show({
+          status: 'failure',
+          error: {
+            code,
+            message: 'Technical parser failure',
+            domain: 'extraction',
+            severity: ErrorSeverity.ERROR,
+            recoverable: false,
+            userMessageDescriptor: { key },
+            context: { contextMessage: 'Parser diagnostic detail' }
+          }
+        });
+        const failureText = getPromptHost().shadowRoot?.querySelector(
+          '[data-role="status-text"]'
+        )?.textContent;
+        expect(failureText).toContain(messages[key]);
+        expect(failureText).toContain(code);
+        expect(failureText).not.toContain('Technical parser failure');
+        expect(
+          getPromptHost().shadowRoot?.querySelector('[data-role="status-detail"]')?.textContent
+        ).toBe('Parser diagnostic detail');
+        expect(
+          getPromptHost().shadowRoot?.querySelector('[data-role="task-progress"]')?.classList
+        ).toContain('is-failure');
+      }
+
+      await prompt.show({
+        status: 'progress',
+        progress: preparing
+      });
+      expect(
+        getPromptHost().shadowRoot?.querySelector('[data-role="status-text"]')?.textContent
+      ).toBe(messages.supportProgressPreparingPageClip);
+      expect(getPromptHost().shadowRoot?.querySelector('[data-role="status-detail"]')).toBeNull();
+      await prompt.show({ status: 'success' });
+      expect(
+        getPromptHost().shadowRoot?.querySelector('[data-role="status-text"]')?.textContent
+      ).toBe(messages.supportPromptStatusSuccess);
+      expect(document.querySelectorAll('#aiob-support-prompt')).toHaveLength(1);
+      prompt.destroy();
+    }
+  );
 
   it('uses catalog-derived fallback messages when content i18n fails before loading', async () => {
     ensureContentI18nMock.mockRejectedValueOnce(new Error('content i18n unavailable'));

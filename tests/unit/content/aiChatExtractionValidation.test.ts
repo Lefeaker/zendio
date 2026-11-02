@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import { validateAIChatExtraction } from '../../../src/content/extractors/aiChatExtractionValidation';
 import type { AppError } from '../../../src/shared/errors/types';
-import type { ParsedMessage } from '../../../src/third_party/ai-chat-exporter/types';
+import type {
+  ParsedMessage,
+  ParseDiagnostic
+} from '../../../src/third_party/ai-chat-exporter/types';
 
 type ValidationMessage = Pick<ParsedMessage, 'id' | 'role' | 'timestamp'> & {
   text: string;
@@ -111,4 +114,68 @@ describe('validateAIChatExtraction', () => {
       }
     );
   });
+});
+
+describe('parser diagnostics at the extraction boundary', () => {
+  const completeMessages: ValidationMessage[] = [
+    { id: 'u1', role: 'user', text: 'Question' },
+    { id: 'a1', role: 'assistant', text: 'Answer so far' }
+  ];
+
+  function checkDiagnostic(
+    code: string,
+    severity: 'error' | 'warning' | 'info',
+    messages = completeMessages
+  ) {
+    try {
+      validateAIChatExtraction({
+        platform: 'chatgpt',
+        url: 'https://chatgpt.com/c/sanitized-diagnostic',
+        title: 'Diagnostic boundary',
+        messages,
+        diagnostics: [{ code, severity }]
+      });
+      return undefined;
+    } catch (error) {
+      return error;
+    }
+  }
+
+  it.each(
+    [
+      'chatgpt_generation_in_progress',
+      'chatgpt_message_content_incomplete',
+      'grok_message_content_incomplete'
+    ].flatMap((code) => [
+      { code, messages: [] },
+      { code, messages: completeMessages }
+    ])
+  )('reports incomplete content before empty/role checks with %j', ({ code, messages }) => {
+    expect(checkDiagnostic(code, 'error', messages)).toMatchObject({
+      code: 'EXTRACTION_AI_CHAT_PREPARATION_INCOMPLETE',
+      recoverable: true,
+      context: {
+        messageCount: messages.length,
+        parserDiagnosticCodes: [code]
+      }
+    });
+  });
+
+  it('keeps empty and unknown-role failures distinct from generation failures', () => {
+    expect(checkDiagnostic('chatgpt_role_unrecognized', 'error', [])).toMatchObject({
+      code: 'EXTRACTION_AI_CHAT_PARSE_EMPTY',
+      context: { parserDiagnosticCodes: ['chatgpt_role_unrecognized'] }
+    });
+    expect(checkDiagnostic('chatgpt_role_unrecognized', 'error')).toMatchObject({
+      code: 'EXTRACTION_AI_CHAT_PARSE_ROLE_INCOMPLETE',
+      context: { messageCount: 2, parserDiagnosticCodes: ['chatgpt_role_unrecognized'] }
+    });
+  });
+
+  it.each<ParseDiagnostic['severity']>(['warning', 'info'])(
+    'does not reject an otherwise complete result for a %s diagnostic',
+    (severity) => {
+      expect(checkDiagnostic('optional_metadata_unavailable', severity)).toBeUndefined();
+    }
+  );
 });

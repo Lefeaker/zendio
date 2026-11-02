@@ -1,5 +1,17 @@
 # 性能优化与热点基线
 
+2026-11-01 的 v0.3.5 更新日志增加 6 个本地化 schema 键，由既有 catalog generator
+生成声明。`schemaCore.generated.ts` 精确行数为 483（原 477），
+`messages.generated.ts` 为 1378（原 1372）；只同步这两个生成字典的登记，
+保留全部历史预算校验，运行时、locale 容量、chunk、类型与其余源码限制不变。
+
+Grok 长会话准备从固定视口步进改为结合已挂载末条消息的几何位置推进，
+减少重复扫描，同时保留完整消息 ID 重叠校验、真实缺口拒绝和滚动恢复。
+该职责所在的 `src/content/extractors/grokDocumentPreparer.ts` 从 247 行增至 252 行，
+由既有大于 250 行的动态发现规则纳入登记，精确行数预算为 252。
+仅新增该 owner 的登记；12 秒 / 200 窗口限制、其余源码预算和构建字节、chunk、
+类型及警告门禁均保持原值。预算契约测试保留全部历史登记与不相关项的校验。
+
 2026-10-20 的 v0.3.4 更新日志增加 7 个本地化 schema 键，由既有 catalog generator
 生成声明。`schemaCore.generated.ts` 精确行数为 477（原 470），
 `messages.generated.ts` 为 1370（原 1363）；只同步这两个生成字典的登记，

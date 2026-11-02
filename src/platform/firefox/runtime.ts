@@ -23,6 +23,7 @@ function mapInstallDetails(
 }
 
 export const firefoxRuntimeService: RuntimeService = {
+  getId: () => ensureFirefox().runtime.id,
   isContextValid() {
     try {
       return Boolean(ensureFirefox().runtime.id);

@@ -8,7 +8,7 @@ export type AIChatFixtureCaptureKind =
 export type AIChatFixturePrivacyStatus = 'sanitized' | 'legacy-sanitized';
 export type AIChatFixtureStatus = 'active' | 'pending';
 export type AIChatFixtureRole = 'user' | 'assistant' | 'system';
-export type AIChatFixtureValidationExpectation = 'pass' | 'role-incomplete';
+export type AIChatFixtureValidationExpectation = 'pass' | 'role-incomplete' | 'parse-empty';
 
 export type AIChatFixtureMetadata = {
   file: string;
@@ -296,6 +296,34 @@ export const AI_CHAT_FIXTURE_MANIFEST: readonly AIChatFixtureMetadata[] = [
     status: 'active'
   },
   {
+    file: 'current-dom/chatgpt-current-2026-10-31.html',
+    platform: 'chatgpt',
+    sourceCaptureDate: '2026-10-31',
+    captureKind: 'current-dom-sanitized',
+    expectedTitle: 'Zendio Current DOM Regression',
+    expectedMessageCount: 4,
+    expectedRoles: ['user', 'assistant', 'user', 'assistant'],
+    sentinels: ['ZENDIO_TEST_OK', '第一条无序列表', '第二条无序列表', 'const x = 1;', '$x^2$'],
+    absentSentinels: ['你说：', 'ChatGPT 说：', '复制消息', '重新生成回复'],
+    privacyStatus: 'sanitized',
+    ownerMilestone: 'issue-91-chatgpt-2026-10-31',
+    status: 'active'
+  },
+  {
+    file: 'current-dom/chatgpt-code-source-2026-11-01.html',
+    platform: 'chatgpt',
+    sourceCaptureDate: '2026-11-01',
+    captureKind: 'focused-regression',
+    expectedTitle: 'ChatGPT Semantic Code Source',
+    expectedMessageCount: 4,
+    expectedRoles: ['user', 'assistant', 'user', 'assistant'],
+    sentinels: ['```JavaScript', 'console.log(x);', 'line one', '```typescript', '$x^2$', '普通段落中的代码。'],
+    absentSentinels: ['Copy code'],
+    privacyStatus: 'sanitized',
+    ownerMilestone: 'issue-91-chatgpt-code-source-2026-11-01',
+    status: 'active'
+  },
+  {
     file: 'current-dom/claude-current-2026-06-24.html',
     platform: 'claude',
     sourceCaptureDate: '2026-06-24',
@@ -307,6 +335,20 @@ export const AI_CHAT_FIXTURE_MANIFEST: readonly AIChatFixtureMetadata[] = [
     absentSentinels: ['Thinking through hidden tool context.', 'Copy response', 'Artifact preview'],
     privacyStatus: 'sanitized',
     ownerMilestone: 'P05',
+    status: 'active'
+  },
+  {
+    file: 'current-dom/claude-upload-failed-current-2026-10-31.html',
+    platform: 'claude',
+    sourceCaptureDate: '2026-10-31',
+    captureKind: 'current-dom-sanitized',
+    expectedTitle: 'Zendio image compatibility test',
+    expectedMessageCount: 0,
+    expectedRoles: [],
+    expectedValidation: 'parse-empty',
+    sentinels: [],
+    privacyStatus: 'sanitized',
+    ownerMilestone: 'ai-chat-images-claude-failure-2026-10-31',
     status: 'active'
   },
   {
@@ -556,6 +598,55 @@ export const AI_CHAT_FIXTURE_MANIFEST: readonly AIChatFixtureMetadata[] = [
     ],
     privacyStatus: 'sanitized',
     ownerMilestone: 'Perplexity live DOM repair 2026-06-28',
+    status: 'active'
+  },
+  {
+    file: 'current-dom/grok-current-2026-10-31.html',
+    platform: 'grok',
+    sourceCaptureDate: '2026-10-31',
+    captureKind: 'current-dom-sanitized',
+    expectedTitle: 'Grok parser compatibility',
+    expectedMessageCount: 4,
+    expectedRoles: ['user', 'assistant', 'user', 'assistant'],
+    sentinels: ['GROK_USER_ONE', 'GROK_REPLY_ONE_END', 'GROK_USER_TWO', 'GROK_REPLY_TWO_END'],
+    absentSentinels: ['COPY_CONTROL', 'Sidebar history', 'Log in to continue'],
+    privacyStatus: 'sanitized',
+    ownerMilestone: 'issue-90',
+    status: 'active'
+  },
+  {
+    file: 'current-dom/grok-gateway-current-2026-10-31.html',
+    platform: 'grok',
+    sourceCaptureDate: '2026-10-31',
+    captureKind: 'current-dom-sanitized',
+    expectedTitle: 'Grok gateway compatibility',
+    expectedMessageCount: 4,
+    expectedRoles: ['user', 'assistant', 'user', 'assistant'],
+    sentinels: [
+      'GROK_USER_ONE',
+      'GROK_TEST_ONE',
+      'GROK_USER_TWO',
+      'GROK_TEST_TWO_END',
+      'const x = 1;',
+      '$x^2$'
+    ],
+    absentSentinels: ['SUGGESTED_FOLLOWUP'],
+    privacyStatus: 'sanitized',
+    ownerMilestone: 'issue-90-signed-in',
+    status: 'active'
+  },
+  {
+    file: 'current-dom/grok-generated-image-current-2026-10-31.html',
+    platform: 'grok',
+    sourceCaptureDate: '2026-10-31',
+    captureKind: 'current-dom-sanitized',
+    expectedTitle: 'Grok image-only response',
+    expectedMessageCount: 2,
+    expectedRoles: ['user', 'assistant'],
+    sentinels: ['GROK_SYNTHETIC_IMAGE_PROMPT', '![生成的图像](/sanitized/grok-generated-image.jpg)'],
+    absentSentinels: ['THINKING_CONTROL', 'DOWNLOAD_CONTROL'],
+    privacyStatus: 'sanitized',
+    ownerMilestone: 'ai-chat-images-dom-evidence',
     status: 'active'
   },
   {

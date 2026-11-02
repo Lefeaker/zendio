@@ -22,7 +22,7 @@
   "schemaCaptureSourcesAiChatGroupTitle": "KI-Chat",
   "schemaCaptureSourcesAiConversationDescription": "Unterstützte Plattformen ansehen und vorhandene Gespräche zum Exportieren öffnen.",
   "schemaCaptureSourcesAiConversationTitle": "KI-Gesprächserfassung",
-  "schemaCaptureSourcesAiSupportedPlatformsBadge": "10 unterstützte Plattformen",
+  "schemaCaptureSourcesAiSupportedPlatformsBadge": "{count} unterstützte Plattformen",
   "schemaCaptureSourcesAttachmentGuidanceLink": "Custom Attachment Location",
   "schemaCaptureSourcesAttachmentGuidancePrefix": "Verwenden Sie diese Anhangseinstellungen zusammen mit dem Obsidian-Plugin ",
   "schemaCaptureSourcesAttachmentGuidanceSuffix": " und halten Sie die Plugin-Konfiguration in Obsidian mit diesen Vorlagen synchron.",
@@ -457,5 +457,11 @@
   "schemaResourceChangelogV034Bullet3": "Anhänge werden vor dem Speichern geprüft, damit fehlende oder ungültige Daten keinen unvollständigen Export erzeugen. Beispiele in normalen Links, Titeln, Referenzdefinitionen und Code bleiben unverändert. Besondere Dateinamen und Umbenennungen durch den Browser werden korrekt verarbeitet.",
   "schemaResourceChangelogV034Bullet4": "Die Zielvorschau stimmt mit der tatsächlichen Zuordnung überein. Verbindungstests prüfen Dienst und Authentifizierung, beenden das Warten bei Zeitüberschreitung und verwerfen veraltete Ergebnisse nach Einstellungsänderungen.",
   "schemaResourceChangelogV034Bullet5": "Diagnosen verbergen Schlüssel und private Konfiguration. Ein ausdrücklich exportiertes vollständiges Backup enthält weiterhin alle Einstellungen.",
-  "schemaResourceChangelogV034Bullet6": "Probleme beim Start von Seitenfunktionen und beim Speichern in Firefox wurden behoben. Mehrere Anhänge werden asynchron geprüft; doppelte Abschlussprüfungen von Downloads entfallen."
+  "schemaResourceChangelogV034Bullet6": "Probleme beim Start von Seitenfunktionen und beim Speichern in Firefox wurden behoben. Mehrere Anhänge werden asynchron geprüft; doppelte Abschlussprüfungen von Downloads entfallen.",
+  "schemaResourceChangelogV035Summary": "KI-Gespräche vollständiger speichern, samt Bildern.",
+  "schemaResourceChangelogV035Bullet1": "Normale Grok-Chats speichern und lange Gespräche aus ChatGPT und Grok vollständiger erfassen.",
+  "schemaResourceChangelogV035Bullet2": "Hochgeladene und generierte Bilder, die über die Seite abrufbar sind, werden lokale Anhänge. Pro Speichervorgang wird jede identische Datei nur einmal gespeichert; alle Bildpositionen bleiben erhalten.",
+  "schemaResourceChangelogV035Bullet3": "Fehlende oder doppelte Nachrichten sowie verlorene Überschriften, Rollenbezeichnungen und Code in ChatGPT, Kimi und weiteren Chats behoben.",
+  "schemaResourceChangelogV035Bullet4": "Genauere Fortschritts- und Fehlermeldungen beim Speichern. Fehlen erforderliche Inhalte oder Bilder, stoppt der Vorgang mit einer klaren Fehlermeldung.",
+  "schemaResourceChangelogV035Bullet5": "Sichereres Fortsetzen und Prüfen der Ergebnisse im Lese- und Videomodus. Geeignete Videospeichervorgänge lassen sich nach erneutem Öffnen mit ursprünglichen Screenshots, Zeitstempeln und bestätigten Anhängen fortsetzen."
 }

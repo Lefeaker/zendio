@@ -54,6 +54,27 @@ function throwRoleIncomplete(
 
 export function validateAIChatExtraction(input: AIChatValidationInput): void {
   const parserDiagnosticCodes = getParserDiagnosticCodes(input.diagnostics);
+  const hasFatalDiagnostic = input.diagnostics?.some(
+    (diagnostic) => diagnostic.severity === 'error'
+  );
+
+  if (
+    input.diagnostics?.some(
+      (diagnostic) =>
+        diagnostic.severity === 'error' &&
+        (diagnostic.code === 'chatgpt_generation_in_progress' ||
+          diagnostic.code === 'chatgpt_message_content_incomplete' ||
+          diagnostic.code === 'grok_message_content_incomplete')
+    )
+  ) {
+    throw extractionErrors.aiChatPreparationIncomplete({
+      url: input.url,
+      type: 'ai_chat',
+      platform: input.platform,
+      messageCount: input.messages.length,
+      parserDiagnosticCodes
+    });
+  }
 
   if (input.messages.length === 0) {
     throw extractionErrors.aiChatParseEmpty({
@@ -68,6 +89,9 @@ export function validateAIChatExtraction(input: AIChatValidationInput): void {
   const recoveredRoles = getRecoveredRoles(input.messages);
   const recoveredRoleSet = new Set(recoveredRoles);
   const firstConversationRole = getFirstConversationRole(input.messages);
+  if (hasFatalDiagnostic) {
+    throwRoleIncomplete(input, recoveredRoles, parserDiagnosticCodes, firstConversationRole);
+  }
   if (firstConversationRole !== 'user') {
     throwRoleIncomplete(input, recoveredRoles, parserDiagnosticCodes, firstConversationRole);
   }

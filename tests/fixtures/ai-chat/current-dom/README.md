@@ -99,3 +99,89 @@ DOM shape without raw conversation text.
 | --- | --- | --- | --- |
 | `deepseek-live-residual-2026-06-27.html` | DeepSeek | P14 | parser evidence only: shared-thread ordering can start with an assistant `.ds-message`, so the manifest marks `expectedValidation: 'role-incomplete'` and product export must fail closed; user `.ds-message` nodes use `d29f3d7d` / `fbb737a4` wrappers and may mention platform names such as DeepSeek or Qwen in message text |
 | `tongyi-qianwen-live-residual-2026-06-27.html` | Tongyi/Qianwen | P14 | `message-select-wrapper-*` wrappers can contain empty `share-selection-*` nodes before the real `chat-question-wrap` / `answerItem-*` content, and a `last-message-item` wrapper can nest a final question/answer pair |
+
+
+## ChatGPT October 2026 message boundaries
+
+`chatgpt-current-2026-10-31.html` is sanitized from a two-turn test conversation
+captured in Chrome on 2026-10-31. Each `data-turn-key` contains a user and an
+assistant message. The source uses `h4[data-conversation-role]`,
+`data-user-message-bubble` and `data-markdown-text-style="assistant-message"`,
+without `article` or `data-message-author-role` roots. Assertions retain all four
+messages, lists, code and math while excluding native role labels and actions.
+Additional parser tests preserve multiple response blocks and repeated messages,
+reject unknown/missing explicit role evidence, and distinguish unrelated article
+content from legacy `h5` role headings. A prior synthetic unlabelled article was
+updated to include an explicit native role heading; an arbitrary article is not
+sufficient evidence that its author is the assistant.
+
+A second temporary live test on 2026-10-31 observed nonempty assistant content
+while `data-talvt-turn-state="in_progress"`. The same turn became `complete`
+after its final output line appeared. The sanitized inline generation fixture in
+`tests/unit/third_party/chatgpt.test.ts` covers both states through the real
+extractor: generation-in-progress and mounted empty modern messages reject with
+a recoverable incomplete-conversation error; completed content exports in full.
+Parser error diagnostics also prevent a partial result with both roles from
+silently passing validation. The guard does not depend on localized stop-button
+text and does not add waits or change the user's scroll position.
+
+Before an assistant root exists, the observed busy status is scoped under
+`data-thread-user-message-navigation-content`; its `role="status"` and
+`aria-busy="true"` are checked only within that transcript owner. An unrelated
+page busy status does not block export. A submitted last user turn without an
+assistant answer is incomplete even after the busy status disappears.
+
+`chatgpt-code-source-2026-11-01.html` reconstructs the semantic code-block shape
+observed during live long-history verification, with neutral replacement text.
+Inside `data-code-block="true"`, `data-code-block-source="true"` can contain a
+`code` element without `pre`. Its separate action header can mount later and show
+the generic label `代码`. The focused fixture preserves this shape, a real
+language label, existing `pre` nesting, surrounding prose and math. It does not
+replace the earlier capture or retain private conversation content.
+
+## Grok signed-in transcript rows
+
+`grok-gateway-current-2026-10-31.html` preserves a signed-in two-round test
+conversation captured in Chrome on 2026-10-31. Conversation IDs and prompts are
+replaced with deterministic values; list, table, code, math and forty numbered
+answer lines retain the observed DOM shape. Signed-in `gateway:` rows and the
+`transcript:submit-spacer` end marker differ from public-share `response:` rows
+and `transcript:bottom-spacing`. Both use stable IDs, explicit article roles and
+`transcript:top-inset`. The gateway extraction tests cover an overflowing live
+shape, an empty final assistant without a working indicator, unresolved message
+rows, structural follow-up text exclusion and restoration of the original scroll
+position. The virtual transcript tests exercise both row families across windows.
+
+## Message-image evidence
+
+`grok-generated-image-current-2026-10-31.html` is sanitized from a real generated
+image response: explicit assistant article, `response-content-markdown`, nested
+image tile and one HTTPS `img`, with a separate download control. Its response
+has no prose after removing that control. The prompt, image path and control
+labels are replaced with neutral values; the external source URL becomes a
+relative fixture path under the existing privacy policy. This is DOM/parser evidence only: the
+observed original image fetch and native download returned HTTP 403, so the
+fixture does not prove successful acquisition or attachment persistence.
+
+`../imageAdapterSynthetic.ts` supplies controlled 11-platform image ownership
+contracts. Those fixtures exercise image-only messages, outside-body galleries,
+button wrappers and excluded UI; they are not captures of each platform's
+current generated/uploaded image DOM. Remaining platforms still need that live
+evidence in addition to common byte-pipeline and installed-save acceptance.
+
+## Claude failed image upload capture
+
+`claude-upload-failed-current-2026-10-31.html` preserves the semantic
+`data-cds="UserMessage"` owner with `data-turn-key`, its sibling
+`MessageAttachments` / `file-thumbnail` image, and its nested `user-message`
+text body. It was captured from an owned neutral-image test in Chrome. The site
+reported both upload and send failure, with `data-state="failed"` on the user
+owner and image attachment; no successful assistant reply was observed. Source
+URLs and the turn identity are replaced with deterministic fixture values.
+
+This is an explicit rejection fixture: parsing must return no messages and the
+fatal `claude_message_failed` diagnostic, and validation must reject the batch.
+The focused Claude tests remove only the failed state and combine this shape
+with an existing assistant fixture to test sibling image ownership and an
+image-only user. Those variants are synthetic and do not certify a successful
+Claude upload or save.

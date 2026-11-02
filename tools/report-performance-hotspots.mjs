@@ -7,6 +7,14 @@ import { TextDecoder } from 'node:util';
 const ROOT = process.cwd();
 
 export const MAX_LINE_BUDGETS = new Map([
+  // Image capture stays with its transcript/resource owners; exact measured sizes.
+  // This registers semantic guards and static SVG validation, not runtime budget changes.
+  ['src/content/extractors/aiChatDocumentPreparer.ts', 322],
+  ['src/content/extractors/aiChatImagePreparation.ts', 288],
+  ['src/shared/attachments/aiChatImageBytes.ts', 308],
+  // Grok traversal advances through already mounted rows while preserving overlap.
+  // Register the cohesive owner's exact size; runtime and build limits stay fixed.
+  ['src/content/extractors/grokDocumentPreparer.ts', 291],
   // 2026-10-18: block/container source offsets remain in their existing lexer;
   // link grammar consumes this metadata without reserializing Markdown.
   ['src/shared/attachments/clipAttachmentMarkdown.ts', 270],
@@ -33,7 +41,8 @@ export const MAX_LINE_BUDGETS = new Map([
   // v0.3.4 release notes add seven generated schema/message declarations.
   // 2026-06-29 v0.2.1 changelog sync: schema core now carries the accepted
   // Options/Stitch release-note keys in addition to existing resource copy.
-  ['src/i18n/generated/schemaCore.generated.ts', 477],
+  // v0.3.5 adds six generated release-note declarations in both dictionaries.
+  ['src/i18n/generated/schemaCore.generated.ts', 483],
   // 2026-07-20 selection-trigger policy: generated runtime messages carry the
   // explicit disabled, direct, and modifier mode copy plus diagnostics copy.
   // 2026-10-01: learning walkthrough and guided practice add 74 message declarations.
@@ -42,7 +51,7 @@ export const MAX_LINE_BUDGETS = new Map([
   // Compact review and first-run navigation add three catalog labels.
   // Options topics add 18 labels/descriptions; existing shell/navigation owners
   // below forward explicit section navigation to the guide.
-  ['src/i18n/generated/messages.generated.ts', 1370],
+  ['src/i18n/generated/messages.generated.ts', 1378],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
   ['src/i18n/generated/locales/es-ES.generated.ts', 777],
@@ -147,7 +156,7 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/background/services/obsidianWriter.ts', 423],
   ['src/background/vault-router.ts', 422],
   ['src/shared/state/globalStateManager.ts', 345],
-  ['src/content/reader/sessionOperations.ts', 819],
+  ['src/content/reader/sessionOperations.ts', 823],
   ['src/i18n/config.ts', 343],
   ['src/content/ui/supportPrompt.ts', 345],
   ['src/options/services/connectionTester.ts', 368],
@@ -232,13 +241,14 @@ export const MAX_LINE_BUDGETS = new Map([
   // 2026-06-20 onboarding closeout: Chrome/Firefox first-run setup guidance
   // keeps Local Folder and REST fallback instructions centralized here.
   ['src/options/stitch/schema/resources/setup-guide.ts', 255],
-  ['src/third_party/ai-chat-exporter/platforms/kimi.ts', 258],
+  ['src/third_party/ai-chat-exporter/platforms/chatgptMessages.ts', 253],
+  ['src/third_party/ai-chat-exporter/platforms/kimi.ts', 306],
   ['src/i18n/catalog/languages.ts', 280],
   ['src/content/sessionDrafts/sessionDraftRepository.ts', 398],
   ['src/content/reader/sessionDrafts.ts', 304],
   ['src/utils/trial-manager.ts', 363],
   ['src/content/runtime/localVaultPermissionFrame.ts', 345],
-  ['src/content/extractors/aiChatExtractor.ts', 299],
+  ['src/content/extractors/aiChatExtractor.ts', 305],
   ['src/content/ui/supportPromptMessages.ts', 301],
   // 2026-06-18 options support closeout: runtime support prompt toast lifecycle
   // was split into a dedicated controller with deterministic cleanup.
@@ -268,7 +278,7 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/shared/analytics/analyticsTransport.ts', 269],
   // Save recovery keeps frozen capture inputs and optional attempt metadata in
   // the existing exporter/draft owners; these are exact reviewed line counts.
-  ['src/content/video/videoSessionExporter.ts', 274],
+  ['src/content/video/videoSessionExporter.ts', 275],
   ['src/content/video/sessionDrafts.ts', 253],
   // 2026-06-18 GA telemetry acceptance: reader/video export shape telemetry
   // adds small guarded hotspots around existing mutation and completion flows.

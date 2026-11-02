@@ -1,3 +1,4 @@
+import { queryMessageElements } from '../shared/messageImages';
 import {
   detectPerplexityRole,
   hasPerplexityMessageText,
@@ -57,17 +58,13 @@ function isUserFirstAlternating(candidates: readonly PerplexityMessageCandidate[
   );
 }
 
-function collectCurrentCandidates(doc: Document): PerplexityMessageCandidate[] {
+function collectCurrentCandidates(doc: ParentNode): PerplexityMessageCandidate[] {
   const candidates: PerplexityMessageCandidate[] = [];
-  for (const node of Array.from(
-    doc.querySelectorAll<HTMLElement>(PERPLEXITY_CURRENT_USER_SELECTORS)
-  )) {
+  for (const node of queryMessageElements(doc, PERPLEXITY_CURRENT_USER_SELECTORS)) {
     if (!isLikelyCurrentUserSection(node)) continue;
     candidates.push({ node, role: 'user' });
   }
-  for (const node of Array.from(
-    doc.querySelectorAll<HTMLElement>(PERPLEXITY_CURRENT_ASSISTANT_SELECTORS)
-  )) {
+  for (const node of queryMessageElements(doc, PERPLEXITY_CURRENT_ASSISTANT_SELECTORS)) {
     candidates.push({ node: resolveCurrentAssistantRoot(node), role: 'assistant' });
   }
   return uniqueCandidates(candidates);
@@ -117,7 +114,7 @@ function findPanelAssistantNode(panel: HTMLElement, userNode: HTMLElement): HTML
   return null;
 }
 
-function collectTurnPanelCandidates(doc: Document): PerplexityMessageCandidate[] {
+function collectTurnPanelCandidates(doc: ParentNode): PerplexityMessageCandidate[] {
   const conversation = doc.querySelector<HTMLElement>(PERPLEXITY_CONVERSATION_SELECTOR);
   if (!conversation) return [];
 
@@ -140,7 +137,7 @@ function collectTurnPanelCandidates(doc: Document): PerplexityMessageCandidate[]
   return isUserFirstAlternating(unique) ? unique : [];
 }
 
-function collectOrderedSectionCandidates(doc: Document): PerplexityMessageCandidate[] {
+function collectOrderedSectionCandidates(doc: ParentNode): PerplexityMessageCandidate[] {
   const conversation = doc.querySelector<HTMLElement>(PERPLEXITY_CONVERSATION_SELECTOR);
   if (!conversation) return [];
 
@@ -162,10 +159,8 @@ function collectOrderedSectionCandidates(doc: Document): PerplexityMessageCandid
   return sections.map((node, index) => ({ node, role: index % 2 === 0 ? 'user' : 'assistant' }));
 }
 
-export function collectPerplexityMessageCandidates(doc: Document): PerplexityMessageCandidate[] {
-  const legacyNodes = Array.from(
-    doc.querySelectorAll<HTMLElement>(PERPLEXITY_LEGACY_MESSAGE_SELECTORS)
-  );
+export function collectPerplexityMessageCandidates(doc: ParentNode): PerplexityMessageCandidate[] {
+  const legacyNodes = queryMessageElements(doc, PERPLEXITY_LEGACY_MESSAGE_SELECTORS);
   if (legacyNodes.length > 0) {
     return legacyNodes.map((node) => ({ node, role: detectPerplexityRole(node) }));
   }

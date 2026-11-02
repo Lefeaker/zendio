@@ -88,6 +88,44 @@ describe('report-performance-hotspots', () => {
 
   it('keeps the exact normalized budget transitions and every other budget unchanged', () => {
     const registeredBudgets = readRegisteredBudgets();
+    // v0.3.5 adds six generated release-note declarations without changing runtime budgets.
+    expect(registeredBudgets.get('src/i18n/generated/messages.generated.ts')).toBe(1378);
+    registeredBudgets.set('src/i18n/generated/messages.generated.ts', 1372);
+    expect(registeredBudgets.get('src/i18n/generated/schemaCore.generated.ts')).toBe(483);
+    registeredBudgets.set('src/i18n/generated/schemaCore.generated.ts', 477);
+    // One message owner now distinguishes role chrome from body-owned labels.
+    expect(
+      registeredBudgets.get('src/third_party/ai-chat-exporter/platforms/chatgptMessages.ts')
+    ).toBe(253);
+    registeredBudgets.delete('src/third_party/ai-chat-exporter/platforms/chatgptMessages.ts');
+    // Image audit fixes share pending acquisitions and preserve nested Kimi message content.
+    expect(registeredBudgets.get('src/content/extractors/aiChatImagePreparation.ts')).toBe(288);
+    registeredBudgets.set('src/content/extractors/aiChatImagePreparation.ts', 283);
+    expect(registeredBudgets.get('src/third_party/ai-chat-exporter/platforms/kimi.ts')).toBe(306);
+    registeredBudgets.set('src/third_party/ai-chat-exporter/platforms/kimi.ts', 258);
+    // AI image capture adds cohesive owner registrations and one generated error key.
+    expect(registeredBudgets.get('src/content/extractors/aiChatDocumentPreparer.ts')).toBe(322);
+    registeredBudgets.delete('src/content/extractors/aiChatDocumentPreparer.ts');
+    expect(registeredBudgets.get('src/content/extractors/aiChatImagePreparation.ts')).toBe(283);
+    registeredBudgets.delete('src/content/extractors/aiChatImagePreparation.ts');
+    expect(registeredBudgets.get('src/shared/attachments/aiChatImageBytes.ts')).toBe(308);
+    registeredBudgets.delete('src/shared/attachments/aiChatImageBytes.ts');
+    expect(registeredBudgets.get('src/content/extractors/grokDocumentPreparer.ts')).toBe(291);
+    registeredBudgets.set('src/content/extractors/grokDocumentPreparer.ts', 252);
+    expect(registeredBudgets.get('src/i18n/generated/messages.generated.ts')).toBe(1372);
+    registeredBudgets.set('src/i18n/generated/messages.generated.ts', 1371);
+    expect(registeredBudgets.get('src/content/extractors/aiChatExtractor.ts')).toBe(305);
+    registeredBudgets.set('src/content/extractors/aiChatExtractor.ts', 299);
+    // Geometry-based traversal adds one newly discovered source owner registration.
+    expect(registeredBudgets.get('src/content/extractors/grokDocumentPreparer.ts')).toBe(252);
+    registeredBudgets.delete('src/content/extractors/grokDocumentPreparer.ts');
+    // One new preparation error key extends the generated catalog, not runtime source budgets.
+    expect(registeredBudgets.get('src/i18n/generated/messages.generated.ts')).toBe(1371);
+    registeredBudgets.set('src/i18n/generated/messages.generated.ts', 1370);
+    expect(registeredBudgets.get('src/content/reader/sessionOperations.ts')).toBe(823);
+    registeredBudgets.set('src/content/reader/sessionOperations.ts', 819);
+    expect(registeredBudgets.get('src/content/video/videoSessionExporter.ts')).toBe(275);
+    registeredBudgets.set('src/content/video/videoSessionExporter.ts', 274);
     const v034ReleaseNoteChanges: Array<[string, number, number]> = [
       ['src/i18n/generated/schemaCore.generated.ts', 470, 477],
       ['src/i18n/generated/messages.generated.ts', 1363, 1370]

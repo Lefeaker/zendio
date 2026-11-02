@@ -67,6 +67,7 @@ describe('tongyi ai chat integration', () => {
     );
     const dom = new JSDOM(html, { url: tongyiUrl });
 
+    // A global preference does not identify the model that answered this captured conversation.
     dom.window.localStorage.setItem('selectedQwenModel', 'qwen2-max');
 
     installJsdom(dom);
@@ -83,7 +84,7 @@ describe('tongyi ai chat integration', () => {
 
     expect(clip.type).toBe('ai_chat');
     expect(clip.meta.platform).toBe('tongyi');
-    expect(clip.meta.model).toBe('Qwen2-Max');
+    expect(clip.meta.model).toBeUndefined();
     expect(clip.markdown).toContain('```TypeScript');
     expect(clip.markdown).toContain('interface AIModel');
     expect(clip.markdown).toContain('```python');

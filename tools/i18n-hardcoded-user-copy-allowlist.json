@@ -2,19 +2,19 @@
   "rules": [
     {
       "id": "p21-chatgpt-native-user-role-labels",
-      "path": "src/third_party/ai-chat-exporter/platforms/chatgpt.ts",
-      "line": 27,
+      "path": "src/third_party/ai-chat-exporter/platforms/chatgptMessages.ts",
+      "line": 28,
       "category": "site-native-role-label",
       "reason": "ChatGPT parser strips role labels that come from the source site's own conversation headers.",
       "ownerPlan": "P21",
       "revisit": "Recheck if ChatGPT header parsing stops relying on source-site role labels.",
-      "literalIncludes": ["您说", "您"],
+      "literalIncludes": ["您说", "您", "你说", "你"],
       "findingKinds": ["cjk-literal"]
     },
     {
       "id": "p21-chatgpt-native-assistant-role-label",
-      "path": "src/third_party/ai-chat-exporter/platforms/chatgpt.ts",
-      "line": 28,
+      "path": "src/third_party/ai-chat-exporter/platforms/chatgptMessages.ts",
+      "line": 29,
       "category": "site-native-role-label",
       "reason": "ChatGPT parser strips assistant role labels that come from the source site's own conversation headers.",
       "ownerPlan": "P21",
@@ -25,7 +25,7 @@
     {
       "id": "p21-doubao-native-brand-token",
       "path": "src/third_party/ai-chat-exporter/platforms/doubao.ts",
-      "line": 14,
+      "line": 20,
       "category": "site-native-dom-selector",
       "reason": "Doubao parser matches the source site's native brand token in avatar/title parsing; it is not extension UI copy.",
       "ownerPlan": "P21",
@@ -36,7 +36,7 @@
     {
       "id": "p21-doubao-native-model-tokens",
       "path": "src/third_party/ai-chat-exporter/platforms/doubao.ts",
-      "line": 16,
+      "line": 22,
       "category": "site-native-model-token",
       "reason": "Doubao parser recognizes source-site model labels and variants from native page text, not extension-authored fallback copy.",
       "ownerPlan": "P21",
@@ -47,7 +47,7 @@
     {
       "id": "p21-kimi-native-action-labels",
       "path": "src/third_party/ai-chat-exporter/platforms/kimi.ts",
-      "line": 47,
+      "line": 94,
       "category": "site-native-action-label",
       "reason": "Kimi parser removes source-site action labels that are rendered inside native assistant toolbars.",
       "ownerPlan": "P21",
@@ -58,7 +58,7 @@
     {
       "id": "p21-monica-native-title-token",
       "path": "src/third_party/ai-chat-exporter/platforms/monica.ts",
-      "line": 10,
+      "line": 13,
       "category": "site-native-title-token",
       "reason": "Monica parser strips or recognizes the source site's native browser-title token before applying product fallback titles.",
       "ownerPlan": "P21",
@@ -69,7 +69,7 @@
     {
       "id": "p21-tongyi-native-title-suffixes",
       "path": "src/third_party/ai-chat-exporter/platforms/tongyi.ts",
-      "line": 11,
+      "line": 13,
       "category": "site-native-title-suffix",
       "reason": "Tongyi parser strips browser-title suffixes that belong to the source site, not to Zendio UI copy.",
       "ownerPlan": "P21",
@@ -80,7 +80,7 @@
     {
       "id": "p21-tongyi-native-title-placeholder",
       "path": "src/third_party/ai-chat-exporter/platforms/tongyi.ts",
-      "line": 12,
+      "line": 14,
       "category": "site-native-title-placeholder",
       "reason": "Tongyi parser checks the source site's browser-title placeholder before falling back to a derived export title.",
       "ownerPlan": "P21",

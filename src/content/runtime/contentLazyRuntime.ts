@@ -227,7 +227,8 @@ export const initializeVideoPromptOnDemand = createVideoPromptOnDemandInitialize
 );
 
 export function createLazyExtractorRegistry(
-  optionsRepository: IOptionsRepository
+  optionsRepository: IOptionsRepository,
+  messaging?: Pick<MessagingService, 'send'>
 ): ExtractorRegistryApi {
   let registryPromise: Promise<ExtractorRegistryApi> | null = null;
 
@@ -235,7 +236,7 @@ export function createLazyExtractorRegistry(
     if (!registryPromise) {
       registryPromise = import('../extractors/registry').then(
         ({ createDefaultExtractorRegistry }) =>
-          createDefaultExtractorRegistry({ optionsRepository })
+          createDefaultExtractorRegistry({ optionsRepository, ...(messaging ? { messaging } : {}) })
       );
     }
     return registryPromise;

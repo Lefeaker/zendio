@@ -64,6 +64,11 @@ export const AI_CHAT_PLATFORM_IDENTITIES: readonly AIChatPlatformIdentityDefinit
     displayName: 'Perplexity',
     hostPatterns: [/^(?:www\.)?perplexity\.ai$/i],
     aliases: ['pplx']
+  },
+  {
+    id: 'grok',
+    displayName: 'Grok',
+    hostPatterns: [/^(?:www\.)?grok\.com$/i]
   }
 ];
 

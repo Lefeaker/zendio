@@ -2,25 +2,70 @@ import { DEFAULT_CHAT_TITLE } from '../shared/constants';
 import { chatElementToMarkdown } from '../shared/markdown';
 import type { ChatPlatformParser, ParseConfig, ParsedMessage, ParsedResult } from '../types';
 
+import {
+  cloneMessageWithImages,
+  collectMessageImages,
+  queryMessageElements,
+  removePreservingMessageImages
+} from '../shared/messageImages';
+
 const KIMI_MESSAGE_CONTAINER_SELECTOR =
   '[class*="message"], [class*="Message"], [class*="chat-content-item"]';
 const KIMI_USER_MESSAGE_SELECTOR =
-  '[class*="user"], [class*="User"], [class*="chat-content-item-user"]';
+  '.chat-content-item-user, .user-message, .UserMessage, :is(.message, .Message, .chat-content-item):is(.user, .User)';
 const KIMI_ASSISTANT_MESSAGE_SELECTOR =
-  '[class*="assistant"], [class*="Assistant"], [class*="kimi"], [class*="chat-content-item-assistant"]';
+  '.chat-content-item-assistant, .assistant-message, .AssistantMessage, .kimi-assistant, :is(.message, .Message, .chat-content-item):is(.assistant, .Assistant)';
 const KIMI_TITLE_REPLACE_TEXT = ' - Kimi';
 
-const KIMI_USER_CONTENT_SELECTORS = [
-  '[class*="segment-text"]',
-  '[class*="segment-content"]',
-  '[class*="content"], [class*="text"]'
-];
+type KimiMessageRoot = { element: HTMLElement; role: 'user' | 'assistant' };
+const KIMI_MESSAGE_ITEM_SELECTOR = '.message, .Message, .chat-content-item';
+const KIMI_MESSAGE_LIST_SELECTOR =
+  '.message-list, .MessageList, .kimi-message-list, .assistant-message-list, .user-message-list, .chat-content-item-list';
+const KIMI_HIDDEN_SELECTOR =
+  '[hidden], [aria-hidden="true"], [style*="display: none"], [style*="display:none"]';
 
-const KIMI_ASSISTANT_CONTENT_SELECTORS = [
-  '[class*="segment-content"]',
-  '[class*="segment-markdown"]',
-  '[class*="content"], [class*="markdown"], article'
-];
+function kimiMessageRole(element: HTMLElement): KimiMessageRoot['role'] | undefined {
+  if (element.matches(KIMI_USER_MESSAGE_SELECTOR)) return 'user';
+  if (element.matches(KIMI_ASSISTANT_MESSAGE_SELECTOR)) return 'assistant';
+  return undefined;
+}
+
+function collectKimiMessageRoots(root: ParentNode): KimiMessageRoot[] | null {
+  const candidates = queryMessageElements(root, KIMI_MESSAGE_CONTAINER_SELECTOR)
+    .filter(
+      (element) => !element.closest(`${KIMI_HIDDEN_SELECTOR}, ${KIMI_REMOVABLE_SECTION_SELECTOR}`)
+    )
+    .map((element) => ({
+      element,
+      role: kimiMessageRole(element),
+      identity: ['data-conversation-turn-id', 'data-archer-id', 'data-message-id']
+        .map((attribute) => element.getAttribute(attribute)?.trim())
+        .find(Boolean)
+    }));
+  const authorities = candidates.filter((candidate) => candidate.role || candidate.identity);
+  // Only explicit role/identity descendants establish independent messages.
+  // Unlabelled generic descendants are fragments, regardless of their count.
+  const messages = candidates.filter(
+    (candidate) =>
+      authorities.includes(candidate) ||
+      (candidate.element.matches(KIMI_MESSAGE_ITEM_SELECTOR) &&
+        !candidate.element.matches(KIMI_MESSAGE_LIST_SELECTOR) &&
+        !authorities.some((owner) => candidate.element.contains(owner.element)))
+  );
+  const roots = messages.filter(
+    (candidate) =>
+      !messages.some((other) => other !== candidate && other.element.contains(candidate.element))
+  );
+  const resolved: KimiMessageRoot[] = [];
+  for (const { element } of roots) {
+    const owned = authorities.filter((candidate) => element.contains(candidate.element));
+    const roles = new Set(owned.flatMap(({ role }) => (role ? [role] : [])));
+    const identities = new Set(owned.flatMap(({ identity }) => (identity ? [identity] : [])));
+    if (roles.size > 1 || identities.size > 1) return null;
+    resolved.push({ element, role: roles.values().next().value ?? 'assistant' });
+  }
+  return resolved;
+}
 
 const KIMI_REMOVABLE_SECTION_SELECTORS = [
   '[class*="search-plus"]',
@@ -33,12 +78,14 @@ const KIMI_REMOVABLE_SECTION_SELECTORS = [
   '[class*="drop-file-mask"]',
   '[class*="segment-code-header"]',
   '[class*="segment-assistant-actions"]',
+  '[class*="segment-user-actions"]',
   '[class*="share-action"]',
   '[class*="share-btn"]',
   '[class*="share-button"]',
   '[class*="share-icon"]',
   '[data-block-type="feed"]'
 ];
+const KIMI_REMOVABLE_SECTION_SELECTOR = KIMI_REMOVABLE_SECTION_SELECTORS.join(',');
 
 const KIMI_ACTION_CONTAINER_SELECTOR =
   '[class*="segment-code-header"], [class*="table-actions"], [class*="segment-assistant-actions"], [class*="segment-actions"], header[class*="table"]';
@@ -50,20 +97,12 @@ const KIMI_INLINE_ACTION_TEXT_RE = /分享|复制/gi;
 const KIMI_BLOCK_HEADER_SELECTOR =
   '[class*="segment-block-header"], header[class*="table"], [class*="table-actions"]';
 
-function queryFirst(element: HTMLElement, selectors: string[]): HTMLElement | null {
-  for (const selector of selectors) {
-    const match = element.querySelector(selector);
-    if (match) return match as HTMLElement;
-  }
-  return null;
-}
-
 function sanitizeKimiContent(element: HTMLElement): HTMLElement {
   const ownerDocument = element.ownerDocument || document;
   const clone = element.cloneNode(true) as HTMLElement;
 
   for (const selector of KIMI_REMOVABLE_SECTION_SELECTORS) {
-    Array.from(clone.querySelectorAll(selector)).forEach((node) => node.remove());
+    Array.from(clone.querySelectorAll(selector)).forEach(removePreservingMessageImages);
   }
 
   Array.from(clone.querySelectorAll('span, button, a, div')).forEach((node) => {
@@ -161,7 +200,15 @@ function extractHeaderLabel(header: Element): string | undefined {
 }
 
 function extractKimiChatData(doc: Document, config?: ParseConfig): ParsedResult {
-  const messageContainers = Array.from(doc.querySelectorAll(KIMI_MESSAGE_CONTAINER_SELECTOR));
+  const messageContainers = collectKimiMessageRoots(doc);
+  if (!messageContainers) {
+    return {
+      title: DEFAULT_CHAT_TITLE,
+      messages: [],
+      assets: [],
+      diagnostics: [{ code: 'kimi_message_ownership_conflict', severity: 'error' }]
+    };
+  }
   if (messageContainers.length === 0) {
     return { title: DEFAULT_CHAT_TITLE, messages: [], assets: [] };
   }
@@ -210,25 +257,11 @@ function extractKimiChatData(doc: Document, config?: ParseConfig): ParsedResult 
   const messages: ParsedMessage[] = [];
   let chatIndex = 1;
 
-  for (const container of messageContainers) {
-    const element = container as HTMLElement;
-    let role: 'user' | 'assistant' = 'assistant';
-    let contentElem: HTMLElement | null = null;
-
-    if (element.matches(KIMI_USER_MESSAGE_SELECTOR)) {
-      role = 'user';
-      contentElem = queryFirst(element, KIMI_USER_CONTENT_SELECTORS);
-    } else if (element.matches(KIMI_ASSISTANT_MESSAGE_SELECTOR)) {
-      role = 'assistant';
-      contentElem = queryFirst(element, KIMI_ASSISTANT_CONTENT_SELECTORS);
-    }
-
-    if (!contentElem) {
-      contentElem = element;
-    }
-
-    const sanitizedContent = sanitizeKimiContent(contentElem);
-    const markdown = chatElementToMarkdown(sanitizedContent);
+  for (const { element, role } of messageContainers) {
+    const sanitizedContent = sanitizeKimiContent(
+      cloneMessageWithImages(element, [element], KIMI_REMOVABLE_SECTION_SELECTOR)
+    );
+    const markdown = chatElementToMarkdown(sanitizedContent, config?.imageResolver);
 
     if (markdown.trim()) {
       const html = sanitizedContent.innerHTML;
@@ -253,5 +286,11 @@ function extractKimiChatData(doc: Document, config?: ParseConfig): ParsedResult 
 
 export const kimiParser: ChatPlatformParser = {
   id: 'kimi',
+  collectImages: (root) =>
+    collectMessageImages(
+      'kimi',
+      (collectKimiMessageRoots(root) ?? []).map((message) => message.element),
+      KIMI_REMOVABLE_SECTION_SELECTOR
+    ),
   parse: (doc, config) => extractKimiChatData(doc, config)
 };

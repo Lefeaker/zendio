@@ -30,6 +30,10 @@ import {
 } from './runtimeMessageContracts';
 import type { SessionDraftRuntimeDependencies } from './sessionDraftMessages';
 import { captureVisibleTabScreenshotForSender } from './visibleTabScreenshot';
+import type { ScriptingService } from '../../platform/interfaces/scripting';
+import type { MessageSenderInfo } from '../../platform/interfaces/messaging';
+import type { AIChatImageFetchRequest } from '../../shared/types/aiChatImageMessages';
+import type { BinaryClipAttachment } from '../../shared/types/clip';
 
 export type RuntimeMessageValue = Parameters<typeof isUsageStatsMessageCandidate>[0];
 
@@ -45,6 +49,10 @@ export interface RuntimeMessageListenerDependencies extends SessionDraftRuntimeD
   handleVideoScreenshotCacheMessage: BackgroundVideoScreenshotCacheHandler;
   handleOptionsMutationMessage(message: RuntimeMessageValue): Promise<MessagePayload | undefined>;
   handleUsageStatsMessage(message: RuntimeMessageValue): Promise<MessagePayload | undefined>;
+  fetchAIChatImage?(
+    request: AIChatImageFetchRequest,
+    sender: MessageSenderInfo
+  ): Promise<BinaryClipAttachment>;
 }
 
 function isUsageStatsRequest(message: RuntimeMessageValue): message is UsageStatsRequest {
@@ -95,14 +103,42 @@ function createUsageStatsRequestHandler() {
 export function createRuntimeMessageListenerDependencies(
   messaging: Pick<MessagingService, 'addListener'>,
   tabs: Pick<TabsService, 'create' | 'get' | 'sendMessage' | 'captureVisibleTab'>,
-  runtime: Pick<RuntimeService, 'getURL'>,
+  runtime: Pick<RuntimeService, 'getURL' | 'getId'>,
   storage: Pick<StorageService, 'local'>,
   sessionDrafts: SessionDraftRuntimeDependencies,
-  cacheOptions: { ttlMs?: number; optionsMutationCoordinator?: OptionsMutationCoordinator } = {}
+  cacheOptions: {
+    ttlMs?: number;
+    optionsMutationCoordinator?: OptionsMutationCoordinator;
+    scripting?: ScriptingService;
+  } = {}
 ): RuntimeMessageListenerDependencies {
   return {
     ...sessionDrafts,
     messaging,
+    async fetchAIChatImage(request, sender) {
+      const { fetchAIChatImage } = await import('../application/aiChatImageFetch');
+      return fetchAIChatImage(request, sender, {
+        extensionId: runtime.getId?.() ?? '',
+        async resolveSourceDocument(owner) {
+          if (owner.tabId === undefined || !owner.documentId || !cacheOptions.scripting)
+            return undefined;
+          const results = await cacheOptions.scripting.executeScript({
+            target: { tabId: owner.tabId, documentIds: [owner.documentId] },
+            func: () => location.href
+          });
+          const result = results?.find(
+            (item) => item.documentId === owner.documentId && item.frameId === owner.frameId
+          );
+          if (!result?.documentId || typeof result.result !== 'string') return undefined;
+          return {
+            tabId: owner.tabId,
+            frameId: result.frameId,
+            documentId: result.documentId,
+            url: result.result
+          };
+        }
+      });
+    },
     clipPipeline: createClipPipelineDependencies(tabs),
     handleVideoScreenshotCacheMessage: createBackgroundVideoScreenshotCacheHandler(
       storage,

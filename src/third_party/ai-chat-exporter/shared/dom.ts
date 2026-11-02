@@ -3,6 +3,7 @@
  * This includes buttons, footers, and other non-content elements
  */
 import type { CleanupHook, ProfileSelector } from './profileTypes';
+import { queryMessageElements, removePreservingMessageImages } from './messageImages';
 
 function toSelectorList(selectors: ProfileSelector): readonly string[] {
   return typeof selectors === 'string' ? [selectors] : selectors;
@@ -20,7 +21,7 @@ export function collectOrderedElements(
   const seen = new Set<HTMLElement>();
 
   for (const selector of toSelectorList(selectors)) {
-    const matches = root.querySelectorAll<HTMLElement>(selector);
+    const matches = queryMessageElements(root, selector);
     matches.forEach((element) => {
       if (!seen.has(element)) {
         seen.add(element);
@@ -59,7 +60,7 @@ export function cloneHTMLElement(element: HTMLElement): HTMLElement | null {
 
 export function removeElements(selectors: ProfileSelector): CleanupHook {
   return (fragment) => {
-    collectOrderedElements(fragment, selectors).forEach((element) => element.remove());
+    collectOrderedElements(fragment, selectors).forEach(removePreservingMessageImages);
   };
 }
 
@@ -110,7 +111,7 @@ export function cleanupUIElements(container: HTMLElement): void {
   selectorsToRemove.forEach((selector) => {
     try {
       const elements = container.querySelectorAll(selector);
-      elements.forEach((el) => el.remove());
+      elements.forEach(removePreservingMessageImages);
     } catch (error: unknown) {
       console.debug('[cleanupUIElements] ignore invalid selector', { selector, error });
     }
@@ -129,10 +130,6 @@ export function cleanupUIElements(container: HTMLElement): void {
     /^Hide\s*thinking$/i,
     /^思考过程$/i,
     /^Thinking$/i,
-    /^您说[：:]\s*$/i,
-    /^ChatGPT\s*说[：:]\s*$/i,
-    /^You\s+said[：:]\s*$/i,
-    /^ChatGPT\s+said[：:]\s*$/i,
     /^\d+\/\d+$/
   ];
 
@@ -145,7 +142,7 @@ export function cleanupUIElements(container: HTMLElement): void {
     const text = el.textContent?.trim() || '';
     if (textPatternsToRemove.some((pattern) => pattern.test(text))) {
       if (el.children.length === 0 || text.length < 50) {
-        el.remove();
+        removePreservingMessageImages(el);
       }
     }
   });
@@ -162,7 +159,7 @@ export function cleanupUIElements(container: HTMLElement): void {
       if (isFooter && text.length < 100) {
         const toRemove = nextSibling;
         nextSibling = nextSibling.nextElementSibling;
-        toRemove.remove();
+        removePreservingMessageImages(toRemove);
       } else {
         break;
       }

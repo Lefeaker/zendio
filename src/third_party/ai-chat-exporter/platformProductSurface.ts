@@ -84,6 +84,10 @@ export const AI_CHAT_PLATFORM_PRODUCT_DEFINITIONS: readonly AIChatPlatformProduc
   {
     id: 'perplexity',
     optionsUrl: 'https://www.perplexity.ai/'
+  },
+  {
+    id: 'grok',
+    optionsUrl: 'https://grok.com/'
   }
 ];
 

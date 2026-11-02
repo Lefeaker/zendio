@@ -5,7 +5,11 @@ import { isAIChat } from '../detect';
 import type { StoredOptions } from '../../shared/types/options';
 import type { ContentExtractor, ExtractionContext } from './types';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
-import type { ParsedMessage, PlatformId } from '../../third_party/ai-chat-exporter/types';
+import type {
+  ParsedMessage,
+  ParsedResult,
+  PlatformId
+} from '../../third_party/ai-chat-exporter/types';
 import { resolveAIChatPlatformByUrl } from '../../third_party/ai-chat-exporter/platformIdentity';
 import {
   getAIChatFallbackTitlePolicy,
@@ -14,7 +18,11 @@ import {
 import { getContentI18nResource, getContentMessages } from '../i18n/context';
 import type { Messages } from '@i18n';
 import { validateAIChatExtraction } from './aiChatExtractionValidation';
-import { prepareAIChatDocumentForExtraction } from './aiChatDocumentPreparer';
+import { prepareAIChatExtraction } from './aiChatPreparedExtraction';
+import { createAIChatImageResolver, finalizeAIChatImageMarkdown } from './aiChatImageMarkdown';
+import { extractionErrors } from '../../shared/errors/extractionErrors';
+import type { MessagingService } from '../../platform/interfaces/messaging';
+import { createAIChatImageLoader } from './aiChatImageResource';
 
 interface OptionsProvider {
   get(): Promise<StoredOptions>;
@@ -24,6 +32,7 @@ interface OptionsProvider {
 type AIChatFallbackMessages = Pick<Messages, AIChatFallbackTitleMessageKey>;
 
 export interface AIChatExtractorDeps {
+  messaging?: Pick<MessagingService, 'send'>;
   optionsRepository?: Pick<IOptionsRepository, 'get'>;
   optionsProvider?: OptionsProvider;
   getMessages?(): Promise<AIChatFallbackMessages>;
@@ -123,7 +132,36 @@ function requireFallbackTitle(
   return undefined;
 }
 
+function createAIChatSourceCheck(doc: Document, url: string, platform: PlatformId): () => void {
+  const view = doc.defaultView;
+  const sourceUrl =
+    view && view.document === doc && resolveAIChatPlatformByUrl(view.location.href)
+      ? view.location.href
+      : null;
+  let requestedUrl = url;
+  try {
+    requestedUrl = new URL(url).href;
+  } catch {
+    // Invalid explicit URLs cannot match a connected AI page's absolute URL.
+  }
+
+  return () => {
+    // Detached DOM and archived HTML may intentionally carry an explicit source URL.
+    if (!view || !sourceUrl) return;
+    if (requestedUrl !== sourceUrl || view.document !== doc || view.location.href !== sourceUrl) {
+      throw extractionErrors.aiChatPreparationIncomplete({
+        type: 'ai_chat',
+        platform,
+        url,
+        messageCount: 0,
+        parserDiagnosticCodes: ['ai_chat_source_changed']
+      });
+    }
+  };
+}
+
 export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): ContentExtractor => {
+  const loadImage = createAIChatImageLoader(deps?.messaging ? { messaging: deps.messaging } : {});
   const optionsProvider =
     deps?.optionsProvider ??
     (deps?.optionsRepository
@@ -142,6 +180,8 @@ export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): Cont
     if (!platform) {
       throw new Error(`Unsupported AI chat platform for ${url}`);
     }
+    const checkSource = createAIChatSourceCheck(document, url, platform);
+    checkSource();
 
     const storedOptions = await resolvedDeps.optionsProvider.get();
     const options = storedOptions;
@@ -154,14 +194,38 @@ export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): Cont
       ...(fallbackTitle ? { fallbackTitle } : {})
     };
 
-    const { parseChatDOMAsync } =
+    const { resolveParserAsync } =
       await import('../../third_party/ai-chat-exporter/runtimeRegistry');
-    const preparedDocument = await prepareAIChatDocumentForExtraction(platform, document);
-    const { title, messages, assets, model, createdAt, diagnostics } = await parseChatDOMAsync(
+    checkSource();
+    const parser = await resolveParserAsync(platform);
+    if (!parser) throw new Error('AI_CHAT_PARSER_UNAVAILABLE');
+    const prepared = await prepareAIChatExtraction(
       platform,
-      preparedDocument,
-      parseConfig
+      document,
+      url,
+      parser,
+      parseConfig,
+      checkSource,
+      loadImage
     );
+    checkSource();
+    let parsed: ParsedResult;
+    try {
+      parsed = parser.parse(prepared.document.cloneNode(true) as Document, {
+        ...parseConfig,
+        imageResolver: createAIChatImageResolver(prepared)
+      });
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.startsWith('AI_CHAT_IMAGE_')) throw error;
+      throw extractionErrors.aiChatImagesIncomplete({
+        type: 'ai_chat',
+        platform,
+        messageCount: 0,
+        parserDiagnosticCodes: ['ai_chat_image_not_prepared']
+      });
+    }
+    const { title, messages, assets, model, createdAt, diagnostics } = parsed;
+    checkSource();
     const aiChatOptions: ChatMarkdownOptions = {
       includeTimestamps: options?.aiChat?.includeTimestamps ?? false,
       userName: options?.aiChat?.userName || 'USER'
@@ -183,7 +247,17 @@ export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): Cont
       ...(createdAt !== undefined ? { createdAt } : {})
     };
 
-    const markdown = buildChatMarkdown(chatMarkdownInput);
+    let markdown: string;
+    try {
+      markdown = finalizeAIChatImageMarkdown(buildChatMarkdown(chatMarkdownInput), prepared);
+    } catch {
+      throw extractionErrors.aiChatImagesIncomplete({
+        type: 'ai_chat',
+        platform,
+        messageCount: normalizedMessages.length,
+        parserDiagnosticCodes: ['ai_chat_image_occurrence_missing']
+      });
+    }
 
     return {
       type: 'ai_chat',
@@ -195,6 +269,7 @@ export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): Cont
         platform,
         model,
         messageCount: normalizedMessages.length,
+        ...(prepared.attachments.length ? { attachments: [...prepared.attachments] } : {}),
         ...(createdAt ? { createdAt } : {}),
         clippedAtISO: formatDateTime(resolvedDeps.now())
       }
@@ -217,7 +292,12 @@ export async function extractAIChat(
   deps?: Partial<
     Pick<
       AIChatExtractorDeps,
-      'optionsRepository' | 'optionsProvider' | 'getMessages' | 'detectPlatform' | 'now'
+      | 'optionsRepository'
+      | 'optionsProvider'
+      | 'getMessages'
+      | 'detectPlatform'
+      | 'now'
+      | 'messaging'
     >
   >
 ) {

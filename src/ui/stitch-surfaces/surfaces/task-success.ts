@@ -27,8 +27,10 @@ const schema: ResourceSchema = {
     const dismissLabel =
       ctx.t?.('supportPromptDismiss', surface.dismissLabel) ?? surface.dismissLabel;
     const statusDetail = surface.statusDetail
-      ? (ctx.t?.('schemaRuntimeTaskSuccessStatusDetail', surface.statusDetail) ??
-        surface.statusDetail)
+      ? surface.status === 'success'
+        ? (ctx.t?.('schemaRuntimeTaskSuccessStatusDetail', surface.statusDetail) ??
+          surface.statusDetail)
+        : surface.statusDetail
       : null;
     const progressAriaLabel =
       ctx.t?.(
@@ -193,12 +195,9 @@ function resolveStatusMessage(surface: TaskSuccessSurface, ctx: RuntimeSurfaceCo
   const fallback = surface.statusMessage;
   const defaultVault = surface.defaultVaultName;
 
-  if (surface.status === 'failure') {
-    return ctx.t?.('supportPromptStatusFailure', fallback) ?? fallback;
-  }
-
-  if (surface.status === 'warning') {
-    return ctx.t?.('supportPromptStatusWarning', fallback) ?? fallback;
+  // Progress and errors are already resolved by the feature, including descriptors and codes.
+  if (surface.status !== 'success') {
+    return fallback;
   }
 
   if (defaultVault) {

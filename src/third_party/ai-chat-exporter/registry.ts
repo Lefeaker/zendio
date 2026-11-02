@@ -9,6 +9,7 @@ import { kimiParser } from './platforms/kimi';
 import { doubaoParser } from './platforms/doubao';
 import { monicaParser } from './platforms/monica';
 import { perplexityParser } from './platforms/perplexity';
+import { grokParser } from './platforms/grok';
 import {
   PARSER_NOT_FOUND_DIAGNOSTIC_CODE,
   type ChatPlatformParser,
@@ -25,7 +26,8 @@ const registeredParsers: ChatPlatformParser[] = [
   kimiParser,
   doubaoParser,
   monicaParser,
-  perplexityParser
+  perplexityParser,
+  grokParser
 ];
 
 const parserMap = new Map<string, ChatPlatformParser>();

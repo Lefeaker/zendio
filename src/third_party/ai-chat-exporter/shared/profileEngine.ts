@@ -1,6 +1,7 @@
 import { DEFAULT_CHAT_TITLE } from './constants';
 import { collectOrderedElements, normalizeText, pickFirstElement } from './dom';
 import { chatElementToMarkdown } from './markdown';
+import { cloneMessageWithImages, hasMessageContent } from './messageImages';
 import type { ParseConfig, ParseDiagnostic, ParsedMessage, ParsedResult } from '../types';
 import type {
   ContainerResolver,
@@ -191,19 +192,18 @@ export function parseWithProfile(
       return;
     }
 
-    const textContent = normalizeText(content.textContent ?? '');
-    if (!textContent) {
+    if (!hasMessageContent(container, profile.imageExclusions)) {
       return;
     }
 
-    const fragment = content.cloneNode(true) as HTMLElement;
+    const fragment = cloneMessageWithImages(container, [content], profile.imageExclusions);
     profile.cleanup?.(fragment, {
       ...contentContext,
       fragment,
       content
     });
 
-    const markdown = chatElementToMarkdown(fragment);
+    const markdown = chatElementToMarkdown(fragment, config?.imageResolver);
     if (!markdown.trim()) {
       return;
     }

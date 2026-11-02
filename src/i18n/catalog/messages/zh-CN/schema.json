@@ -22,7 +22,7 @@
   "schemaCaptureSourcesAiChatGroupTitle": "AI 对话",
   "schemaCaptureSourcesAiConversationDescription": "查看支持的平台，打开已有对话进行导出。",
   "schemaCaptureSourcesAiConversationTitle": "AI 对话采集",
-  "schemaCaptureSourcesAiSupportedPlatformsBadge": "10 个已支持平台",
+  "schemaCaptureSourcesAiSupportedPlatformsBadge": "{count} 个已支持平台",
   "schemaCaptureSourcesAttachmentGuidanceLink": "Custom Attachment Location",
   "schemaCaptureSourcesAttachmentGuidancePrefix": "这些附件配置可与 Obsidian 插件 ",
   "schemaCaptureSourcesAttachmentGuidanceSuffix": " 配合使用，请保持 Obsidian 内该插件配置与这里的模板一致。",
@@ -457,5 +457,11 @@
   "schemaResourceChangelogV034Bullet3": "保存前统一检查附件，避免缺失或无效附件造成不完整导出；普通链接、标题、引用定义与代码中的附件示例保持原文，并正确处理特殊文件名和浏览器重命名。",
   "schemaResourceChangelogV034Bullet4": "保存目标预览与实际路由保持一致；连接测试更准确地检查服务与认证，超时会结束等待，修改设置后的旧结果不再覆盖新状态。",
   "schemaResourceChangelogV034Bullet5": "诊断信息隐藏密钥与私密配置；手动导出的完整备份仍保留全部设置。",
-  "schemaResourceChangelogV034Bullet6": "修复 Firefox 页面功能启动与保存问题；批量附件使用异步校验，并减少重复的下载完成检查。"
+  "schemaResourceChangelogV034Bullet6": "修复 Firefox 页面功能启动与保存问题；批量附件使用异步校验，并减少重复的下载完成检查。",
+  "schemaResourceChangelogV035Summary": "AI 对话保存更完整，图片也能一起带走。",
+  "schemaResourceChangelogV035Bullet1": "新增普通 Grok 对话保存，ChatGPT 和 Grok 长对话采集更完整。",
+  "schemaResourceChangelogV035Bullet2": "页面可获取的上传图片和生成图片可保存为本地附件；同次保存中，相同文件只存一份，每个图片位置都保留。",
+  "schemaResourceChangelogV035Bullet3": "修复 ChatGPT、Kimi 等对话的正文标题、角色词和代码误删，以及消息遗漏或重复。",
+  "schemaResourceChangelogV035Bullet4": "保存进度与失败反馈更准确；必要正文或图片缺失时明确报错，避免不完整保存。",
+  "schemaResourceChangelogV035Bullet5": "阅读与视频保存的继续操作和结果确认更稳妥；符合条件的视频保存可在重开后沿用原截图、时间和已确认附件续存。"
 }
