@@ -8,15 +8,15 @@
 
 [公式サイト](https://zendio.sxnian.com/ja/) · [GitHub Releases](https://github.com/Lefeaker/zendio/releases) · [問題を報告](https://github.com/Lefeaker/zendio/issues)
 
-**現在のソースバージョン：v0.3.5。** 以下のストア一覧は最終確認時点の記録です。
+**現在のソースバージョン：v0.3.5。** 現在公開されているバージョンは、下記の公式ストアページでご確認ください。
 
-| ブラウザ        | ストア                                                                                                                             | 最終記録の公開状況                 |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| Google Chrome   | [Chrome ウェブストアからインストール](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)                   | v0.3.3 を公開中。                  |
-| Mozilla Firefox | [Firefox Add-ons からインストール](https://addons.mozilla.org/firefox/addon/zendio/)                                               | v0.3.4 を公開中。                  |
-| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | v0.3.3 を公開中、v0.3.4 は審査中。 |
+| ブラウザ        | ストア                                                                                                                             | 現在のバージョン     |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| Google Chrome   | [Chrome ウェブストアからインストール](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)                   | ストアページで確認。 |
+| Mozilla Firefox | [Firefox Add-ons からインストール](https://addons.mozilla.org/firefox/addon/zendio/)                                               | ストアページで確認。 |
+| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | ストアページで確認。 |
 
-ストアの最終確認記録：**2026 年 10 月 20 日**時点では Firefox は **v0.3.4**、Chrome は **v0.3.3** を公開しており、Chrome の **v0.3.4 は審査待ち**でした。Edge は **2026 年 10 月 23 日**に別途確認し、当時 **v0.3.3 を公開中、v0.3.4 は提出済みで審査中**でした。以前に検証した **v0.3.4** の Chromium ZIP と Firefox 署名済み XPI は [GitHub Release v0.3.4](https://github.com/Lefeaker/zendio/releases/tag/v0.3.4) からダウンロードできます。
+ブラウザー別のパッケージは [最新の GitHub Release](https://github.com/Lefeaker/zendio/releases/latest) から選んでください。Chrome または Edge には対応する ZIP、Firefox には署名済み XPI が必要です。
 
 ## v0.3.5 の変更点
 
@@ -121,7 +121,7 @@ AI チャットの保存を改善し、画像も一緒に保存できるよう�
    - **ダウンロード**：Obsidian や Vault に接続せず Markdown を保存できます。
 3. **好みに合わせて設定**：言語とテーマを選び、必要に応じて Vault ルーティング、保存パス、YAML フィールド、添付画像、モデルプロバイダーを設定します。任意の利用統計とエラー診断のスイッチも確認してください。
 
-ブラウザー用パッケージは [GitHub Releases](https://github.com/Lefeaker/zendio/releases) の各バージョンの添付ファイルを確認してください。検証済みの Chrome / Edge ZIP を解凍し、`chrome://extensions` または `edge://extensions` でデベロッパーモードを有効にしてフォルダーを読み込みます。Firefox には署名済み XPI が必要です。GitHub が自動生成する **Source code** アーカイブは、そのまま拡張機能としてインストールできません。
+ブラウザー用パッケージは [最新の GitHub Release](https://github.com/Lefeaker/zendio/releases/latest) の各バージョンの添付ファイルを確認してください。検証済みの Chrome / Edge ZIP を解凍し、`chrome://extensions` または `edge://extensions` でデベロッパーモードを有効にしてフォルダーを読み込みます。Firefox には署名済み XPI が必要です。GitHub が自動生成する **Source code** アーカイブは、そのまま拡張機能としてインストールできません。
 
 ソースからのビルドは、[エンジニアリングガイド](docs/engineering-entrypoints.md)の固定環境とコマンドに従ってください。[Edge のビルド手順](docs/engineering-entrypoints.md#microsoft-edge-distribution)も同じガイドにあります。
 
